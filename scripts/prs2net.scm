@@ -48,7 +48,7 @@
       (echo " -l          LVS netlist")
       (echo " -S          Long channel device sharing")
       (echo " -B          Turn off black-box mode")
-      (exit)
+      (exit 1)
       )
     )
   )

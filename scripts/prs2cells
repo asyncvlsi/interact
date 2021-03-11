@@ -6,7 +6,7 @@
 #
 # check arguments
 #
-if (=? (getargc) 4) #t (begin (echo "Usage:" (getargv 0) "<actfile> <cellin> <cellout>") (quit))
+if (=? (getargc) 4) #t (begin (echo "Usage:" (getargv 0) "<actfile> <cellin> <cellout>") (exit 1))
 
 #
 # read design and merge in cell library
