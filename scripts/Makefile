@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------
 #
-#  Copyright (c) 2021 Rajit Manohar
+#  Copyright (c) 2011-2019 Rajit Manohar
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License
@@ -18,18 +18,15 @@
 #  Boston, MA  02110-1301, USA.
 #
 #-------------------------------------------------------------------------
-EXE=interact.$(EXT)
-
-TARGETS=$(EXE)
-SUBDIRS=scripts
-
-OBJS=main.o act_cmds.o conf_cmds.o
-
-SRCS=$(OBJS:.o=.cc)
-
 include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
 
-$(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit
+install_conf: scm-install
+
+SCM_FILES=prs2net.scm act-opt.scm
+
+scm-install: $(SCM_FILES)
+	@if [ ! -d $(INSTALLLIB)/scm ]; then mkdir $(INSTALLLIB)/scm; fi
+	@for i in $(SCM_FILES); do $(VLSI_TOOLS_SRC)/scripts/install $$i $(INSTALLLIB)/scm/$$i; done
 
 -include Makefile.deps
+
