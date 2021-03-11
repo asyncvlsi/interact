@@ -72,7 +72,7 @@ static int process_conf_set_int (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
-  v = atoi (argv[1]);
+  v = atoi (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 0) {
     config_set_int (argv[1], v);
@@ -155,8 +155,7 @@ static int process_conf_set_real (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
-  v = atof (argv[1]);
-
+  v = atof (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 2) {
     config_set_real (argv[1], v);
@@ -192,12 +191,76 @@ static int process_conf_get_real (int argc, char **argv)
   return 4;
 }
 
+static int process_conf_set_default_int (int argc, char **argv)
+{
+  int v, x;
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
+    return 0;
+  }
+  v = atoi (argv[2]);
+  x = config_gettype (argv[1]);
+  if (x == -1 || x == 0) {
+    config_set_int (argv[1], v);
+    return 1;
+  }
+  else {
+    fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
+	     argv[1], conf_name (x));
+    return 0;
+  }
+}
+
+static int process_conf_set_default_real (int argc, char **argv)
+{
+  double v;
+  int x;
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
+    return 0;
+  }
+  v = atof (argv[2]);
+  x = config_gettype (argv[1]);
+  if (x == -1 || x == 2) {
+    config_set_real (argv[1], v);
+    return 1;
+  }
+  else {
+    fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
+	     argv[1], conf_name (x));
+    return 0;
+  }
+}
+
+static int process_conf_set_default_string (int argc, char **argv)
+{
+  int x;
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
+    return 0;
+  }
+  x = config_gettype (argv[1]);
+  if (x == -1 || x == 1) {
+    config_set_string (argv[1], argv[2]);
+    return 1;
+  }
+  else {
+    fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
+	     argv[1], conf_name (x));
+    return 0;
+  }
+}
+
+
 static struct LispCliCommand conf_cmds[] = {
   { NULL, "Configuration parameters (use `act:conf:' prefix)", NULL },
   { "gettype", "gettype <name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
   { "set_int", "set_int <name> <val> - set integer config parameter", process_conf_set_int },
   { "set_string", "set_string <name> <val> - set string config parameter", process_conf_set_string },
   { "set_real", "set_real <name> <val> - set real config parameter", process_conf_set_real },
+  { "set_default_int", "set_default_int <name> <val> - set default integer config parameter", process_conf_set_int },
+  { "set_default_string", "set_default_string <name> <val> - set default string config parameter", process_conf_set_string },
+  { "set_default_real", "set_default_real <name> <val> - set default real config parameter", process_conf_set_real },
   { "get_int", "set_int <name> - return integer config parameter", process_conf_get_int },
   { "get_string", "get_string <name> - get string config parameter", process_conf_get_string },
   { "get_real", "get_real <name> - get real config parameter", process_conf_get_real }

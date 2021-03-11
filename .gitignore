@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+.act_history
+Makefile.deps
+interact.*

@@ -181,9 +181,14 @@ int main (int argc, char **argv)
       argv[i-1] = argv[i];
     }
     argc--;
+
+    /*-- parse any options for the script --*/
+    if (!Act::getOptions (&argc, &argv)) {
+      fatal_error ("Unknown command-line option specified.");
+    }
   }
   else {
-    fprintf (stderr, "Usage: %s <act-options> [script]\n", argv[0]);
+    fprintf (stderr, "Usage: %s [<act-options>] [<script>] [script options]\n", argv[0]);
     fatal_error ("Illegal arguments");
   }
 
