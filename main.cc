@@ -145,8 +145,25 @@ int process_prompt (int argc, char **argv)
   return 1;
 }
 
+int process_getopt (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <string>\n", argv[0]);
+    return 0;
+  }
+
+  Act::setOptionString (argv[1]);
+
+  if (!Act::getOptions (&cmd_argc, &cmd_argv)) {
+    fprintf (stderr, "Unknown command-line option specified.");
+    return 0;
+  }
+  return 1;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
+  { "getopt", "getopt <string> - run getopt", process_getopt },
   { "getargc", "getargc - return number of arguments", process_getargnum },
   { "getargv", "getargv # - return command-line argument", process_getarg },
   { "echo", "echo [-n] args - display to screen", process_echo },

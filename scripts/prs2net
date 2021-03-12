@@ -1,7 +1,8 @@
-#!/usr/bin/env interact -opt=SBdtp:o:lc:
+#!/usr/bin/env interact
 #
-#  prs2cells implemented using interact
+#  prs2net implemented using interact
 #  
+getopt "SBdtp:o:lc:"
 
 load-scm "prs2net.scm"
 quit
