@@ -61,3 +61,15 @@
     )
   )
 			 
+(define act:layout:report
+  (lambda ()
+    (let ((a (act:pass:get_real "stk2layout" "total_area"))
+	  (astd (act:pass:get_real "stk2layout" "stdcell_area"))
+	  (aht (act:pass:get_int "stk2layout" "cell_maxheight")))
+      (begin
+	(act:layout:run 2)
+	)
+      )
+    )
+  )
+      

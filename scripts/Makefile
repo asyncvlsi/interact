@@ -22,7 +22,7 @@ include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
 
 install_conf: scm-install
 
-SCM_FILES=prs2net.scm act-opt.scm stk-pass.scm
+SCM_FILES=prs2net.scm act-opt.scm stk-pass.scm act2lef.scm
 
 scm-install: $(SCM_FILES)
 	@if [ ! -d $(INSTALLLIB)/scm ]; then mkdir $(INSTALLLIB)/scm; fi

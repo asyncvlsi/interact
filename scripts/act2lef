@@ -1,0 +1,4 @@
+#!/usr/bin/env interact
+
+getopt "c:p:o:sSPRa:r:"
+load-scm "act2lef.scm"
