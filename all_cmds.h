@@ -19,8 +19,11 @@
  *
  **************************************************************************
  */
+#include <stdio.h>
 
 void act_cmds_init (void);
 void conf_cmds_init (void);
+void misc_cmds_init (void);
 
+FILE *sys_get_fileptr (int v);
 

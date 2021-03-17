@@ -23,7 +23,7 @@ EXE=interact.$(EXT)
 TARGETS=$(EXE)
 SUBDIRS=scripts
 
-OBJS=main.o act_cmds.o conf_cmds.o
+OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o
 
 SRCS=$(OBJS:.o=.cc)
 

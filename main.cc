@@ -26,6 +26,7 @@
 #include <string.h>
 #include <signal.h>
 #include <act/act.h>
+#include <act/tech.h>
 #include <act/passes.h>
 #include "config.h"
 #include <lisp.h>
@@ -176,16 +177,12 @@ int main (int argc, char **argv)
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
+  Technology::Init ("layout.conf");
 
   signal (SIGINT, signal_handler);
 
   LispInit ();
-  LispCliInit (NULL, ".act_history", "interact> ", Cmds,
-	       sizeof (Cmds)/sizeof (Cmds[0]));
-
-  conf_cmds_init ();
-  act_cmds_init ();
-
+  
   if (argc == 1) {
     fp = stdin;
   }
@@ -208,6 +205,18 @@ int main (int argc, char **argv)
     fprintf (stderr, "Usage: %s [<act-options>] [<script>] [script options]\n", argv[0]);
     fatal_error ("Illegal arguments");
   }
+
+  if (fp == stdin) {
+    LispCliInit (NULL, ".act_history", "interact> ", Cmds,
+		 sizeof (Cmds)/sizeof (Cmds[0]));
+  }
+  else {
+    LispCliInitPlain ("interact> ", Cmds, sizeof (Cmds)/sizeof (Cmds[0]));
+  }
+
+  conf_cmds_init ();
+  act_cmds_init ();
+  misc_cmds_init ();
 
   cmd_argc = argc;
   cmd_argv = argv;

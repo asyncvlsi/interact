@@ -157,6 +157,7 @@ static int process_read (int argc, char **argv)
   }
   fclose (fp);
   act_design = new Act (argv[1]);
+  new ActApplyPass (act_design);
   current_state = STATE_DESIGN;
   return 1;
 }
@@ -307,6 +308,26 @@ int process_ckt_save_sp (int argc, char **argv)
   return 1;
 }
 
+
+int process_ckt_mknets (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_ANALYSIS_CKT)) {
+    return 0;
+  }
+  ActPass *p = act_design->pass_find ("booleanize");
+  if (!p) {
+    fprintf (stderr, "%s: internal error", argv[0]);
+    return 0;
+  }
+  ActBooleanizePass *bp = dynamic_cast<ActBooleanizePass *>(p);
+  if (!bp) {
+    fprintf (stderr, "%s: internal error-2", argv[0]);
+    return 0;
+  }
+  bp->createNets (act_toplevel);
+  return 1;
+}
+
 /*************************************************************************
  *
  *  Cell generation functions
@@ -367,7 +388,162 @@ static int process_cell_save (int argc, char **argv)
 }
 
 
+/*************************************************************************
+ *
+ * Dynamic passes
+ *
+ *************************************************************************
+ */
 
+static int process_pass_dyn (int argc, char **argv)
+{
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  if (!std_argcheck (argc, argv, 4, "<dylib> <pass-name> <prefix>", req)) {
+    return 0;
+  }
+  /* -- special cases here for passes that require other things done -- */
+  if (strcmp (argv[2], "net2stk") == 0) {
+    ActNetlistPass *np = getNetlistPass ();
+    if (!np->completed()) {
+      np->run (act_toplevel);
+      current_state = STATE_ANALYSIS_CKT;
+    }
+  }
+  new ActDynamicPass (act_design, argv[2], argv[1], argv[3]);
+  return 1;
+}
+
+static ActDynamicPass *getDynamicPass (const char *cmd, const char *name)
+{
+  ActPass *p;
+  ActDynamicPass *dp;
+  
+  p = act_design->pass_find (name);
+  if (!p) {
+    fprintf (stderr, "%s: pass `%s' not found\n", cmd, name);
+    return NULL;
+  }
+  dp = dynamic_cast<ActDynamicPass *> (p);
+  if (!dp) {
+    fprintf (stderr, "%s: pass `%s' is not dynamically loaded\n", cmd, name);
+    return NULL;
+  }
+  return dp;
+}
+
+static int process_pass_set_file_param (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  FILE *fp;
+  int v;
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <file-handle>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  v = atoi (argv[3]);
+  fp = sys_get_fileptr (v);
+  if (!fp) {
+    fprintf (stderr, "%s: file handle <#%d> is not an open file", argv[0], v);
+    return 0;
+  }
+  dp->setParam (argv[2], (void *)fp);
+  return 1;
+}
+
+static int process_pass_set_int_param (int argc, char **argv)
+{
+  int v;
+  ActDynamicPass *dp;
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <ival>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  v = atoi (argv[3]);
+  dp->setParam (argv[2], v);
+  return 1;
+}
+
+static int process_pass_set_real_param (int argc, char **argv)
+{
+  double v;
+  ActDynamicPass *dp;
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <rval>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  v = atof (argv[3]);
+  dp->setParam (argv[2], v);
+  return 1;
+}
+
+static int process_pass_get_real (int argc, char **argv)
+{
+  double v;
+  ActDynamicPass *dp;
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  LispSetReturnFloat (dp->getRealParam (argv[2]));
+  return 4;
+}
+
+static int process_pass_get_int (int argc, char **argv)
+{
+  double v;
+  ActDynamicPass *dp;
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  LispSetReturnInt (dp->getIntParam (argv[2]));
+  return 2;
+}
+
+static int process_pass_run (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  int v;
+  design_state req[] = { STATE_TOPLEVEL, STATE_ANALYSIS_CELL,
+			 STATE_ANALYSIS_CKT, STATE_NONE };
+  
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <mode>", req)) {
+    return 0;
+  }
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return 0; }
+  v = atoi (argv[2]);
+  if (v < 0) {
+    fprintf (stderr, "%s: mode has to be >= 0 (%d)\n", argv[0], v);
+    return 0;
+  }
+  if (v == 0) {
+    dp->run (act_toplevel);
+  }
+  else {
+    dp->run_recursive (act_toplevel, v);
+  }
+  return 1;
+}
 
 /*------------------------------------------------------------------------
  *
@@ -387,6 +563,8 @@ static struct LispCliCommand act_cmds[] = {
   { NULL, "ACT circuits (use `act:' prefix)", NULL },
   { "ckt:map", "ckt:map - generate transistor-level description", process_ckt_map },
   { "ckt:save_sp", "ckt:save_sp <file> - save SPICE netlist to <file>", process_ckt_save_sp },
+  { "ckt:mk-nets", "ckt:mk-nets - preparation for DEF generation",
+    process_ckt_mknets },
 #if 0  
   { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
   { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file>", process_ckt_save_prs },
@@ -394,6 +572,15 @@ static struct LispCliCommand act_cmds[] = {
   { NULL, "ACT cells (use `act:' prefix)", NULL },
   { "cell:map", "cell:map - map gates to cell library", process_cell_map },
   { "cell:save", "cell:save <file> - save cells to file", process_cell_save },
+  { NULL, "ACT dynamic passes (use `act:` prefix)", NULL },
+  { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass", process_pass_dyn },
+  { "pass:set_file", "pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file", process_pass_set_file_param },
+  { "pass:set_int", "pass:set_int <pass-name> <name> <ival> - set pass parameter to an integer", process_pass_set_int_param },
+  { "pass:get_int", "pass:get_int <pass-name> <name> - return int parameter from pass", process_pass_get_int },
+  { "pass:set_real", "pass:set_real <pass-name> <name> <rval> - set pass parameter to a real number", process_pass_set_real_param },
+  { "pass:get_real", "pass:get_real <pass-name> <name> - return real parameter from pass", process_pass_get_real },
+  { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
+    process_pass_run }
 };
 
 
