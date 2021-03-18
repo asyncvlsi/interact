@@ -78,16 +78,29 @@
 ; map to cells
 (act:cell:map)
 
+; save updated cells
+(if (>? (string-length cell-file) 0) (act:cell:save cell-file) #t)
+
 ; generate transistor-level impl
 (act:ckt:map)
+
+; save spice file, if needed
+(if do-spice (act:ckt:save_sp (string-append out-file ".sp")) #t)
 
 ; read in layout generation passes
 (load-scm "stk-pass.scm")
 
+
 (act:layout:create)
 (act:layout:lef (string-append out-file ".lef")
 		(string-append out-file ".cell"))
-(act:layout:def (string-append out-file ".def"))
+
+(act:layout:def (string-append out-file ".def")
+		do-pins
+		(string->number area-str)
+		(string->number ratio-str)
+		)
+
 (act:layout:rect)
 
 (if do-report (act:layout:report) #t)

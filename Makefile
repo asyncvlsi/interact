@@ -30,6 +30,6 @@ SRCS=$(OBJS:.o=.cc)
 include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) -ldl -ledit
 
 -include Makefile.deps

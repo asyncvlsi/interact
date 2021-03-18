@@ -21,10 +21,9 @@
 
 ;;  Stack and layout generation passes
 
-(act:pass:load "pass_stk.so" "net2stk" "stk")
-(define act:stk:run (lambda () (act:pass:run "net2stk" 0)))
-
 (act:pass:load "pass_layout.so" "stk2layout" "layout")
+
+(define act:stk:run (lambda () (act:pass:run "net2stk" 0)))
 (define act:layout:run (lambda (mode) (act:pass:run "stk2layout" mode)))
 
 (define act:layout:create (lambda () (act:layout:run 0)))
@@ -46,14 +45,14 @@
 (define act:layout:rect (lambda () (act:layout:run 4)))
 
 (define act:layout:def
-  (lambda (def)
+  (lambda (def pins? area_mult aspect_ratio)
     (let ((f (sys:open def "w")))
       (begin
 	(act:ckt:mk-nets)
 	(act:pass:set_file "stk2layout" "def_file" f)
-	(act:pass:set_int "stk2layout" "do_pins" 0)
-	(act:pass:set_real "stk2layout" "area_mult" 1.4)
-	(act:pass:set_real "stk2layout" "aspect_ratio" 1.0)
+	(act:pass:set_int "stk2layout" "do_pins" (if pins? 1 0))
+	(act:pass:set_real "stk2layout" "area_mult" area_mult)
+	(act:pass:set_real "stk2layout" "aspect_ratio" aspect_ratio)
 	(act:layout:run 5)
 	(sys:close f)
 	)
