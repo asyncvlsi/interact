@@ -282,7 +282,10 @@ static int process_expand (int argc, char **argv)
 
 static int process_set_top (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<process>", STATE_EXPANDED)) {
+  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CKT,
+			 STATE_ANALYSIS_CELL, STATE_NONE };
+  
+  if (!std_argcheck (argc, argv, 2, "<process>", req)) {
     return 0;
   }
   act_toplevel = act_design->findProcess (argv[1]);
@@ -308,7 +311,9 @@ static int process_set_top (int argc, char **argv)
     }
     return 0;
   }
-  current_state = STATE_TOPLEVEL;
+  if (current_state == STATE_EXPANDED) {
+    current_state = STATE_TOPLEVEL;
+  }
   return 1;
 }
 
@@ -355,7 +360,7 @@ static ActNetlistPass *getNetlistPass()
 
 int process_ckt_map (int argc, char **argv)
 {
-  design_state req[] = { STATE_TOPLEVEL, STATE_ANALYSIS_CELL, STATE_NONE };
+  design_state req[] = { STATE_EXPANDED, STATE_TOPLEVEL, STATE_ANALYSIS_CELL, STATE_NONE };
   if (!std_argcheck (argc, argv, 1, "", req)) {
     return 0;
   }
@@ -374,6 +379,12 @@ int process_ckt_save_sp (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_ANALYSIS_CKT)) {
     return 0;
   }
+  
+  if (!act_toplevel) {
+    fprintf (stderr, "%s: needs a top-level process specified", argv[0]);
+    return 0;
+  }
+  
   ActNetlistPass *np = getNetlistPass();
   Assert (np->completed(), "What?");
   
@@ -436,6 +447,38 @@ static int process_ckt_save_lvp (int argc, char **argv)
 {
   return _process_ckt_save_flat (argc, argv, 1);
 }
+
+static int process_ckt_save_sim (int argc, char **argv)
+{
+  FILE *fps, *fpa;
+  char buf[1024];
+
+  if (!std_argcheck (argc, argv, 2, "<file-prefix>", STATE_ANALYSIS_CKT)) {
+    return 0;
+  }
+
+  snprintf (buf, 1024, "%s.sim", argv[1]);
+  fps = fopen (buf, "w");
+  if (!fps) {
+    fprintf (stderr, "%s: could not open file `%s' for writing", argv[0], buf);
+    return 0;
+  }
+  snprintf (buf, 1024, "%s.al", argv[1]);
+  fpa = fopen (buf, "w");
+  if (!fpa) {
+    fprintf (stderr, "%s: could not open file `%s' for writing", argv[0], buf);
+    fclose (fps);
+    return 0;
+  }
+  
+  act_flatten_sim (act_design, fps, fpa, act_toplevel);
+  
+  fclose (fps);
+  fclose (fpa);
+  
+  return 1;
+}
+
 
 /*************************************************************************
  *
@@ -686,10 +729,12 @@ static struct LispCliCommand act_cmds[] = {
     process_ckt_save_prs },
   { "ckt:save_lvp", "ckt:save_lprs <file> - save flat production rule set to <file> for lvp",
     process_ckt_save_lvp },
+  { "ckt:save_sim", "ckt:save_sim <file-prefix> - save flat .sim/.al file",
+    process_ckt_save_sim },
+  
 #if 0  
   { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
 #endif
-
 
   { NULL, "ACT cells (use `act:' prefix)", NULL },
   { "cell:map", "cell:map - map gates to cell library", process_cell_map },

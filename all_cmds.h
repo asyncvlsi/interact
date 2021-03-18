@@ -30,4 +30,4 @@ void misc_cmds_init (void);
 /* -- functions exported -- */
 FILE *sys_get_fileptr (int v);
 void act_flatten_prs (Act *a, FILE *fp, Process *p, int mode);
-  
+void act_flatten_sim (Act *a, FILE *fps, FILE *fpa, Process *p);
