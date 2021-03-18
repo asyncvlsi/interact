@@ -20,10 +20,14 @@
  **************************************************************************
  */
 #include <stdio.h>
+#include <act/act.h>
 
 void act_cmds_init (void);
 void conf_cmds_init (void);
 void misc_cmds_init (void);
 
-FILE *sys_get_fileptr (int v);
 
+/* -- functions exported -- */
+FILE *sys_get_fileptr (int v);
+void act_flatten_prs (Act *a, FILE *fp, Process *p, int mode);
+  

@@ -37,7 +37,11 @@ enum design_state {
 		   STATE_ANALYSIS_CKT
 };
 
+/* -- flow state -- */
+
 static design_state current_state;
+static Act *act_design = NULL;
+static Process *act_toplevel = NULL;
 
 static design_state state_nonempty[] =
   {
@@ -46,11 +50,44 @@ static design_state state_nonempty[] =
    STATE_TOPLEVEL,
    STATE_ANALYSIS_CELL,
    STATE_ANALYSIS_CKT,
-   STATE_NONE
+   STATE_NONE   /* terminator */
   };
 
-static Act *act_design = NULL;
-static Process *act_toplevel = NULL;
+
+/*************************************************************************
+ *
+ *
+ *  Utility functions
+ *
+ *
+ *************************************************************************
+ */
+
+static design_state *get_state_complement (design_state *d)
+{
+  design_state *ret;
+  int cur;
+  int j;
+  int num = sizeof (state_nonempty)/sizeof (design_state);
+
+  MALLOC (ret, design_state, num);
+
+  cur = 0;
+  for (int i=0; i < num; i++) {
+    for (j=0; d[j] != STATE_NONE; j++) {
+      if (d[j] == state_nonempty[i]) {
+	break;
+      }
+    }
+    if (d[j] == STATE_NONE) {
+      ret[cur] = state_nonempty[i];
+      cur++;
+    }
+  }
+  ret[cur] = STATE_NONE;
+  
+  return ret;
+}
 
 static const char *get_state_str (design_state d)
 {
@@ -78,21 +115,13 @@ static const char *get_state_str (design_state d)
   }
 }
 
-static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
-			 design_state required)
-{
-  if (argc != argnum) {
-    fprintf (stderr, "Usage: %s %s\n", argv[0], usage);
-    return 0;
-  }
-  if (current_state != required) {
-    warning ("%s: command failed.\n  Flow state: %s\n    Expected: %s.", argv[0],
-	     get_state_str (current_state),
-	     get_state_str (required));
-    return 0;
-  }
-  return 1;
-}
+
+/*--------------------------------------------------------------------------
+
+  Check that # args match, and that we are in a valid flow state
+  for the command.
+
+--------------------------------------------------------------------------*/
 
 static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
 			  design_state *required)
@@ -106,14 +135,14 @@ static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
       return 1;
     }
   }
-  warning ("%s: command failed.\n  Flow state: %s", argv[0],
+  warning ("%s: command failed.\n   Flow state: %s", argv[0],
 	   get_state_str (current_state));
   for (int i=0; required[i] != STATE_NONE; i++) {
     if (i > 0) {
       fprintf (stderr, ",");
     }
     else {
-      fprintf (stderr, "    Expected:");
+      fprintf (stderr, " Valid states:");
     }
     fprintf (stderr, " %s", get_state_str (required[i]));
   }
@@ -121,6 +150,22 @@ static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
   return 0;
 }
 
+static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
+			 design_state required)
+{
+  design_state req[2];
+  req[0] = required;
+  req[1] = STATE_NONE;
+
+  return std_argcheck (argc, argv, argnum, usage, req);
+}
+
+
+/*--------------------------------------------------------------------------
+
+  Open/close output file, interpreting "-" as stdout
+
+--------------------------------------------------------------------------*/
 static FILE *std_open_output (const char *cmd, const char *s)
 {
   FILE *fp;
@@ -143,6 +188,14 @@ static void std_close_output (FILE *fp)
   }
 }
 
+
+
+/*------------------------------------------------------------------------
+ *
+ *   ACT read/write/merge
+ *
+ *------------------------------------------------------------------------
+ */
 static int process_read (int argc, char **argv)
 {
   FILE *fp;
@@ -161,7 +214,6 @@ static int process_read (int argc, char **argv)
   current_state = STATE_DESIGN;
   return 1;
 }
-
 
 static int process_merge (int argc, char **argv)
 {
@@ -202,6 +254,22 @@ static int process_save (int argc, char **argv)
   return 1;
 }
 
+static int process_set_mangle (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<string>", state_nonempty)) {
+    return 0;
+  }
+  act_design->mangle (argv[1]);
+  return 1;
+}
+
+
+/*------------------------------------------------------------------------
+ *
+ *  Expand design & specify top level
+ *
+ *------------------------------------------------------------------------
+ */
 static int process_expand (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_DESIGN)) {
@@ -244,14 +312,6 @@ static int process_set_top (int argc, char **argv)
   return 1;
 }
 
-static int process_set_mangle (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 2, "<string>", state_nonempty)) {
-    return 0;
-  }
-  act_design->mangle (argv[1]);
-  return 1;
-}
 
 
 /*************************************************************************
@@ -260,7 +320,6 @@ static int process_set_mangle (int argc, char **argv)
  *
  *************************************************************************
  */
-
 
 static ActNetlistPass *getNetlistPass()
 {
@@ -326,6 +385,37 @@ int process_ckt_mknets (int argc, char **argv)
   }
   bp->createNets (act_toplevel);
   return 1;
+}
+
+static int _process_ckt_save_flat (int argc, char **argv, int mode)
+{
+  design_state _base[] = { STATE_DESIGN, STATE_NONE };
+  design_state *req = get_state_complement (_base);
+  FILE *fp;
+
+  if (!std_argcheck (argc, argv, 2, "<file>", req)) {
+    FREE (req);
+    return 0;
+  }
+  FREE (req);
+
+  fp = std_open_output (argv[0], argv[1]);
+  if (!fp) {
+    return 0;
+  }
+  act_flatten_prs (act_design, fp, act_toplevel, mode);
+  fclose (fp);
+  return 1;
+}
+
+static int process_ckt_save_prs (int argc, char **argv)
+{
+  return _process_ckt_save_flat (argc, argv, 0);
+}
+
+static int process_ckt_save_lvp (int argc, char **argv)
+{
+  return _process_ckt_save_flat (argc, argv, 1);
 }
 
 /*************************************************************************
@@ -560,18 +650,22 @@ static struct LispCliCommand act_cmds[] = {
   { "save", "save <file> - save current ACT to a file", process_save },
   { "top", "top <process> - set <process> as the design root", process_set_top },
   { "mangle", "mangle <string> - set characters to be mangled on output", process_set_mangle },
+
   { NULL, "ACT circuits (use `act:' prefix)", NULL },
   { "ckt:map", "ckt:map - generate transistor-level description", process_ckt_map },
   { "ckt:save_sp", "ckt:save_sp <file> - save SPICE netlist to <file>", process_ckt_save_sp },
   { "ckt:mk-nets", "ckt:mk-nets - preparation for DEF generation",
     process_ckt_mknets },
+  { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file> for simulation", process_ckt_save_prs },
+  { "ckt:save_lvp", "ckt:save_lprs <file> - save flat production rule set to <file> for lvp", process_ckt_save_lvp },
 #if 0  
   { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
-  { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file>", process_ckt_save_prs },
 #endif
+
   { NULL, "ACT cells (use `act:' prefix)", NULL },
   { "cell:map", "cell:map - map gates to cell library", process_cell_map },
   { "cell:save", "cell:save <file> - save cells to file", process_cell_save },
+  
   { NULL, "ACT dynamic passes (use `act:` prefix)", NULL },
   { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass", process_pass_dyn },
   { "pass:set_file", "pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file", process_pass_set_file_param },
@@ -581,6 +675,7 @@ static struct LispCliCommand act_cmds[] = {
   { "pass:get_real", "pass:get_real <pass-name> <name> - return real parameter from pass", process_pass_get_real },
   { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
     process_pass_run }
+
 };
 
 
