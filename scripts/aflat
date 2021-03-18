@@ -1,0 +1,47 @@
+#!/usr/bin/env interact
+#
+# aflat as an interact script
+#
+
+#
+# check arguments
+#
+define lvp #f
+define actfile ""
+define cellfile ""
+define top-level ""
+define out-file "-"
+
+define usage (lambda () (begin (echo "Usage:" (getargv 0) "[-l] [-c <cells>] [-p <proc>] [-o <file>] <act>") (echo " -c <cells>  Use <cells> file") (echo " -p <proc>   Top-level process is <proc>") (echo " -l          Use lvp output format") (echo " -o <file>   Save output to <file>") (exit 1)))
+
+getopt "lc:p:o:"
+load-scm "act-opt.scm"
+
+act:get-options '(("c:" cellfile) ("p:" top-level) ("l" lvp) ("o:" out-file))
+
+if (=? (length act:remaining-args) 1) #t (usage)
+
+#
+# read design and merge in cell library
+#
+act:read (car act:remaining-args)
+if (>? (string-length cellfile) 0) (act:merge cellfile) #t
+
+#
+# expand
+#
+act:expand
+
+#
+# set top level, if provided
+#
+if (>? (string-length top-level) 0) (act:top top-level) #t
+
+#
+# map to cells
+#
+if (>? (string-length cellfile) 0) (act:cell:map) #t
+
+if lvp (act:ckt:save_lvp out-file) (act:ckt:save_prs out-file)
+
+quit
