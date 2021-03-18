@@ -312,6 +312,25 @@ static int process_set_top (int argc, char **argv)
   return 1;
 }
 
+static int process_get_top (int argc, char **argv)
+{
+  design_state _base[] = { STATE_DESIGN, STATE_NONE };
+  design_state *req = get_state_complement (_base);
+  char s[1];
+  s[0] = '\0';
+  if (!std_argcheck (argc, argv, 1, "", req)) {
+    FREE (req);
+    return 0;
+  }
+  FREE (req);
+  if (!act_toplevel) {
+    LispSetReturnString (s);
+  }
+  else {
+    LispSetReturnString (act_toplevel->getName());
+  }
+  return 3;
+}
 
 
 /*************************************************************************
@@ -648,33 +667,52 @@ static struct LispCliCommand act_cmds[] = {
   { "merge", "merge <file> - merge in additional ACT file", process_merge },
   { "expand", "expand - expand/elaborate ACT design", process_expand },
   { "save", "save <file> - save current ACT to a file", process_save },
-  { "top", "top <process> - set <process> as the design root", process_set_top },
-  { "mangle", "mangle <string> - set characters to be mangled on output", process_set_mangle },
+  { "top", "top <process> - set <process> as the design root",
+    process_set_top },
+  { "gettop", "gettop - returns the name of the top-level process",
+    process_get_top },
+  { "mangle", "mangle <string> - set characters to be mangled on output",
+    process_set_mangle },
 
-  { NULL, "ACT circuits (use `act:' prefix)", NULL },
-  { "ckt:map", "ckt:map - generate transistor-level description", process_ckt_map },
-  { "ckt:save_sp", "ckt:save_sp <file> - save SPICE netlist to <file>", process_ckt_save_sp },
+
+  { NULL, "ACT circuit generation (use `act:' prefix)", NULL },
+  { "ckt:map", "ckt:map - generate transistor-level description",
+    process_ckt_map },
+  { "ckt:save_sp", "ckt:save_sp <file> - save SPICE netlist to <file>",
+    process_ckt_save_sp },
   { "ckt:mk-nets", "ckt:mk-nets - preparation for DEF generation",
     process_ckt_mknets },
-  { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file> for simulation", process_ckt_save_prs },
-  { "ckt:save_lvp", "ckt:save_lprs <file> - save flat production rule set to <file> for lvp", process_ckt_save_lvp },
+  { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file> for simulation",
+    process_ckt_save_prs },
+  { "ckt:save_lvp", "ckt:save_lprs <file> - save flat production rule set to <file> for lvp",
+    process_ckt_save_lvp },
 #if 0  
   { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
 #endif
 
+
   { NULL, "ACT cells (use `act:' prefix)", NULL },
   { "cell:map", "cell:map - map gates to cell library", process_cell_map },
   { "cell:save", "cell:save <file> - save cells to file", process_cell_save },
+
   
   { NULL, "ACT dynamic passes (use `act:` prefix)", NULL },
-  { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass", process_pass_dyn },
-  { "pass:set_file", "pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file", process_pass_set_file_param },
-  { "pass:set_int", "pass:set_int <pass-name> <name> <ival> - set pass parameter to an integer", process_pass_set_int_param },
-  { "pass:get_int", "pass:get_int <pass-name> <name> - return int parameter from pass", process_pass_get_int },
-  { "pass:set_real", "pass:set_real <pass-name> <name> <rval> - set pass parameter to a real number", process_pass_set_real_param },
-  { "pass:get_real", "pass:get_real <pass-name> <name> - return real parameter from pass", process_pass_get_real },
+  { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
+    process_pass_dyn },
+  { "pass:set_file", "pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file",
+    process_pass_set_file_param },
+  { "pass:set_int", "pass:set_int <pass-name> <name> <ival> - set pass parameter to an integer",
+    process_pass_set_int_param },
+  { "pass:get_int", "pass:get_int <pass-name> <name> - return int parameter from pass",
+    process_pass_get_int },
+  { "pass:set_real", "pass:set_real <pass-name> <name> <rval> - set pass parameter to a real number",
+    process_pass_set_real_param },
+  { "pass:get_real", "pass:get_real <pass-name> <name> - return real parameter from pass",
+    process_pass_get_real },
   { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
-    process_pass_run }
+    process_pass_run },
+
+  { NULL, "ACT design query API (use `act:' prefix)", NULL },
 
 };
 

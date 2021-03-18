@@ -162,11 +162,48 @@ int process_getopt (int argc, char **argv)
   return 1;
 }
 
+int process_getenv (int argc, char **argv)
+{
+  char *s;
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <string>\n", argv[0]);
+    return 0;
+  }
+  s = getenv (argv[1]);
+  if (!s) {
+    char t[1];
+    t[0] = '\0';
+    LispSetReturnString (t);
+  }
+  else {
+    LispSetReturnString (s);
+  }
+  return 3;
+}
+
+int process_putenv (int argc, char **argv)
+{
+  char *s;
+
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <name> <value>\n", argv[0]);
+    return 0;
+  }
+
+  if (setenv (argv[1], argv[2], 1) == -1) {
+    fprintf (stderr, "%s failed", argv[0]);
+    return 0;
+  }
+  return 1;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
   { "getopt", "getopt <string> - run getopt", process_getopt },
   { "getargc", "getargc - return number of arguments", process_getargnum },
   { "getargv", "getargv # - return command-line argument", process_getarg },
+  { "getenv", "getenv <string> - return environment variable", process_getenv },
+  { "putenv", "putenv <name> <value> - set environment variable", process_putenv },
   { "echo", "echo [-n] args - display to screen", process_echo },
   { "prompt", "prompt <str> - change prompt to the specified string", process_prompt }
 };
