@@ -23,6 +23,7 @@
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
+#include <act/iter.h>
 #include <config.h>
 #include <lispCli.h>
 #include "all_cmds.h"
@@ -657,6 +658,93 @@ static int process_pass_run (int argc, char **argv)
 
 
 
+/*************************************************************************
+ *
+ *  Design queries
+ *
+ *************************************************************************
+ */
+class ActDesignHier : public ActPass {
+ public:
+  ActDesignHier (Act *a, FILE *fp) : ActPass (a, "-hier-") { _fp = fp; }
+  
+  int run(Process *p = NULL) { return ActPass::run (p); }
+  void *local_op (Process *p, int mode = 0);
+  void *local_op (Channel *c, int mode = 0);
+  void *local_op (Data *d, int mode = 0);
+  void free_local (void *v) { }
+  FILE *_fp;
+};
+
+static void _dump_insts (FILE *fp, Scope *sc, int chkself)
+{
+  ActInstiter it(sc);
+  
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+    if (TypeFactory::isParamType (vx->t)) continue;
+    if (chkself && (strcmp (vx->getName(), "self") == 0)) continue;
+    fprintf (fp, "  %s", vx->getName());
+    if (vx->t->arrayInfo()) {
+      vx->t->arrayInfo()->Print (fp);
+    }
+    fprintf (fp, " : %s\n", vx->t->BaseType()->getName());
+  }
+}
+
+void *ActDesignHier::local_op (Channel *c, int mode)
+{
+  fprintf (_fp, "chan %s {\n", c->getName());
+  _dump_insts (_fp, c->CurScope(), 1);
+  fprintf (_fp, "};\n\n");
+  return NULL;
+}
+
+void *ActDesignHier::local_op (Data *d, int mode)
+{
+  fprintf (_fp, "data %s {\n", d->getName());
+  _dump_insts (_fp, d->CurScope(), 1);
+  fprintf (_fp, "};\n\n");
+  return NULL;
+}
+
+void *ActDesignHier::local_op (Process *p, int mode)
+{
+  if (p) {
+    fprintf (_fp, "proc %s {\n", p->getName());
+  }
+  else {
+    fprintf (_fp, "::Global {\n");
+  }
+  _dump_insts (_fp, p ? p->CurScope () : a->Global()->CurScope(), 0);
+  
+  fprintf (_fp, "};\n\n");
+  return NULL;
+}
+
+int process_des_insts (int argc, char **argv)
+{
+  FILE *fp;
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+  fp = std_open_output (argv[0], argv[1]);
+  if (!fp) {
+    return 0;
+  }
+
+  ActDesignHier *dh = new ActDesignHier (F.act_design, fp);
+
+  dh->run (F.act_toplevel);
+  
+  std_close_output (fp);
+
+  delete dh;
+
+  return 1;
+}
+
+
 /*------------------------------------------------------------------------
  *
  * All core ACT commands
@@ -718,6 +806,8 @@ static struct LispCliCommand act_cmds[] = {
     process_pass_run },
 
   { NULL, "ACT design query API (use `act:' prefix)", NULL },
+  { "des:insts", "des:insts <file> - save circuit instance hierarchy to file",
+    process_des_insts }
 
 };
 
