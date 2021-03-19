@@ -442,6 +442,31 @@ static int process_ckt_save_sim (int argc, char **argv)
   return 1;
 }
 
+static int process_ckt_save_v (int argc, char **argv)
+{
+  FILE *fp;
+
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (!F.act_toplevel) {
+    fprintf (stderr,  "%s: top-level module is unspecified.\n", argv[0]);
+    return 0;
+  }
+
+  fp = std_open_output (argv[0], argv[1]);
+  if (!fp) {
+    return 0;
+  }
+  
+  act_emit_verilog (F.act_design, fp, F.act_toplevel);
+  
+  fclose (fp);
+  
+  return 1;
+}
+
 
 /*************************************************************************
  *
@@ -779,6 +804,9 @@ static struct LispCliCommand act_cmds[] = {
     process_ckt_save_lvp },
   { "ckt:save_sim", "ckt:save_sim <file-prefix> - save flat .sim/.al file",
     process_ckt_save_sim },
+
+  { "ckt:save_v", "ckt:save_v <file> - save Verilog netlist to <file>",
+    process_ckt_save_v },
   
 #if 0  
   { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
