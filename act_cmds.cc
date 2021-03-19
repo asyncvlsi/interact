@@ -127,7 +127,7 @@ static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
     return 1;
   }
 
-  warning ("%s: command failed.\n Flow state: %s", argv[0], get_state_str ());
+  warning ("%s: command failed; incorrect flow state.\n Current flow state: %s", argv[0], get_state_str ());
   fprintf (stderr, "\n");
   return 0;
 }
