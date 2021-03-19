@@ -214,7 +214,6 @@ int main (int argc, char **argv)
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
-  Technology::Init ("layout.conf");
 
   signal (SIGINT, signal_handler);
 

@@ -32,26 +32,22 @@ enum design_state {
 		   STATE_EMPTY,
 		   STATE_DESIGN,
 		   STATE_EXPANDED,
-		   STATE_TOPLEVEL,
-		   STATE_ANALYSIS_CELL,
-		   STATE_ANALYSIS_CKT
+		   STATE_ERROR
 };
 
 /* -- flow state -- */
 
-static design_state current_state;
-static Act *act_design = NULL;
-static Process *act_toplevel = NULL;
+struct flow_state {
+  unsigned int cell_map:1;
+  unsigned int ckt_gen:1;
 
-static design_state state_nonempty[] =
-  {
-   STATE_DESIGN,
-   STATE_EXPANDED,
-   STATE_TOPLEVEL,
-   STATE_ANALYSIS_CELL,
-   STATE_ANALYSIS_CKT,
-   STATE_NONE   /* terminator */
-  };
+  design_state s;
+
+  Act *act_design;
+  Process *act_toplevel;
+};
+
+static flow_state F;
 
 
 /*************************************************************************
@@ -62,57 +58,54 @@ static design_state state_nonempty[] =
  *
  *************************************************************************
  */
-
-static design_state *get_state_complement (design_state *d)
+static const char *get_state_str (void)
 {
-  design_state *ret;
-  int cur;
-  int j;
-  int num = sizeof (state_nonempty)/sizeof (design_state);
-
-  MALLOC (ret, design_state, num);
-
-  cur = 0;
-  for (int i=0; i < num; i++) {
-    for (j=0; d[j] != STATE_NONE; j++) {
-      if (d[j] == state_nonempty[i]) {
-	break;
-      }
-    }
-    if (d[j] == STATE_NONE) {
-      ret[cur] = state_nonempty[i];
-      cur++;
-    }
-  }
-  ret[cur] = STATE_NONE;
-  
-  return ret;
-}
-
-static const char *get_state_str (design_state d)
-{
-  switch (d) {
-  case STATE_EMPTY:
-    return "[no design]";
-    break;
-  case STATE_DESIGN:
-    return "[unexpanded design]";
-    break;
-  case STATE_EXPANDED:
-    return "[expanded design]";
-    break;
-  case STATE_TOPLEVEL:
-    return "[top-level set]";
-    break;
-  case STATE_ANALYSIS_CELL:
-    return "[analysis/cell]";
-    break;
-  case STATE_ANALYSIS_CKT:
-    return "[analysis/ckt]";
+  static char buf[1024];
+  const char *s = NULL;
+  switch (F.s) {
   case STATE_NONE:
-    return "Should not be here";
+    s = "[none]";
     break;
+    
+  case STATE_EMPTY:
+    s = "[no design]";
+    break;
+
+  case STATE_DESIGN:
+    s = "[unexpanded design]";
+    break;
+
+  case STATE_EXPANDED:
+    s = "[expanded design]";
+    break;
+
+  case STATE_ERROR:
+    s = "[error]";
+    break;
+    
   }
+  snprintf (buf, 1024, "%s", s);
+  if (F.ckt_gen) {
+    snprintf (buf + strlen (buf), 1000, " ckt:yes");
+  }
+  else {
+    snprintf (buf + strlen (buf), 1000, " ckt:no");
+  }
+
+  if (F.cell_map) {
+    snprintf (buf + strlen (buf), 1000, " cells:yes");
+  }
+  else {
+    snprintf (buf + strlen (buf), 1000, " cells:no");
+  }
+
+  if (F.act_toplevel) {
+    snprintf (buf + strlen (buf), 1000, " top:set");
+  }
+  else {
+    snprintf (buf + strlen (buf), 1000, " top:unset");
+  }
+  return buf;
 }
 
 
@@ -124,40 +117,19 @@ static const char *get_state_str (design_state d)
 --------------------------------------------------------------------------*/
 
 static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
-			  design_state *required)
+			 design_state required)
 {
   if (argc != argnum) {
     fprintf (stderr, "Usage: %s %s\n", argv[0], usage);
     return 0;
   }
-  for (int i=0; required[i] != STATE_NONE; i++) {
-    if (current_state == required[i]) {
-      return 1;
-    }
+  if (F.s == required) {
+    return 1;
   }
-  warning ("%s: command failed.\n   Flow state: %s", argv[0],
-	   get_state_str (current_state));
-  for (int i=0; required[i] != STATE_NONE; i++) {
-    if (i > 0) {
-      fprintf (stderr, ",");
-    }
-    else {
-      fprintf (stderr, " Valid states:");
-    }
-    fprintf (stderr, " %s", get_state_str (required[i]));
-  }
+
+  warning ("%s: command failed.\n Flow state: %s", argv[0], get_state_str ());
   fprintf (stderr, "\n");
   return 0;
-}
-
-static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
-			 design_state required)
-{
-  design_state req[2];
-  req[0] = required;
-  req[1] = STATE_NONE;
-
-  return std_argcheck (argc, argv, argnum, usage, req);
 }
 
 
@@ -209,9 +181,9 @@ static int process_read (int argc, char **argv)
     return 0;
   }
   fclose (fp);
-  act_design = new Act (argv[1]);
-  new ActApplyPass (act_design);
-  current_state = STATE_DESIGN;
+  F.act_design = new Act (argv[1]);
+  new ActApplyPass (F.act_design);
+  F.s = STATE_DESIGN;
   return 1;
 }
 
@@ -228,7 +200,7 @@ static int process_merge (int argc, char **argv)
     return 0;
   }
   fclose (fp);
-  act_design->Merge (argv[1]);
+  F.act_design->Merge (argv[1]);
   return 1;
 }
 
@@ -239,7 +211,7 @@ static int process_save (int argc, char **argv)
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
     return 0;
   }
-  if (current_state == STATE_EMPTY) {
+  if (F.s == STATE_EMPTY) {
     warning ("%s: no design", argv[0]);
     return 0;
   }
@@ -248,7 +220,7 @@ static int process_save (int argc, char **argv)
   if (!fp) {
     return 0;
   }
-  act_design->Print (fp);
+  F.act_design->Print (fp);
   std_close_output (fp);
 
   return 1;
@@ -256,10 +228,10 @@ static int process_save (int argc, char **argv)
 
 static int process_set_mangle (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<string>", state_nonempty)) {
+  if (!std_argcheck (argc, argv, 2, "<string>", F.s)) {
     return 0;
   }
-  act_design->mangle (argv[1]);
+  F.act_design->mangle (argv[1]);
   return 1;
 }
 
@@ -275,25 +247,24 @@ static int process_expand (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_DESIGN)) {
     return 0;
   }
-  act_design->Expand ();
-  current_state = STATE_EXPANDED;
+  F.act_design->Expand ();
+  F.s = STATE_EXPANDED;
   return 1;
 }
 
 static int process_set_top (int argc, char **argv)
 {
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CKT,
-			 STATE_ANALYSIS_CELL, STATE_NONE };
-  
-  if (!std_argcheck (argc, argv, 2, "<process>", req)) {
+  if (!std_argcheck (argc, argv, 2, "<process>", STATE_EXPANDED)) {
     return 0;
   }
-  act_toplevel = act_design->findProcess (argv[1]);
-  if (!act_toplevel) {
+
+  F.act_toplevel = F.act_design->findProcess (argv[1]);
+  
+  if (!F.act_toplevel) {
     fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);
     return 0;
   }
-  if (!act_toplevel->isExpanded()) {
+  if (!F.act_toplevel->isExpanded()) {
     int i = 0;
     int angle = 0;
     fprintf (stderr, "%s: process `%s' is not expanded\n", argv[0], argv[1]);
@@ -311,28 +282,21 @@ static int process_set_top (int argc, char **argv)
     }
     return 0;
   }
-  if (current_state == STATE_EXPANDED) {
-    current_state = STATE_TOPLEVEL;
-  }
   return 1;
 }
 
 static int process_get_top (int argc, char **argv)
 {
-  design_state _base[] = { STATE_DESIGN, STATE_NONE };
-  design_state *req = get_state_complement (_base);
   char s[1];
   s[0] = '\0';
-  if (!std_argcheck (argc, argv, 1, "", req)) {
-    FREE (req);
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
-  FREE (req);
-  if (!act_toplevel) {
+  if (!F.act_toplevel) {
     LispSetReturnString (s);
   }
   else {
-    LispSetReturnString (act_toplevel->getName());
+    LispSetReturnString (F.act_toplevel->getName());
   }
   return 3;
 }
@@ -347,28 +311,27 @@ static int process_get_top (int argc, char **argv)
 
 static ActNetlistPass *getNetlistPass()
 {
-  ActPass *p = act_design->pass_find ("prs2net");
+  ActPass *p = F.act_design->pass_find ("prs2net");
   ActNetlistPass *np;
   if (p) {
     np = dynamic_cast<ActNetlistPass *> (p);
   }
   else {
-    np = new ActNetlistPass (act_design);
+    np = new ActNetlistPass (F.act_design);
   }
   return np;
 }
 
 int process_ckt_map (int argc, char **argv)
 {
-  design_state req[] = { STATE_EXPANDED, STATE_TOPLEVEL, STATE_ANALYSIS_CELL, STATE_NONE };
-  if (!std_argcheck (argc, argv, 1, "", req)) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
   ActNetlistPass *np = getNetlistPass();
   if (!np->completed()) {
-    np->run(act_toplevel);
+    np->run(F.act_toplevel);
   }
-  current_state = STATE_ANALYSIS_CKT;
+  F.ckt_gen = 1;
   return 1;
 }
 
@@ -376,11 +339,12 @@ int process_ckt_save_sp (int argc, char **argv)
 {
   FILE *fp;
   
-  if (!std_argcheck (argc, argv, 2, "<file>", STATE_ANALYSIS_CKT)) {
+  if (!std_argcheck (argc, argv, 2, "<file>",
+		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
   
-  if (!act_toplevel) {
+  if (!F.act_toplevel) {
     fprintf (stderr, "%s: needs a top-level process specified", argv[0]);
     return 0;
   }
@@ -392,7 +356,7 @@ int process_ckt_save_sp (int argc, char **argv)
   if (!fp) {
     return 0;
   }
-  np->Print (fp, act_toplevel);
+  np->Print (fp, F.act_toplevel);
   std_close_output (fp);
   return 1;
 }
@@ -400,10 +364,11 @@ int process_ckt_save_sp (int argc, char **argv)
 
 int process_ckt_mknets (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 1, "", STATE_ANALYSIS_CKT)) {
+  if (!std_argcheck (argc, argv, 1, "",
+		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
-  ActPass *p = act_design->pass_find ("booleanize");
+  ActPass *p = F.act_design->pass_find ("booleanize");
   if (!p) {
     fprintf (stderr, "%s: internal error", argv[0]);
     return 0;
@@ -413,27 +378,23 @@ int process_ckt_mknets (int argc, char **argv)
     fprintf (stderr, "%s: internal error-2", argv[0]);
     return 0;
   }
-  bp->createNets (act_toplevel);
+  bp->createNets (F.act_toplevel);
   return 1;
 }
 
 static int _process_ckt_save_flat (int argc, char **argv, int mode)
 {
-  design_state _base[] = { STATE_DESIGN, STATE_NONE };
-  design_state *req = get_state_complement (_base);
   FILE *fp;
 
-  if (!std_argcheck (argc, argv, 2, "<file>", req)) {
-    FREE (req);
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
     return 0;
   }
-  FREE (req);
 
   fp = std_open_output (argv[0], argv[1]);
   if (!fp) {
     return 0;
   }
-  act_flatten_prs (act_design, fp, act_toplevel, mode);
+  act_flatten_prs (F.act_design, fp, F.act_toplevel, mode);
   fclose (fp);
   return 1;
 }
@@ -453,7 +414,8 @@ static int process_ckt_save_sim (int argc, char **argv)
   FILE *fps, *fpa;
   char buf[1024];
 
-  if (!std_argcheck (argc, argv, 2, "<file-prefix>", STATE_ANALYSIS_CKT)) {
+  if (!std_argcheck (argc, argv, 2, "<file-prefix>",
+		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
 
@@ -471,7 +433,7 @@ static int process_ckt_save_sim (int argc, char **argv)
     return 0;
   }
   
-  act_flatten_sim (act_design, fps, fpa, act_toplevel);
+  act_flatten_sim (F.act_design, fps, fpa, F.act_toplevel);
   
   fclose (fps);
   fclose (fpa);
@@ -489,20 +451,20 @@ static int process_ckt_save_sim (int argc, char **argv)
 
 static ActCellPass *getCellPass()
 {
-  ActPass *p = act_design->pass_find ("prs2cells");
+  ActPass *p = F.act_design->pass_find ("prs2cells");
   ActCellPass *cp;
   if (p) {
     cp = dynamic_cast<ActCellPass *> (p);
   }
   else {
-    cp = new ActCellPass (act_design);
+    cp = new ActCellPass (F.act_design);
   }
   return cp;
 }
 
 static int process_cell_map (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 1, "", STATE_TOPLEVEL)) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
   
@@ -513,7 +475,7 @@ static int process_cell_map (int argc, char **argv)
   else {
     printf ("%s: cell pass already executed; skipped", argv[0]);
   }
-  current_state = STATE_ANALYSIS_CELL;
+  F.cell_map = 1;
   return 1;
 }
 
@@ -521,7 +483,8 @@ static int process_cell_save (int argc, char **argv)
 {
   FILE *fp;
   
-  if (!std_argcheck (argc, argv, 2, "<file>", STATE_ANALYSIS_CELL)) {
+  if (!std_argcheck (argc, argv, 2, "<file>",
+		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
   ActCellPass *cp = getCellPass();
@@ -549,20 +512,22 @@ static int process_cell_save (int argc, char **argv)
 
 static int process_pass_dyn (int argc, char **argv)
 {
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
-  if (!std_argcheck (argc, argv, 4, "<dylib> <pass-name> <prefix>", req)) {
+
+  if (!std_argcheck (argc, argv, 4, "<dylib> <pass-name> <prefix>",
+		     STATE_EXPANDED)) {
     return 0;
   }
+  
   /* -- special cases here for passes that require other things done -- */
   if (strcmp (argv[2], "net2stk") == 0) {
     ActNetlistPass *np = getNetlistPass ();
     if (!np->completed()) {
-      np->run (act_toplevel);
-      current_state = STATE_ANALYSIS_CKT;
+      np->run (F.act_toplevel);
+      F.ckt_gen = 1;
     }
   }
-  new ActDynamicPass (act_design, argv[2], argv[1], argv[3]);
+  
+  new ActDynamicPass (F.act_design, argv[2], argv[1], argv[3]);
   return 1;
 }
 
@@ -571,7 +536,7 @@ static ActDynamicPass *getDynamicPass (const char *cmd, const char *name)
   ActPass *p;
   ActDynamicPass *dp;
   
-  p = act_design->pass_find (name);
+  p = F.act_design->pass_find (name);
   if (!p) {
     fprintf (stderr, "%s: pass `%s' not found\n", cmd, name);
     return NULL;
@@ -589,10 +554,9 @@ static int process_pass_set_file_param (int argc, char **argv)
   ActDynamicPass *dp;
   FILE *fp;
   int v;
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
   
-  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <file-handle>", req)) {
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <file-handle>",
+		     STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -611,10 +575,9 @@ static int process_pass_set_int_param (int argc, char **argv)
 {
   int v;
   ActDynamicPass *dp;
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
   
-  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <ival>", req)) {
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <ival>",
+		     STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -628,10 +591,9 @@ static int process_pass_set_real_param (int argc, char **argv)
 {
   double v;
   ActDynamicPass *dp;
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
   
-  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <rval>", req)) {
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <rval>",
+		     STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -645,9 +607,8 @@ static int process_pass_get_real (int argc, char **argv)
 {
   double v;
   ActDynamicPass *dp;
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
-  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", req)) {
+
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -660,9 +621,8 @@ static int process_pass_get_int (int argc, char **argv)
 {
   double v;
   ActDynamicPass *dp;
-  design_state req[] = { STATE_EXPANDED, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
-  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", req)) {
+
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -675,10 +635,8 @@ static int process_pass_run (int argc, char **argv)
 {
   ActDynamicPass *dp;
   int v;
-  design_state req[] = { STATE_TOPLEVEL, STATE_ANALYSIS_CELL,
-			 STATE_ANALYSIS_CKT, STATE_NONE };
-  
-  if (!std_argcheck (argc, argv, 3, "<pass-name> <mode>", req)) {
+
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <mode>", STATE_EXPANDED)) {
     return 0;
   }
   dp = getDynamicPass (argv[0], argv[1]);
@@ -689,13 +647,15 @@ static int process_pass_run (int argc, char **argv)
     return 0;
   }
   if (v == 0) {
-    dp->run (act_toplevel);
+    dp->run (F.act_toplevel);
   }
   else {
-    dp->run_recursive (act_toplevel, v);
+    dp->run_recursive (F.act_toplevel, v);
   }
   return 1;
 }
+
+
 
 /*------------------------------------------------------------------------
  *
@@ -766,6 +726,10 @@ static struct LispCliCommand act_cmds[] = {
 void act_cmds_init (void)
 {
   LispCliAddCommands ("act", act_cmds, sizeof (act_cmds)/sizeof (act_cmds[0]));
-  act_design = NULL;
-  current_state = STATE_EMPTY;
+
+  F.s = STATE_EMPTY;
+  F.cell_map = 0;
+  F.ckt_gen = 0;
+  F.act_design = NULL;
+  F.act_toplevel = NULL;
 }
