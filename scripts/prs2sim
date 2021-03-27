@@ -1,0 +1,25 @@
+#!/usr/bin/env interact
+#
+#  prs2cells implemented using interact
+#  
+
+#
+# check arguments
+#
+if (=? (getargc) 3) #t (begin (echo "Usage:" (getargv 0) "<actfile> <simfile>") (exit 1))
+
+#
+# read design and merge in cell library
+#
+act:read (getargv 1)
+
+#
+# expand
+#
+act:expand
+
+act:ckt:map
+
+act:ckt:save_sim (getargv 2)
+
+quit
