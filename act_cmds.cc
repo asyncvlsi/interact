@@ -27,6 +27,11 @@
 #include <config.h>
 #include <lispCli.h>
 #include "all_cmds.h"
+#include "ptr_manager.h"
+
+#ifdef GALOIS_EDA
+#include "galois_cmds.h"
+#endif
 
 enum design_state {
 		   STATE_NONE,
@@ -38,9 +43,14 @@ enum design_state {
 
 /* -- flow state -- */
 
+#define TIMER_INIT 1
+#define TIMER_RUN  2
+
 struct flow_state {
   unsigned int cell_map:1;
   unsigned int ckt_gen:1;
+
+  unsigned int timer:2;
 
   design_state s;
 
@@ -806,6 +816,81 @@ int process_des_insts (int argc, char **argv)
   return 1;
 }
 
+#ifdef GALOIS_EDA
+
+int process_read_lib (int argc, char **argv)
+{
+  void *lib;
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <liberty-file>\n", argv[0]);
+    return 0;
+  }
+
+  lib = read_lib_file (argv[1]);
+  if (!lib) {
+    fprintf (stderr, "%s: could not open liberty file `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  LispSetReturnInt (ptr_register ("liberty", lib));
+
+  return 2;
+}
+
+int process_timer_init (int argc, char **argv)
+{
+  if (!std_argcheck ((argc > 2 ? 2 : argc), argv, 2, "<lib-id1> <lib-id2> ...", STATE_EXPANDED)) {
+    return 0;
+  }
+  if (!F.act_toplevel) {
+    fprintf (stderr, "%s: need top level of design set\n", argv[0]);
+    return 0;
+  }
+  A_DECL (int, args);
+  A_INIT (args);
+  for (int i=1; i < argc; i++) {
+    A_NEW (args, int);
+    A_NEXT (args) = atoi (argv[i]);
+    A_INC (args);
+  }
+  
+  const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
+				       args, A_LEN (args));
+  
+  if (msg) {
+    fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
+    return 0;
+  }
+
+  F.timer = TIMER_INIT;
+  
+  return 1;
+}
+
+int process_timer_run (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+  if (F.timer != TIMER_INIT) {
+    fprintf (stderr, "%s: timer needs to be initialized\n", argv[0]);
+    return 0;
+  }
+
+  const char *msg = timer_run ();
+  if (msg) {
+    fprintf (stderr, "%s: error running timer\n -> %s\n", argv[0], msg);
+    return 0;
+  }
+
+  F.timer = TIMER_RUN;
+  
+  return 1;
+}
+
+
+#endif
+
 
 /*------------------------------------------------------------------------
  *
@@ -870,6 +955,16 @@ static struct LispCliCommand act_cmds[] = {
   { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
     process_pass_run },
 
+#ifdef GALOIS_EDA
+  { NULL, "Timing and power analysis", NULL },
+  { "lib:read", "lib:read <file> - read liberty timing file and return handle",
+    process_read_lib },
+  { "timer:init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
+    process_timer_init },
+  { "timer:run", "timer:run - run timing analysis",
+    process_timer_run },
+#endif  
+
   { NULL, "ACT design query API (use `act:' prefix)", NULL },
   { "des:insts", "des:insts <file> - save circuit instance hierarchy to file",
     process_des_insts }
@@ -883,8 +978,11 @@ void act_cmds_init (void)
   LispCliAddCommands ("act", act_cmds, sizeof (act_cmds)/sizeof (act_cmds[0]));
 
   F.s = STATE_EMPTY;
+
   F.cell_map = 0;
   F.ckt_gen = 0;
+  F.timer = 0;
+
   F.act_design = NULL;
   F.act_toplevel = NULL;
 }

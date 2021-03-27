@@ -1,0 +1,17 @@
+#!/usr/bin/env interact
+
+if (=? (getargc) 5) #t (begin (echo "Usage:" (getargv 0) "<actfile> <cells> <process> <lib>") (exit 1))
+
+act:read (getargv 1)
+act:merge (getargv 2)
+act:expand
+act:cell:map
+
+act:top (getargv 3)
+
+act:pass:load "libacttpass.so" "taggedTG" "tgraph"
+
+define libfile (act:lib:read (getargv 4))
+
+act:timer:init libfile
+act:timer:run
