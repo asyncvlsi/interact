@@ -59,6 +59,8 @@ int process_getargnum (int argc, char **argv)
     fprintf (stderr, "Usage: %s\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, NULL);
+  
   if (Act::cmdline_args) {
     LispSetReturnInt (cmd_argc + list_length (Act::cmdline_args)/2);
   }
@@ -73,10 +75,13 @@ int process_getarg (int argc, char **argv)
 {
   int val;
   int l;
+
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <num>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "i");
+  
   if (Act::cmdline_args) {
     l = list_length (Act::cmdline_args)/2;
   }
@@ -133,6 +138,7 @@ int process_echo (int argc, char **argv)
   if (nl) {
     printf ("\n");
   }
+  save_to_log (argc, argv, "s*");
   return 1;
 }
 
@@ -142,6 +148,8 @@ int process_prompt (int argc, char **argv)
     fprintf (stderr, "Usage: %s <str>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   LispCliSetPrompt (argv[1]);
   return 1;
 }
@@ -152,6 +160,7 @@ int process_getopt (int argc, char **argv)
     fprintf (stderr, "Usage: %s <string>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   Act::setOptionString (argv[1]);
 
@@ -169,6 +178,8 @@ int process_getenv (int argc, char **argv)
     fprintf (stderr, "Usage: %s <string>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   s = getenv (argv[1]);
   if (!s) {
     char t[1];
@@ -189,7 +200,8 @@ int process_putenv (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <value>\n", argv[0]);
     return 0;
   }
-
+  save_to_log (argc, argv, "ss");
+  
   if (setenv (argv[1], argv[2], 1) == -1) {
     fprintf (stderr, "%s failed", argv[0]);
     return 0;

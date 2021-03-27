@@ -19,20 +19,13 @@
  *
  **************************************************************************
  */
-#include <stdio.h>
-#include <act/act.h>
+#ifndef __T_PTR_H__
+#define __T_PTR_H__
 
-void act_cmds_init (void);
-void conf_cmds_init (void);
-void misc_cmds_init (void);
+int ptr_register (const char *tag, void *v);
+int ptr_unregister (const char *tag, int idx);
+void *ptr_get (const char *tag, int idx);
 
 
-/* -- functions exported -- */
-FILE *sys_get_fileptr (int v);
-void act_flatten_prs (Act *a, FILE *fp, Process *p, int mode);
-void act_flatten_sim (Act *a, FILE *fps, FILE *fpa, Process *p);
-void act_emit_verilog (Act *a, FILE *fp, Process *p);
 
-/* fmt has i for integer, s for string, f for float, * means repeat
-   prev to the of arg list */
-void save_to_log (int argc, char **argv, const char *fmt);
+#endif /* __T_PTR_H__ */

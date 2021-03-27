@@ -175,6 +175,8 @@ static int process_read (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EMPTY)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
@@ -194,6 +196,8 @@ static int process_merge (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_DESIGN)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
+
   fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
@@ -212,6 +216,8 @@ static int process_save (int argc, char **argv)
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   if (F.s == STATE_EMPTY) {
     warning ("%s: no design", argv[0]);
     return 0;
@@ -232,6 +238,8 @@ static int process_set_mangle (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<string>", F.s)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   F.act_design->mangle (argv[1]);
   return 1;
 }
@@ -248,6 +256,8 @@ static int process_expand (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_DESIGN)) {
     return 0;
   }
+  save_to_log (argc, argv, NULL);
+  
   F.act_design->Expand ();
   F.s = STATE_EXPANDED;
   return 1;
@@ -258,6 +268,7 @@ static int process_set_top (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<process>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   F.act_toplevel = F.act_design->findProcess (argv[1]);
   
@@ -293,6 +304,8 @@ static int process_get_top (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, NULL);
+  
   if (!F.act_toplevel) {
     LispSetReturnString (s);
   }
@@ -328,6 +341,8 @@ int process_ckt_map (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, NULL);
+  
   ActNetlistPass *np = getNetlistPass();
   if (!np->completed()) {
     np->run(F.act_toplevel);
@@ -344,7 +359,8 @@ int process_ckt_save_sp (int argc, char **argv)
 		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
-  
+  save_to_log (argc, argv, "s");
+
   if (!F.act_toplevel) {
     fprintf (stderr, "%s: needs a top-level process specified", argv[0]);
     return 0;
@@ -369,6 +385,8 @@ int process_ckt_mknets (int argc, char **argv)
 		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
+  save_to_log (argc, argv, NULL);
+  
   ActPass *p = F.act_design->pass_find ("booleanize");
   if (!p) {
     fprintf (stderr, "%s: internal error", argv[0]);
@@ -390,6 +408,7 @@ static int _process_ckt_save_flat (int argc, char **argv, int mode)
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   fp = std_open_output (argv[0], argv[1]);
   if (!fp) {
@@ -419,6 +438,7 @@ static int process_ckt_save_sim (int argc, char **argv)
 		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   snprintf (buf, 1024, "%s.sim", argv[1]);
   fps = fopen (buf, "w");
@@ -449,6 +469,7 @@ static int process_ckt_save_v (int argc, char **argv)
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   if (!F.act_toplevel) {
     fprintf (stderr,  "%s: top-level module is unspecified.\n", argv[0]);
@@ -493,6 +514,7 @@ static int process_cell_map (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, NULL);
   
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
@@ -513,6 +535,8 @@ static int process_cell_save (int argc, char **argv)
 		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
     cp->run ();
@@ -543,6 +567,7 @@ static int process_pass_dyn (int argc, char **argv)
 		     STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s*");
   
   /* -- special cases here for passes that require other things done -- */
   if (strcmp (argv[2], "net2stk") == 0) {
@@ -585,6 +610,8 @@ static int process_pass_set_file_param (int argc, char **argv)
 		     STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "ssi");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   v = atoi (argv[3]);
@@ -606,6 +633,8 @@ static int process_pass_set_int_param (int argc, char **argv)
 		     STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "ssi");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   v = atoi (argv[3]);
@@ -622,6 +651,8 @@ static int process_pass_set_real_param (int argc, char **argv)
 		     STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "ssf");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   v = atof (argv[3]);
@@ -637,6 +668,8 @@ static int process_pass_get_real (int argc, char **argv)
   if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s*");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   LispSetReturnFloat (dp->getRealParam (argv[2]));
@@ -651,6 +684,8 @@ static int process_pass_get_int (int argc, char **argv)
   if (!std_argcheck (argc, argv, 3, "<pass-name> <name>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "s*");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   LispSetReturnInt (dp->getIntParam (argv[2]));
@@ -665,6 +700,8 @@ static int process_pass_run (int argc, char **argv)
   if (!std_argcheck (argc, argv, 3, "<pass-name> <mode>", STATE_EXPANDED)) {
     return 0;
   }
+  save_to_log (argc, argv, "si");
+  
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return 0; }
   v = atoi (argv[2]);

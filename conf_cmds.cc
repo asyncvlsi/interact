@@ -61,6 +61,8 @@ static int process_conf_gettype (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   LispSetReturnInt (config_gettype (argv[1]));
   return 2;
 }
@@ -72,6 +74,8 @@ static int process_conf_set_int (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "si");
+  
   v = atoi (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 0) {
@@ -92,6 +96,8 @@ static int process_conf_get_int (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s*");
+  
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
@@ -114,6 +120,8 @@ static int process_conf_set_string (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s*");
+  
   x = config_gettype (argv[1]);
   if (x == -1 || x == 1) {
     config_set_string (argv[1], argv[2]);
@@ -133,6 +141,8 @@ static int process_conf_get_string (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
@@ -155,6 +165,8 @@ static int process_conf_set_real (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "si");
+  
   v = atof (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 2) {
@@ -177,6 +189,8 @@ static int process_conf_get_real (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
+  
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
@@ -198,6 +212,8 @@ static int process_conf_set_default_int (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "si");
+  
   v = atoi (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 0) {
@@ -219,6 +235,8 @@ static int process_conf_set_default_real (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "sf");
+  
   v = atof (argv[2]);
   x = config_gettype (argv[1]);
   if (x == -1 || x == 2) {
@@ -239,6 +257,8 @@ static int process_conf_set_default_string (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return 0;
   }
+  save_to_log (argc, argv, "ss");
+  
   x = config_gettype (argv[1]);
   if (x == -1 || x == 1) {
     config_set_string (argv[1], argv[2]);
