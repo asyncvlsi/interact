@@ -20,8 +20,8 @@
  **************************************************************************
  */
 #include "ptr_manager.h"
-#include <hash.h>
-#include <array.h>
+#include <common/hash.h>
+#include <common/array.h>
 
 struct ptr_entries {
   A_DECL (void *, ptrs);

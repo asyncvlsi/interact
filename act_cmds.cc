@@ -24,7 +24,7 @@
 #include <act/act.h>
 #include <act/passes.h>
 #include <act/iter.h>
-#include <config.h>
+#include <common/config.h>
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
@@ -818,6 +818,12 @@ int process_des_insts (int argc, char **argv)
 
 #ifdef GALOIS_EDA
 
+/*------------------------------------------------------------------------
+ *
+ *  Read in a .lib file for timing/power analysis
+ *
+ *------------------------------------------------------------------------
+ */
 int process_read_lib (int argc, char **argv)
 {
   void *lib;
@@ -837,6 +843,12 @@ int process_read_lib (int argc, char **argv)
   return 2;
 }
 
+/*------------------------------------------------------------------------
+ *
+ *  Create timing graph and push it to the timing analysis engine
+ *
+ *------------------------------------------------------------------------
+ */
 int process_timer_init (int argc, char **argv)
 {
   if (!std_argcheck ((argc > 2 ? 2 : argc), argv, 2, "<lib-id1> <lib-id2> ...", STATE_EXPANDED)) {
@@ -867,6 +879,13 @@ int process_timer_init (int argc, char **argv)
   return 1;
 }
 
+
+/*------------------------------------------------------------------------
+ *
+ *  Run the timing analysis engine
+ *
+ *------------------------------------------------------------------------
+ */
 int process_timer_run (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
@@ -887,6 +906,23 @@ int process_timer_run (int argc, char **argv)
   
   return 1;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #endif
@@ -926,19 +962,36 @@ static struct LispCliCommand act_cmds[] = {
     process_ckt_save_lvp },
   { "ckt:save_sim", "ckt:save_sim <file-prefix> - save flat .sim/.al file",
     process_ckt_save_sim },
-
   { "ckt:save_v", "ckt:save_v <file> - save Verilog netlist to <file>",
     process_ckt_save_v },
   
-#if 0  
-  { "ckt:save_vnet", "ckt:save_vnet <file> - save Verilog netlist to <file>", process_ckt_save_vnet },
-#endif
 
   { NULL, "ACT cells (use `act:' prefix)", NULL },
   { "cell:map", "cell:map - map gates to cell library", process_cell_map },
   { "cell:save", "cell:save <file> - save cells to file", process_cell_save },
-
   
+#ifdef GALOIS_EDA
+  
+  { NULL, "Timing and power analysis", NULL },
+  { "lib:read", "lib:read <file> - read liberty timing file and return handle",
+    process_read_lib },
+  { "timer:init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
+    process_timer_init },
+  { "timer:run", "timer:run - run timing analysis",
+    process_timer_run },
+
+#if 0
+  { NULL, "Placement & routing", NULL },
+  
+  { "dali:init", "dali:init - initialize placement engine", process_dali_init },
+  { "dali:set_int", "dali:set_int <name> <ival> - set Dali parameter", process_dali_setint },
+  { "dali:set_real", "dali:set_real <name> <rval> - set Dali parameter",
+    process_dali_setreal },
+  { "dali:run", "dali:run - initialize placement engine", process_dali_init },
+#endif  
+  
+#endif  
+
   { NULL, "ACT dynamic passes (use `act:` prefix)", NULL },
   { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
     process_pass_dyn },
@@ -954,16 +1007,6 @@ static struct LispCliCommand act_cmds[] = {
     process_pass_get_real },
   { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
     process_pass_run },
-
-#ifdef GALOIS_EDA
-  { NULL, "Timing and power analysis", NULL },
-  { "lib:read", "lib:read <file> - read liberty timing file and return handle",
-    process_read_lib },
-  { "timer:init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
-    process_timer_init },
-  { "timer:run", "timer:run - run timing analysis",
-    process_timer_run },
-#endif  
 
   { NULL, "ACT design query API (use `act:' prefix)", NULL },
   { "des:insts", "des:insts <file> - save circuit instance hierarchy to file",

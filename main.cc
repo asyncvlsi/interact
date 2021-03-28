@@ -28,7 +28,7 @@
 #include <act/act.h>
 #include <act/tech.h>
 #include <act/passes.h>
-#include "config.h"
+#include <common/config.h>
 #include <lisp.h>
 #include <lispCli.h>
 

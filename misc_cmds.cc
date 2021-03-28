@@ -21,12 +21,12 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <config.h>
+#include <common/config.h>
 #include <string.h>
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
-#include "array.h"
+#include <common/array.h>
 
 static int process_file_open (int argc, char **argv)
 {
