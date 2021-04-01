@@ -85,7 +85,7 @@
 (ckt:map)
 
 ; save spice file, if needed
-(if do-spice (ckt:save_sp (string-append out-file ".sp")) #t)
+(if do-spice (ckt:save-sp (string-append out-file ".sp")) #t)
 
 ; read in layout generation passes
 (load-scm "stk-pass.scm")

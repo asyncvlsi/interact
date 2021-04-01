@@ -109,4 +109,4 @@
 (ckt:map)
 
 ;; -- save SPICE file --
-(ckt:save_sp out-file)
+(ckt:save-sp out-file)

@@ -20,6 +20,6 @@ act:expand
 
 ckt:map
 
-ckt:save_sim (getargv 2)
+ckt:save-sim (getargv 2)
 
 quit

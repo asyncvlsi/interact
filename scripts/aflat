@@ -42,6 +42,6 @@ if (>? (string-length top-level) 0) (act:top top-level) #t
 #
 if (>? (string-length cellfile) 0) (ckt:cell-map) #t
 
-if lvp (ckt:save_lvp out-file) (ckt:save_prs out-file)
+if lvp (ckt:save-lvp out-file) (ckt:save-prs out-file)
 
 quit
