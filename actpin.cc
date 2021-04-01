@@ -23,7 +23,7 @@
 #include <string.h>
 #include "actpin.h"
 
-#ifdef FOUND_Galois
+#ifdef FOUND_galois_eda
 
 /*-- for .lib lookup --*/
 std::string ActPinTranslator::getPinName (void * const p) const

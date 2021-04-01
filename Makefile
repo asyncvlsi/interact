@@ -33,7 +33,7 @@ SRCS=$(OBJS:.o=.cc)
 include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
 include config.mk
 
-ifdef Galois_INCLUDE
+ifdef galois_eda_INCLUDE
 GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem
 endif
 
@@ -41,8 +41,8 @@ ifdef dali_INCLUDE
 #DALI_PIECES=-ldali
 endif
 
-ALL_INCLUDE=$(boost_INCLUDE) $(Galois_INCLUDE) $(dali_INCLUDE)
-ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(Galois_LIBDIR) $(GALOIS_PIECES) $(DALI_PIECES)
+ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE)
+ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(GALOIS_PIECES) $(DALI_PIECES)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)

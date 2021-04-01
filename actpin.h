@@ -27,7 +27,7 @@
 #include <act/act.h>
 #include <act/passes.h>
 
-#ifdef FOUND_Galois
+#ifdef FOUND_galois_eda
 
 #include <act/timing/tgraph.h>
 #include "galois/eda/utility/ExtPinTranslator.h"

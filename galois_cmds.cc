@@ -21,7 +21,7 @@
  */
 #include "config_pkg.h"
 
-#ifdef FOUND_Galois
+#ifdef FOUND_galois_eda
 
 #include "galois/Galois.h"
 #include "galois/eda/liberty/CellLib.h"

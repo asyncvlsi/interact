@@ -6,13 +6,14 @@ echo "*/" >> ./config_pkg.h
 
 echo > ./config.mk
 
-for i in boost Galois dali
+for i in boost galois/eda dali
 do
 	if ./findpkg -i $i >/dev/null
 	then
-		echo "#define FOUND_$i" >> ./config_pkg.h
-		echo "${i}_INCLUDE=\$(shell ./findpkg -i $i)" >> ./config.mk
-		echo "${i}_LIBDIR=\$(shell ./findpkg -l $i)" >> ./config.mk
+		j=`echo $i | sed s,/,_,g`
+		echo "#define FOUND_$j" >> ./config_pkg.h
+		echo "${j}_INCLUDE=\$(shell ./findpkg -i $i)" >> ./config.mk
+		echo "${j}_LIBDIR=\$(shell ./findpkg -l $i)" >> ./config.mk
 		echo "Package $i: YES"
 	else	  
 		echo "Package $i: NO"
