@@ -30,7 +30,7 @@ OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
 
-include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
+include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
 ifdef galois_eda_INCLUDE
