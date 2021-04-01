@@ -34,7 +34,13 @@ include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
 include config.mk
 
 ifdef galois_eda_INCLUDE
+
 GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem
+
+ifeq ($(BASEOS),linux)
+GALOIS_PIECES+=-lnuma
+endif
+
 endif
 
 ifdef dali_INCLUDE
@@ -52,6 +58,9 @@ ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)
+ifeq ($(BASEOS),linux)
+CFLAGS+= -pthread
+endif
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
 	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
