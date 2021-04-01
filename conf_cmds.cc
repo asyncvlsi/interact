@@ -273,21 +273,21 @@ static int process_conf_set_default_string (int argc, char **argv)
 
 
 static struct LispCliCommand conf_cmds[] = {
-  { NULL, "Configuration parameters (use `act:conf:' prefix)", NULL },
-  { "gettype", "gettype <name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
-  { "set_int", "set_int <name> <val> - set integer config parameter", process_conf_set_int },
-  { "set_string", "set_string <name> <val> - set string config parameter", process_conf_set_string },
-  { "set_real", "set_real <name> <val> - set real config parameter", process_conf_set_real },
-  { "set_default_int", "set_default_int <name> <val> - set default integer config parameter", process_conf_set_int },
-  { "set_default_string", "set_default_string <name> <val> - set default string config parameter", process_conf_set_string },
-  { "set_default_real", "set_default_real <name> <val> - set default real config parameter", process_conf_set_real },
-  { "get_int", "set_int <name> - return integer config parameter", process_conf_get_int },
-  { "get_string", "get_string <name> - get string config parameter", process_conf_get_string },
-  { "get_real", "get_real <name> - get real config parameter", process_conf_get_real }
+  { NULL, "Configuration parameters", NULL },
+  { "gettype", "conf:gettype <name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
+  { "set_int", "conf:get_int <name> <val> - set integer config parameter", process_conf_set_int },
+  { "set_string", "conf:set_string <name> <val> - set string config parameter", process_conf_set_string },
+  { "set_real", "conf:set_real <name> <val> - set real config parameter", process_conf_set_real },
+  { "set_default_int", "conf:set_default_int <name> <val> - set default integer config parameter", process_conf_set_int },
+  { "set_default_string", "conf:set_default_string <name> <val> - set default string config parameter", process_conf_set_string },
+  { "set_default_real", "conf:set_default_real <name> <val> - set default real config parameter", process_conf_set_real },
+  { "get_int", "conf:set_int <name> - return integer config parameter", process_conf_get_int },
+  { "get_string", "conf:get_string <name> - get string config parameter", process_conf_get_string },
+  { "get_real", "conf:get_real <name> - get real config parameter", process_conf_get_real }
 };
 
 
 void conf_cmds_init (void)
 {
-  LispCliAddCommands ("act:conf", conf_cmds, sizeof (conf_cmds)/sizeof (conf_cmds[0]));
+  LispCliAddCommands ("conf", conf_cmds, sizeof (conf_cmds)/sizeof (conf_cmds[0]));
 }

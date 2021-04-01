@@ -130,11 +130,11 @@ int process_end_log (int argc, char **argv)
 }
 
 static struct LispCliCommand conf_cmds[] = {
-  { NULL, "Misc support functions (use `sys:' prefix)", NULL },
-  { "open", "open <name> <r|w|a> - open file, return handle", process_file_open },
-  { "close", "close <handle> - close file", process_file_close },
-  { "log", "logfile <name> - open log file", process_log_file },
-  { "endlog", "endlog - close open file", process_end_log }
+  { NULL, "Misc support functions", NULL },
+  { "open", "sys:open <name> <r|w|a> - open file, return handle", process_file_open },
+  { "close", "sys:close <handle> - close file", process_file_close },
+  { "log", "sys:logfile <name> - open log file", process_log_file },
+  { "endlog", "sys:endlog - close open file", process_end_log }
 };
 
 void misc_cmds_init (void)

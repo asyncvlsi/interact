@@ -40,8 +40,8 @@ if (>? (string-length top-level) 0) (act:top top-level) #t
 #
 # map to cells
 #
-if (>? (string-length cellfile) 0) (act:cell:map) #t
+if (>? (string-length cellfile) 0) (ckt:cell-map) #t
 
-if lvp (act:ckt:save_lvp out-file) (act:ckt:save_prs out-file)
+if lvp (ckt:save_lvp out-file) (ckt:save_prs out-file)
 
 quit

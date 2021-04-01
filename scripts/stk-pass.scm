@@ -48,7 +48,7 @@
   (lambda (def pins? area_mult aspect_ratio)
     (let ((f (sys:open def "w")))
       (begin
-	(act:ckt:mk-nets)
+	(ckt:mk-nets)
 	(act:pass:set_file "stk2layout" "def_file" f)
 	(act:pass:set_int "stk2layout" "do_pins" (if pins? 1 0))
 	(act:pass:set_real "stk2layout" "area_mult" area_mult)
@@ -71,4 +71,3 @@
       )
     )
   )
-      

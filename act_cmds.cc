@@ -29,147 +29,9 @@
 #include "all_cmds.h"
 #include "ptr_manager.h"
 
-#ifdef GALOIS_EDA
-#include "galois_cmds.h"
-#endif
+#include "flow.h"
 
-enum design_state {
-		   STATE_NONE,
-		   STATE_EMPTY,
-		   STATE_DESIGN,
-		   STATE_EXPANDED,
-		   STATE_ERROR
-};
-
-/* -- flow state -- */
-
-#define TIMER_INIT 1
-#define TIMER_RUN  2
-
-struct flow_state {
-  unsigned int cell_map:1;
-  unsigned int ckt_gen:1;
-
-  unsigned int timer:2;
-
-  design_state s;
-
-  Act *act_design;
-  Process *act_toplevel;
-};
-
-static flow_state F;
-
-
-/*************************************************************************
- *
- *
- *  Utility functions
- *
- *
- *************************************************************************
- */
-static const char *get_state_str (void)
-{
-  static char buf[1024];
-  const char *s = NULL;
-  switch (F.s) {
-  case STATE_NONE:
-    s = "[none]";
-    break;
-    
-  case STATE_EMPTY:
-    s = "[no design]";
-    break;
-
-  case STATE_DESIGN:
-    s = "[unexpanded design]";
-    break;
-
-  case STATE_EXPANDED:
-    s = "[expanded design]";
-    break;
-
-  case STATE_ERROR:
-    s = "[error]";
-    break;
-    
-  }
-  snprintf (buf, 1024, "%s", s);
-  if (F.ckt_gen) {
-    snprintf (buf + strlen (buf), 1000, " ckt:yes");
-  }
-  else {
-    snprintf (buf + strlen (buf), 1000, " ckt:no");
-  }
-
-  if (F.cell_map) {
-    snprintf (buf + strlen (buf), 1000, " cells:yes");
-  }
-  else {
-    snprintf (buf + strlen (buf), 1000, " cells:no");
-  }
-
-  if (F.act_toplevel) {
-    snprintf (buf + strlen (buf), 1000, " top:set");
-  }
-  else {
-    snprintf (buf + strlen (buf), 1000, " top:unset");
-  }
-  return buf;
-}
-
-
-/*--------------------------------------------------------------------------
-
-  Check that # args match, and that we are in a valid flow state
-  for the command.
-
---------------------------------------------------------------------------*/
-
-static int std_argcheck (int argc, char **argv, int argnum, const char *usage,
-			 design_state required)
-{
-  if (argc != argnum) {
-    fprintf (stderr, "Usage: %s %s\n", argv[0], usage);
-    return 0;
-  }
-  if (F.s == required) {
-    return 1;
-  }
-
-  warning ("%s: command failed; incorrect flow state.\n Current flow state: %s", argv[0], get_state_str ());
-  fprintf (stderr, "\n");
-  return 0;
-}
-
-
-/*--------------------------------------------------------------------------
-
-  Open/close output file, interpreting "-" as stdout
-
---------------------------------------------------------------------------*/
-static FILE *std_open_output (const char *cmd, const char *s)
-{
-  FILE *fp;
-  if (strcmp (s, "-") == 0) {
-    fp = stdout;
-  }
-  else {
-    fp = fopen (s, "w");
-    if (!fp) {
-      return NULL;
-    }
-  }
-  return fp;
-}
-
-static void std_close_output (FILE *fp)
-{
-  if (fp != stdout) {
-    fclose (fp);
-  }
-}
+flow_state F;
 
 
 
@@ -325,242 +187,6 @@ static int process_get_top (int argc, char **argv)
   return 3;
 }
 
-
-/*************************************************************************
- *
- *  Netlist functions
- *
- *************************************************************************
- */
-
-static ActNetlistPass *getNetlistPass()
-{
-  ActPass *p = F.act_design->pass_find ("prs2net");
-  ActNetlistPass *np;
-  if (p) {
-    np = dynamic_cast<ActNetlistPass *> (p);
-  }
-  else {
-    np = new ActNetlistPass (F.act_design);
-  }
-  return np;
-}
-
-int process_ckt_map (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
-  }
-  save_to_log (argc, argv, NULL);
-  
-  ActNetlistPass *np = getNetlistPass();
-  if (!np->completed()) {
-    np->run(F.act_toplevel);
-  }
-  F.ckt_gen = 1;
-  return 1;
-}
-
-int process_ckt_save_sp (int argc, char **argv)
-{
-  FILE *fp;
-  
-  if (!std_argcheck (argc, argv, 2, "<file>",
-		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
-    return 0;
-  }
-  save_to_log (argc, argv, "s");
-
-  if (!F.act_toplevel) {
-    fprintf (stderr, "%s: needs a top-level process specified", argv[0]);
-    return 0;
-  }
-  
-  ActNetlistPass *np = getNetlistPass();
-  Assert (np->completed(), "What?");
-  
-  fp = std_open_output (argv[0], argv[1]);
-  if (!fp) {
-    return 0;
-  }
-  np->Print (fp, F.act_toplevel);
-  std_close_output (fp);
-  return 1;
-}
-
-
-int process_ckt_mknets (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 1, "",
-		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
-    return 0;
-  }
-  save_to_log (argc, argv, NULL);
-  
-  ActPass *p = F.act_design->pass_find ("booleanize");
-  if (!p) {
-    fprintf (stderr, "%s: internal error", argv[0]);
-    return 0;
-  }
-  ActBooleanizePass *bp = dynamic_cast<ActBooleanizePass *>(p);
-  if (!bp) {
-    fprintf (stderr, "%s: internal error-2", argv[0]);
-    return 0;
-  }
-  bp->createNets (F.act_toplevel);
-  return 1;
-}
-
-static int _process_ckt_save_flat (int argc, char **argv, int mode)
-{
-  FILE *fp;
-
-  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
-  }
-  save_to_log (argc, argv, "s");
-
-  fp = std_open_output (argv[0], argv[1]);
-  if (!fp) {
-    return 0;
-  }
-  act_flatten_prs (F.act_design, fp, F.act_toplevel, mode);
-  fclose (fp);
-  return 1;
-}
-
-static int process_ckt_save_prs (int argc, char **argv)
-{
-  return _process_ckt_save_flat (argc, argv, 0);
-}
-
-static int process_ckt_save_lvp (int argc, char **argv)
-{
-  return _process_ckt_save_flat (argc, argv, 1);
-}
-
-static int process_ckt_save_sim (int argc, char **argv)
-{
-  FILE *fps, *fpa;
-  char buf[1024];
-
-  if (!std_argcheck (argc, argv, 2, "<file-prefix>",
-		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
-    return 0;
-  }
-  save_to_log (argc, argv, "s");
-
-  snprintf (buf, 1024, "%s.sim", argv[1]);
-  fps = fopen (buf, "w");
-  if (!fps) {
-    fprintf (stderr, "%s: could not open file `%s' for writing", argv[0], buf);
-    return 0;
-  }
-  snprintf (buf, 1024, "%s.al", argv[1]);
-  fpa = fopen (buf, "w");
-  if (!fpa) {
-    fprintf (stderr, "%s: could not open file `%s' for writing", argv[0], buf);
-    fclose (fps);
-    return 0;
-  }
-  
-  act_flatten_sim (F.act_design, fps, fpa, F.act_toplevel);
-  
-  fclose (fps);
-  fclose (fpa);
-  
-  return 1;
-}
-
-static int process_ckt_save_v (int argc, char **argv)
-{
-  FILE *fp;
-
-  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
-  }
-  save_to_log (argc, argv, "s");
-
-  if (!F.act_toplevel) {
-    fprintf (stderr,  "%s: top-level module is unspecified.\n", argv[0]);
-    return 0;
-  }
-
-  fp = std_open_output (argv[0], argv[1]);
-  if (!fp) {
-    return 0;
-  }
-  
-  act_emit_verilog (F.act_design, fp, F.act_toplevel);
-  
-  fclose (fp);
-  
-  return 1;
-}
-
-
-/*************************************************************************
- *
- *  Cell generation functions
- *
- *************************************************************************
- */
-
-static ActCellPass *getCellPass()
-{
-  ActPass *p = F.act_design->pass_find ("prs2cells");
-  ActCellPass *cp;
-  if (p) {
-    cp = dynamic_cast<ActCellPass *> (p);
-  }
-  else {
-    cp = new ActCellPass (F.act_design);
-  }
-  return cp;
-}
-
-static int process_cell_map (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
-  }
-  save_to_log (argc, argv, NULL);
-  
-  ActCellPass *cp = getCellPass();
-  if (!cp->completed()) {
-    cp->run ();
-  }
-  else {
-    printf ("%s: cell pass already executed; skipped", argv[0]);
-  }
-  F.cell_map = 1;
-  return 1;
-}
-
-static int process_cell_save (int argc, char **argv)
-{
-  FILE *fp;
-  
-  if (!std_argcheck (argc, argv, 2, "<file>",
-		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
-    return 0;
-  }
-  save_to_log (argc, argv, "s");
-  
-  ActCellPass *cp = getCellPass();
-  if (!cp->completed()) {
-    cp->run ();
-  }
-
-  fp = std_open_output (argv[0], argv[1]);
-  if (!fp) {
-    return 0;
-  }
-  cp->Print (fp);
-  std_close_output (fp);
-  
-  return 1;
-}
 
 
 /*************************************************************************
@@ -816,117 +442,6 @@ int process_des_insts (int argc, char **argv)
   return 1;
 }
 
-#ifdef GALOIS_EDA
-
-/*------------------------------------------------------------------------
- *
- *  Read in a .lib file for timing/power analysis
- *
- *------------------------------------------------------------------------
- */
-int process_read_lib (int argc, char **argv)
-{
-  void *lib;
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <liberty-file>\n", argv[0]);
-    return 0;
-  }
-
-  lib = read_lib_file (argv[1]);
-  if (!lib) {
-    fprintf (stderr, "%s: could not open liberty file `%s'\n", argv[0], argv[1]);
-    return 0;
-  }
-
-  LispSetReturnInt (ptr_register ("liberty", lib));
-
-  return 2;
-}
-
-/*------------------------------------------------------------------------
- *
- *  Create timing graph and push it to the timing analysis engine
- *
- *------------------------------------------------------------------------
- */
-int process_timer_init (int argc, char **argv)
-{
-  if (!std_argcheck ((argc > 2 ? 2 : argc), argv, 2, "<lib-id1> <lib-id2> ...", STATE_EXPANDED)) {
-    return 0;
-  }
-  if (!F.act_toplevel) {
-    fprintf (stderr, "%s: need top level of design set\n", argv[0]);
-    return 0;
-  }
-  A_DECL (int, args);
-  A_INIT (args);
-  for (int i=1; i < argc; i++) {
-    A_NEW (args, int);
-    A_NEXT (args) = atoi (argv[i]);
-    A_INC (args);
-  }
-  
-  const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
-				       args, A_LEN (args));
-  
-  if (msg) {
-    fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
-    return 0;
-  }
-
-  F.timer = TIMER_INIT;
-  
-  return 1;
-}
-
-
-/*------------------------------------------------------------------------
- *
- *  Run the timing analysis engine
- *
- *------------------------------------------------------------------------
- */
-int process_timer_run (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
-  }
-  if (F.timer != TIMER_INIT) {
-    fprintf (stderr, "%s: timer needs to be initialized\n", argv[0]);
-    return 0;
-  }
-
-  const char *msg = timer_run ();
-  if (msg) {
-    fprintf (stderr, "%s: error running timer\n -> %s\n", argv[0], msg);
-    return 0;
-  }
-
-  F.timer = TIMER_RUN;
-  
-  return 1;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif
-
 
 /*------------------------------------------------------------------------
  *
@@ -936,82 +451,37 @@ int process_timer_run (int argc, char **argv)
  */
 
 static struct LispCliCommand act_cmds[] = {
-  { NULL, "ACT core functions (use `act:' prefix)", NULL },
-  { "read", "read <file> - read in the ACT design", process_read },
-  { "merge", "merge <file> - merge in additional ACT file", process_merge },
-  { "expand", "expand - expand/elaborate ACT design", process_expand },
-  { "save", "save <file> - save current ACT to a file", process_save },
-  { "top", "top <process> - set <process> as the design root",
+  { NULL, "ACT core functions", NULL },
+  { "read", "act:read <file> - read in the ACT design", process_read },
+  { "merge", "act:merge <file> - merge in additional ACT file", process_merge },
+  { "expand", "act:expand - expand/elaborate ACT design", process_expand },
+  { "save", "act:save <file> - save current ACT to a file", process_save },
+  { "top", "act:top <process> - set <process> as the design root",
     process_set_top },
-  { "gettop", "gettop - returns the name of the top-level process",
+  { "gettop", "act:gettop - returns the name of the top-level process",
     process_get_top },
-  { "mangle", "mangle <string> - set characters to be mangled on output",
+  { "mangle", "act:mangle <string> - set characters to be mangled on output",
     process_set_mangle },
 
+  { NULL, "ACT design query API", NULL },
+  { "save-insts", "act:save-insts <file> - save circuit instance hierarchy to file",
+    process_des_insts },
 
-  { NULL, "ACT circuit generation (use `act:' prefix)", NULL },
-  { "ckt:map", "ckt:map - generate transistor-level description",
-    process_ckt_map },
-  { "ckt:save_sp", "ckt:save_sp <file> - save SPICE netlist to <file>",
-    process_ckt_save_sp },
-  { "ckt:mk-nets", "ckt:mk-nets - preparation for DEF generation",
-    process_ckt_mknets },
-  { "ckt:save_prs", "ckt:save_prs <file> - save flat production rule set to <file> for simulation",
-    process_ckt_save_prs },
-  { "ckt:save_lvp", "ckt:save_lprs <file> - save flat production rule set to <file> for lvp",
-    process_ckt_save_lvp },
-  { "ckt:save_sim", "ckt:save_sim <file-prefix> - save flat .sim/.al file",
-    process_ckt_save_sim },
-  { "ckt:save_v", "ckt:save_v <file> - save Verilog netlist to <file>",
-    process_ckt_save_v },
-  
-
-  { NULL, "ACT cells (use `act:' prefix)", NULL },
-  { "cell:map", "cell:map - map gates to cell library", process_cell_map },
-  { "cell:save", "cell:save <file> - save cells to file", process_cell_save },
-  
-#ifdef GALOIS_EDA
-  
-  { NULL, "Timing and power analysis", NULL },
-  { "lib:read", "lib:read <file> - read liberty timing file and return handle",
-    process_read_lib },
-  { "timer:init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
-    process_timer_init },
-  { "timer:run", "timer:run - run timing analysis",
-    process_timer_run },
-
-#if 0
-  { NULL, "Placement & routing", NULL },
-  
-  { "dali:init", "dali:init - initialize placement engine", process_dali_init },
-  { "dali:set_int", "dali:set_int <name> <ival> - set Dali parameter", process_dali_setint },
-  { "dali:set_real", "dali:set_real <name> <rval> - set Dali parameter",
-    process_dali_setreal },
-  { "dali:run", "dali:run - initialize placement engine", process_dali_init },
-#endif  
-  
-#endif  
-
-  { NULL, "ACT dynamic passes (use `act:` prefix)", NULL },
-  { "pass:load", "pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
+  { NULL, "ACT dynamic passes", NULL },
+  { "pass:load", "act:pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
     process_pass_dyn },
-  { "pass:set_file", "pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file",
+  { "pass:set_file", "act:pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file",
     process_pass_set_file_param },
-  { "pass:set_int", "pass:set_int <pass-name> <name> <ival> - set pass parameter to an integer",
+  { "pass:set_int", "act:pass:set_int <pass-name> <name> <ival> - set pass parameter to an integer",
     process_pass_set_int_param },
-  { "pass:get_int", "pass:get_int <pass-name> <name> - return int parameter from pass",
+  { "pass:get_int", "act:pass:get_int <pass-name> <name> - return int parameter from pass",
     process_pass_get_int },
-  { "pass:set_real", "pass:set_real <pass-name> <name> <rval> - set pass parameter to a real number",
+  { "pass:set_real", "act:pass:set_real <pass-name> <name> <rval> - set pass parameter to a real number",
     process_pass_set_real_param },
-  { "pass:get_real", "pass:get_real <pass-name> <name> - return real parameter from pass",
+  { "pass:get_real", "act:pass:get_real <pass-name> <name> - return real parameter from pass",
     process_pass_get_real },
-  { "pass:run", "pass:run <pass-name> <mode> - run pass, with mode=0,...",
-    process_pass_run },
-
-  { NULL, "ACT design query API (use `act:' prefix)", NULL },
-  { "des:insts", "des:insts <file> - save circuit instance hierarchy to file",
-    process_des_insts }
-
+  { "pass:run", "act:pass:run <pass-name> <mode> - run pass, with mode=0,...",
+    process_pass_run }
 };
 
 

@@ -18,8 +18,8 @@ act:read (getargv 1)
 #
 act:expand
 
-act:ckt:map
+ckt:map
 
-act:ckt:save_sim (getargv 2)
+ckt:save_sim (getargv 2)
 
 quit

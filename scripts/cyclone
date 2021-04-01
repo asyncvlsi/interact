@@ -5,13 +5,13 @@ if (=? (getargc) 5) #t (begin (echo "Usage:" (getargv 0) "<actfile> <cells> <pro
 act:read (getargv 1)
 act:merge (getargv 2)
 act:expand
-act:cell:map
+ckt:cell-map
 
 act:top (getargv 3)
 
 act:pass:load "libacttpass.so" "taggedTG" "tgraph"
 
-define libfile (act:lib:read (getargv 4))
+define libfile (timer:lib-read (getargv 4))
 
-act:timer:init libfile
-act:timer:run
+timer:init libfile
+timer:run

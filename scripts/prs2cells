@@ -22,8 +22,8 @@ act:expand
 #
 # map to cells, and save new cells file
 #
-act:cell:map
-act:cell:save (getargv 3)
+ckt:cell-map
+ckt:cell-save (getargv 3)
 
 #
 # print act design to stdout

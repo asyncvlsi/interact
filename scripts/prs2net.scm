@@ -65,31 +65,31 @@
 ;;
 ;; set defaults for config parameters that control netlist generation
 ;;
-(act:conf:set_default_string "net.global_vdd" "Vdd")
-(act:conf:set_default_string "net.global_gnd" "GND")
-(act:conf:set_default_string "net.local_vdd" "VddN")
-(act:conf:set_default_string "net.local_vdd" "GNDN")
+(conf:set_default_string "net.global_vdd" "Vdd")
+(conf:set_default_string "net.global_gnd" "GND")
+(conf:set_default_string "net.local_vdd" "VddN")
+(conf:set_default_string "net.local_vdd" "GNDN")
 
-(act:conf:set_default_int "net.ignore_loadcap" (act:bool-to-int lvs-net))
-(act:conf:set_default_int "net.emit_parasitics" (act:bool-to-int parasitics))
-(act:conf:set_default_int "net.black_box_mode"
+(conf:set_default_int "net.ignore_loadcap" (act:bool-to-int lvs-net))
+(conf:set_default_int "net.emit_parasitics" (act:bool-to-int parasitics))
+(conf:set_default_int "net.black_box_mode"
 			  (act:bool-to-int (not black-box-off)))
-(act:conf:set_default_int "net.top_level_only" (act:bool-to-int
+(conf:set_default_int "net.top_level_only" (act:bool-to-int
 						only-top))
 
 ;; -- read act file --
 (act:read (car act:remaining-args))
 
 ;; -- if netlist mangling options specified, use them --
-(if (=? (act:conf:gettype "net.mangle_chars") 1)
-    (act:mangle (act:conf:get_string "net.mangle_chars"))
+(if (=? (conf:gettype "net.mangle_chars") 1)
+    (act:mangle (conf:get_string "net.mangle_chars"))
     #t)
 
 ;; -- cell map if cells file specified --
 (if (>? (string-length cell-file) 0)
     (begin 
       (act:merge cell-file)
-      (act:cell:map)
+      (ckt:cell-map)
       )
     #t)
 
@@ -106,7 +106,7 @@
     )
 
 ;; -- map circuit to transistors --
-(act:ckt:map)
+(ckt:map)
 
 ;; -- save SPICE file --
-(act:ckt:save_sp out-file)
+(ckt:save_sp out-file)

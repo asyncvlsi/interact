@@ -264,6 +264,8 @@ int main (int argc, char **argv)
 
   conf_cmds_init ();
   act_cmds_init ();
+  ckt_cmds_init ();
+  pandr_cmds_init ();
   misc_cmds_init ();
 
   cmd_argc = argc;

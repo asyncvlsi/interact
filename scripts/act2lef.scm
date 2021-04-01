@@ -76,16 +76,16 @@
 (act:top top-level)
 
 ; map to cells
-(act:cell:map)
+(ckt:cell-map)
 
 ; save updated cells
-(if (>? (string-length cell-file) 0) (act:cell:save cell-file) #t)
+(if (>? (string-length cell-file) 0) (ckt:cell-save cell-file) #t)
 
 ; generate transistor-level impl
-(act:ckt:map)
+(ckt:map)
 
 ; save spice file, if needed
-(if do-spice (act:ckt:save_sp (string-append out-file ".sp")) #t)
+(if do-spice (ckt:save_sp (string-append out-file ".sp")) #t)
 
 ; read in layout generation passes
 (load-scm "stk-pass.scm")

@@ -26,8 +26,8 @@ SUBDIRS=scripts
 #GALOIS_FILES=galois_cmds.o actpin.o
 
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
-	act_simfile.o act_vfile.o ptr_manager.o \
-	$(GALOIS_FILES)
+	act_simfile.o act_vfile.o ptr_manager.o ckt_cmds.o flow.o \
+	pandr_cmds.o $(GALOIS_FILES)
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
