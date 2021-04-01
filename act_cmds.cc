@@ -489,13 +489,4 @@ static struct LispCliCommand act_cmds[] = {
 void act_cmds_init (void)
 {
   LispCliAddCommands ("act", act_cmds, sizeof (act_cmds)/sizeof (act_cmds[0]));
-
-  F.s = STATE_EMPTY;
-
-  F.cell_map = 0;
-  F.ckt_gen = 0;
-  F.timer = 0;
-
-  F.act_design = NULL;
-  F.act_toplevel = NULL;
 }

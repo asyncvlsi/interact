@@ -38,11 +38,17 @@ GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem
 endif
 
 ifdef dali_INCLUDE
-#DALI_PIECES=-ldali
+DALI_PIECES=-ldalilib
 endif
 
-ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE)
-ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(GALOIS_PIECES) $(DALI_PIECES)
+ifdef phydb_INCLUDE
+PHYDB_PIECES=-lphydb
+endif
+
+ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE)
+
+ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
+	$(GALOIS_PIECES) $(DALI_PIECES) $(PHYDB_PIECES)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)

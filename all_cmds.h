@@ -20,9 +20,9 @@
  **************************************************************************
  */
 #include <stdio.h>
-#include "config_pkg.h"
 #include <act/act.h>
 #include <act/passes.h>
+#include "config_pkg.h"
 
 void act_cmds_init (void);
 void ckt_cmds_init (void);

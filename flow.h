@@ -24,30 +24,58 @@
 
 #include <act/act.h>
 #include <act/passes.h>
+#include "config_pkg.h"
+
+#ifdef FOUND_dali
+#include <dali/dali.h>
+#endif
+
+#ifdef FOUND_phydb
+#include <phydb/phydb.h>
+#endif
 
 enum design_state {
-		   STATE_NONE,
-		   STATE_EMPTY,
-		   STATE_DESIGN,
-		   STATE_EXPANDED,
-		   STATE_ERROR
+		   STATE_EMPTY,    /* no act file/design has been
+				      specified */
+		   
+		   STATE_DESIGN,   /* design specified, but not
+				      expanded */
+		   
+		   STATE_EXPANDED, /* design expanded */
+		   
+		   STATE_ERROR	/* something bad happened: never
+				   reached, used to make sure there
+				   is no match to the current flow state */
 };
 
 /* -- flow state -- */
 
+#define TIMER_NONE 0
 #define TIMER_INIT 1
 #define TIMER_RUN  2
 
 struct flow_state {
-  unsigned int cell_map:1;
-  unsigned int ckt_gen:1;
+  design_state s;		/* current design state */
 
-  unsigned int timer:2;
+  unsigned int cell_map:1;	/* 1 if design has been mapped to
+				   cells */
+  
+  unsigned int ckt_gen:1;	/* 1 if circuit transistor netlist has
+				   been created */
 
-  design_state s;
+  unsigned int timer:2;		/* state of the timer */
 
-  Act *act_design;
-  Process *act_toplevel;
+#ifdef FOUND_dali
+  dali::Dali *dali;
+#endif
+
+#ifdef FOUND_phydb
+  phydb::PhyDB *phydb;
+#endif  
+
+  Act *act_design;		/* Act: entire design */
+  
+  Process *act_toplevel;	/* Top-level module */
 };
 
 extern flow_state F;
@@ -57,5 +85,6 @@ int std_argcheck (int argc, char **argv, int argnum, const char *usage,
 
 FILE *std_open_output (const char *cmd, const char *s);
 void std_close_output (FILE *fp);
+void flow_init (void);
 
 #endif /* __INTERACT_FLOW_H__ */

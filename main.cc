@@ -31,8 +31,8 @@
 #include <common/config.h>
 #include <lisp.h>
 #include <lispCli.h>
-
 #include "all_cmds.h"
+#include "flow.h"
 
 static void signal_handler (int sig)
 {
@@ -262,6 +262,7 @@ int main (int argc, char **argv)
     LispCliInitPlain ("interact> ", Cmds, sizeof (Cmds)/sizeof (Cmds[0]));
   }
 
+  flow_init ();
   conf_cmds_init ();
   act_cmds_init ();
   ckt_cmds_init ();

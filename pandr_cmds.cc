@@ -30,7 +30,6 @@
 
 #include "galois_cmds.h"
 
-
 /*------------------------------------------------------------------------
  *
  *  Read in a .lib file for timing/power analysis
@@ -133,27 +132,74 @@ static struct LispCliCommand timer_cmds[] = {
 
 };
 
-#if 0
+#endif
+
+#if defined(FOUND_dali) && defined(FOUND_phydb)
+
+static int process_dali_init (int argc, char **argv)
+{
+  return 1;
+}
+
+
+
+static int process_phydb_init (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.act_toplevel == NULL) {
+    fprintf (stderr, "%s: no top-level process specified\n", argv[0]);
+    return 0;
+  }
+
+  if (F.cell_map != 1) {
+    fprintf (stderr, "%s: phydb requires the design to be mapped to cells.\n", argv[0]);
+    return 0;
+  }
+
+  if (F.phydb != NULL) {
+    fprintf (stderr, "%s: phydb already initialized!\n", argv[0]);
+    return 0;
+  }
+
+  F.phydb = new phydb::PhyDB();
+
+  return 1;
+}
+			      
+
+
 
 static struct LispCliCommand dali_cmds[] = {
   { NULL, "Placement", NULL },
   
-  { "init", "dali:init - initialize placement engine", process_dali_init },
-  { "set_int", "dali:set_int <name> <ival> - set Dali parameter", process_dali_setint },
-  { "set_real", "dali:set_real <name> <rval> - set Dali parameter",
-    process_dali_setreal },
-  { "run", "dali:run - initialize placement engine", process_dali_init },
+  { "init", "dali:init - initialize placement engine", process_dali_init }
+};
+
+static struct LispCliCommand phydb_cmds[] = {
+  { NULL, "Placement", NULL },
+  
+  { "init", "phydb:init - initialize physical database", process_phydb_init }
+
 };
 
 #endif  
-  
-
-#endif
 
 void pandr_cmds_init (void)
 {
 #ifdef FOUND_galois_eda
   LispCliAddCommands ("timer", timer_cmds,
 		      sizeof (timer_cmds)/sizeof (timer_cmds[0]));
-#endif  
+#endif
+
+#if defined(FOUND_dali) && defined(FOUND_phydb)
+  LispCliAddCommands ("dali", dali_cmds,
+		      sizeof (dali_cmds)/sizeof (dali_cmds[0]));
+
+  LispCliAddCommands ("phydb", phydb_cmds,
+		      sizeof (phydb_cmds)/sizeof (phydb_cmds[0]));
+#endif
+  
 }

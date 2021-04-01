@@ -36,10 +36,6 @@ static const char *get_state_str (void)
   static char buf[1024];
   const char *s = NULL;
   switch (F.s) {
-  case STATE_NONE:
-    s = "[none]";
-    break;
-    
   case STATE_EMPTY:
     s = "[no design]";
     break;
@@ -133,3 +129,24 @@ void std_close_output (FILE *fp)
   }
 }
 
+
+
+void flow_init (void)
+{
+  F.s = STATE_EMPTY;
+  F.cell_map = 0;
+  F.ckt_gen = 0;
+  F.timer = 0;
+
+  F.act_design = NULL;
+  F.act_toplevel = NULL;
+
+#ifdef FOUND_dali
+  F.dali = NULL;
+#endif
+
+#ifdef FOUND_phydb
+  F.phydb = NULL;
+#endif  
+  
+}
