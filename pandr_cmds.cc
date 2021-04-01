@@ -159,6 +159,11 @@ static int process_phydb_init (int argc, char **argv)
     return 0;
   }
 
+  if (F.ckt_gen != 1) {
+    fprintf (stderr, "%s: phydb requires the transistor netlist to be created.\n", argv[0]);
+    return 0;
+  }
+
   if (F.phydb != NULL) {
     fprintf (stderr, "%s: phydb already initialized!\n", argv[0]);
     return 0;

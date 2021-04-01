@@ -231,7 +231,7 @@ static int process_cell_map (int argc, char **argv)
     cp->run ();
   }
   else {
-    printf ("%s: cell pass already executed; skipped", argv[0]);
+    printf ("%s: cell pass already executed; skipped\n", argv[0]);
   }
   F.cell_map = 1;
   return 1;
