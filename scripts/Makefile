@@ -18,7 +18,7 @@
 #  Boston, MA  02110-1301, USA.
 #
 #-------------------------------------------------------------------------
-include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
+include $(ACT_HOME)/scripts/Makefile.std
 
 install_conf: scm-install
 
@@ -27,7 +27,7 @@ SCM_FILES=prs2net.scm act-opt.scm stk-pass.scm act2lef.scm \
 
 scm-install: $(SCM_FILES)
 	@if [ ! -d $(INSTALLLIB)/scm ]; then mkdir $(INSTALLLIB)/scm; fi
-	@for i in $(SCM_FILES); do $(VLSI_TOOLS_SRC)/scripts/install $$i $(INSTALLLIB)/scm/$$i; done
+	@for i in $(SCM_FILES); do $(ACT_HOME)/scripts/install $$i $(INSTALLLIB)/scm/$$i; done
 
 -include Makefile.deps
 
