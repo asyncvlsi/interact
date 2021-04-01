@@ -6,3 +6,6 @@
 Makefile.deps
 interact.*
 *~
+
+config.mk
+config_pkg.h

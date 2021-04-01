@@ -23,23 +23,31 @@ EXE=interact.$(EXT)
 TARGETS=$(EXE)
 SUBDIRS=scripts
 
-#GALOIS_FILES=galois_cmds.o actpin.o
-
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 	act_simfile.o act_vfile.o ptr_manager.o ckt_cmds.o flow.o \
-	pandr_cmds.o $(GALOIS_FILES)
+	pandr_cmds.o galois_cmds.o actpin.o
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
 
 include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
+include config.mk
 
-#GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem 
-#BOOST_INCLUDE=$(shell ./findboost -i)
-#DFLAGS+=-DGALOIS_EDA $(BOOST_INCLUDE)
-#CFLAGS+=$(BOOST_INCLUDE)
+ifdef Galois_INCLUDE
+GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem
+endif
+
+ifdef dali_INCLUDE
+#DALI_PIECES=-ldali
+endif
+
+ALL_INCLUDE=$(boost_INCLUDE) $(Galois_INCLUDE) $(dali_INCLUDE)
+ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(Galois_LIBDIR) $(GALOIS_PIECES) $(DALI_PIECES)
+
+DFLAGS+=$(ALL_INCLUDE)
+CFLAGS+=$(ALL_INCLUDE)
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(GALOIS_PIECES) -ldl -ledit
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
 
 -include Makefile.deps

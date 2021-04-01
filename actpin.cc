@@ -23,6 +23,8 @@
 #include <string.h>
 #include "actpin.h"
 
+#ifdef FOUND_Galois
+
 /*-- for .lib lookup --*/
 std::string ActPinTranslator::getPinName (void * const p) const
 {
@@ -83,6 +85,9 @@ bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
 
   return (*(x1->getCell()) == *(x2->getCell()));
 }
+
+#endif
+
 
 /* -- printing functions -- */
 

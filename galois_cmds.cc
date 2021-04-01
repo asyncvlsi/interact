@@ -19,6 +19,10 @@
  *
  **************************************************************************
  */
+#include "config_pkg.h"
+
+#ifdef FOUND_Galois
+
 #include "galois/Galois.h"
 #include "galois/eda/liberty/CellLib.h"
 #include "galois/eda/liberty/Cell.h"
@@ -430,3 +434,5 @@ const char *timer_run (void)
   TS.engine->computeTiming4Pins();
   return NULL;
 }
+
+#endif

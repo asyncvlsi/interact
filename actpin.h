@@ -22,7 +22,13 @@
 #ifndef __ACTPIN_H__
 #define __ACTPIN_H__
 
+#include "config_pkg.h"
+
 #include <act/act.h>
+#include <act/passes.h>
+
+#ifdef FOUND_Galois
+
 #include <act/timing/tgraph.h>
 #include "galois/eda/utility/ExtPinTranslator.h"
 
@@ -37,6 +43,8 @@ class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
   bool isInSameNet (void * const p1, void * const p2) const;
   bool isInSameInst (void * const p1, void * const p2) const;
 };
+
+#endif
 
 /*
   Pins can be inputs or outputs of gates
@@ -135,5 +143,6 @@ private:
   ActCell *ac;
   act_connection *pin;
 };
+
 
 #endif /* __ACTPIN_H__ */

@@ -26,7 +26,7 @@
 #include "ptr_manager.h"
 #include "flow.h"
 
-#ifdef GALOIS_EDA
+#ifdef FOUND_Galois
 
 #include "galois_cmds.h"
 
@@ -152,7 +152,7 @@ static struct LispCliCommand dali_cmds[] = {
 
 void pandr_cmds_init (void)
 {
-#ifdef GALOIS_EDA
+#ifdef FOUND_Galois
   LispCliAddCommands ("timer", timer_cmds,
 		      sizeof (timer_cmds)/sizeof (timer_cmds[0]));
 #endif  
