@@ -168,8 +168,94 @@ static int process_phydb_init (int argc, char **argv)
 
   return 1;
 }
-			      
 
+static int process_phydb_read_lef (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
+	     argv[1]);
+    return 0;
+  }
+  fclose (fp);
+
+  if (F.phydb_lef) {
+    fprintf (stderr, "%s: already read in LEF; continuing anyway.\n",
+	     argv[0]);
+  }
+  
+  F.phydb->ReadLef (argv[1]);
+  F.phydb_lef = 1;
+
+  return 1;
+}
+
+static int process_phydb_read_def (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
+	     argv[1]);
+    return 0;
+  }
+  fclose (fp);
+  
+  if (F.phydb_def) {
+    fprintf (stderr, "%s: already read in DEF file! Command ignored.\n",
+	     argv[0]);
+    return 0;
+  }
+  
+  F.phydb->ReadDef (argv[1]);
+  F.phydb_def = 1;
+
+  return 1;
+}
+
+static int process_phydb_read_cell (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
+	     argv[1]);
+    return 0;
+  }
+  fclose (fp);
+
+  if (F.phydb_cell) {
+    fprintf (stderr, "%s: reading additional .cell file; continuing anyway\n",
+	     argv[0]);
+  }
+  
+  F.phydb->ReadCell (argv[1]);
+  F.phydb_cell = 1;
+
+  return 1;
+}
 
 
 static struct LispCliCommand dali_cmds[] = {
@@ -179,9 +265,15 @@ static struct LispCliCommand dali_cmds[] = {
 };
 
 static struct LispCliCommand phydb_cmds[] = {
-  { NULL, "Placement", NULL },
+  { NULL, "Physical database access", NULL },
   
-  { "init", "phydb:init - initialize physical database", process_phydb_init }
+  { "init", "phydb:init - initialize physical database", process_phydb_init },
+  { "read-lef", "phydb:read-lef <file> - read LEF and populate database",
+    process_phydb_read_lef },
+  { "read-def", "phydb:read-def <file> - read DEF and populate database",
+    process_phydb_read_def },
+  { "read-cell", "phydb:read-cell <file> - read CELL file and populate database", 
+    process_phydb_read_cell }
 
 };
 

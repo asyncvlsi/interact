@@ -42,7 +42,7 @@ DALI_PIECES=-ldalilib
 endif
 
 ifdef phydb_INCLUDE
-PHYDB_PIECES=-lphydb
+PHYDB_PIECES=-lphydb -llef -ldef
 endif
 
 ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE)

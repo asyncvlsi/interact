@@ -147,6 +147,9 @@ void flow_init (void)
 
 #ifdef FOUND_phydb
   F.phydb = NULL;
+  F.phydb_cell = 0;
+  F.phydb_lef = 0;
+  F.phydb_def = 0;
 #endif  
   
 }

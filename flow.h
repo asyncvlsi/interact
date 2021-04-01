@@ -71,6 +71,11 @@ struct flow_state {
 
 #ifdef FOUND_phydb
   phydb::PhyDB *phydb;
+
+  unsigned int phydb_lef:1;	/* read in LEF */
+  unsigned int phydb_def:1;	/* read in DEF */
+  unsigned int phydb_cell:1;	/* read in CELL */
+  
 #endif  
 
   Act *act_design;		/* Act: entire design */
