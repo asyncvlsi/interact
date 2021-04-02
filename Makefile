@@ -70,7 +70,6 @@ CFLAGS+= -pthread
 endif
 
 OMPFLAG=-fopenmp
-UNAME := $(shell uname)
 ifeq ($(BASEOS),darwin)
 OMPFLAG=-lomp
 endif
