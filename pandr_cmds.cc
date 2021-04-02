@@ -363,9 +363,9 @@ static int process_dali_close (int argc, char **argv)
 static struct LispCliCommand dali_cmds[] = {
   { NULL, "Placement", NULL },
   
-  { "init", "dali:init - initialize placement engine", process_dali_init },
-  { "place-design", "dali:place-design - place design", process_dali_place_design },
-  { "place-io", "dali:place-io - place I/O pins", process_dali_place_io },
+  { "init", "dali:init <verbosity_level(0-5)> - initialize placement engine", process_dali_init },
+  { "place-design", "dali:place-design <target_density> - place design", process_dali_place_design },
+  { "place-io", "dali:place-io <metal_name> - place I/O pins", process_dali_place_io },
   { "export-phydb", "dali:export-phydb - export placement to phydb", process_dali_export_phydb },
   { "close", "dali:close - close dali", process_dali_close }
 
