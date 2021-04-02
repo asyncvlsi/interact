@@ -44,7 +44,7 @@ endif
 endif
 
 ifdef dali_INCLUDE
-DALI_PIECES=-ldalilib
+DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
 endif
 
 ifdef phydb_INCLUDE
@@ -63,6 +63,6 @@ CFLAGS+= -pthread
 endif
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -fopenmp -ldl -ledit
 
 -include Makefile.deps

@@ -79,7 +79,7 @@ int process_timer_init (int argc, char **argv)
   }
   
   const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
-				       args, A_LEN (args));
+                      args, A_LEN (args));
   
   if (msg) {
     fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
@@ -136,13 +136,6 @@ static struct LispCliCommand timer_cmds[] = {
 
 #if defined(FOUND_dali) && defined(FOUND_phydb)
 
-static int process_dali_init (int argc, char **argv)
-{
-  return 1;
-}
-
-
-
 static int process_phydb_init (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
@@ -187,14 +180,14 @@ static int process_phydb_read_lef (int argc, char **argv)
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
-	     argv[1]);
+        argv[1]);
     return 0;
   }
   fclose (fp);
 
   if (F.phydb_lef) {
     fprintf (stderr, "%s: already read in LEF; continuing anyway.\n",
-	     argv[0]);
+        argv[0]);
   }
   
   F.phydb->ReadLef (argv[1]);
@@ -216,14 +209,14 @@ static int process_phydb_read_def (int argc, char **argv)
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
-	     argv[1]);
+        argv[1]);
     return 0;
   }
   fclose (fp);
   
   if (F.phydb_def) {
     fprintf (stderr, "%s: already read in DEF file! Command ignored.\n",
-	     argv[0]);
+        argv[0]);
     return 0;
   }
   
@@ -246,14 +239,14 @@ static int process_phydb_read_cell (int argc, char **argv)
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
-	     argv[1]);
+        argv[1]);
     return 0;
   }
   fclose (fp);
 
   if (F.phydb_cell) {
     fprintf (stderr, "%s: reading additional .cell file; continuing anyway\n",
-	     argv[0]);
+        argv[0]);
   }
   
   F.phydb->ReadCell (argv[1]);
@@ -261,13 +254,6 @@ static int process_phydb_read_cell (int argc, char **argv)
 
   return 1;
 }
-
-
-static struct LispCliCommand dali_cmds[] = {
-  { NULL, "Placement", NULL },
-  
-  { "init", "dali:init - initialize placement engine", process_dali_init }
-};
 
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
@@ -282,21 +268,108 @@ static struct LispCliCommand phydb_cmds[] = {
 
 };
 
+static int process_dali_init (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<verbosity level>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  if (F.dali != NULL) {
+    fprintf (stderr, "%s: dali already initialized!\n", argv[0]);
+    return 0;
+  }
+
+  F.dali = new dali::Dali(F.phydb, argv[1]);
+
+  return 1;
+}
+
+static int process_dali_place_design (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<target density>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  double density = -1;
+  try {
+    density = std::stod(argv[1]);
+  } catch (...) {
+    fprintf (stderr, "%s: invalid target density!\n", argv[1]);
+    return 0;
+  }
+
+  F.dali->StartPlacement(density);
+
+  return 1;
+}
+
+static int process_dali_place_io (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<metal>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  F.dali->SimpleIoPinPlacement(argv[1]);
+
+  return 1;
+}
+
+static int process_dali_export_phydb (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  F.dali->ExportToPhyDB();
+
+  return 1;
+}
+
+static struct LispCliCommand dali_cmds[] = {
+  { NULL, "Placement", NULL },
+  
+  { "init", "dali:init - initialize placement engine", process_dali_init },
+  { "place-design", "dali:place-design - place design", process_dali_place_design },
+  { "place-io", "dali:place-io - place I/O pins", process_dali_place_io },
+  { "export-phydb", "dali:export-phydb - export placement to phydb", process_dali_export_phydb }
+
+};
+
 #endif  
 
 void pandr_cmds_init (void)
 {
 #ifdef FOUND_galois_eda
   LispCliAddCommands ("timer", timer_cmds,
-		      sizeof (timer_cmds)/sizeof (timer_cmds[0]));
+            sizeof (timer_cmds)/sizeof (timer_cmds[0]));
 #endif
 
 #if defined(FOUND_dali) && defined(FOUND_phydb)
-  LispCliAddCommands ("dali", dali_cmds,
-		      sizeof (dali_cmds)/sizeof (dali_cmds[0]));
-
   LispCliAddCommands ("phydb", phydb_cmds,
-		      sizeof (phydb_cmds)/sizeof (phydb_cmds[0]));
+            sizeof (phydb_cmds)/sizeof (phydb_cmds[0]));
+
+  LispCliAddCommands ("dali", dali_cmds,
+            sizeof (dali_cmds)/sizeof (dali_cmds[0]));
 #endif
   
 }
