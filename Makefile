@@ -45,7 +45,8 @@ endif
 
 ifdef dali_INCLUDE
 DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log
-ifeq ($(BASEOS),darwin)
+
+ifeq ($(BASEOS)_$(ARCH),darwin_arm64)
 DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
 else
 DALI_PIECES+=-lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
