@@ -430,6 +430,7 @@ int process_des_insts (int argc, char **argv)
   if (!fp) {
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   ActDesignHier *dh = new ActDesignHier (F.act_design, fp);
 
@@ -467,7 +468,7 @@ static struct LispCliCommand act_cmds[] = {
   { "save-insts", "act:save-insts <file> - save circuit instance hierarchy to file",
     process_des_insts },
 
-  { NULL, "ACT dynamic passes", NULL },
+  { NULL, "ACT dynamic pass management", NULL },
   { "pass:load", "act:pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
     process_pass_dyn },
   { "pass:set_file", "act:pass:set_file <pass-name> <name> <filehandle> - set pass parameter to a file",

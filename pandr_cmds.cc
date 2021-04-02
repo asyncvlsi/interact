@@ -49,6 +49,7 @@ int process_read_lib (int argc, char **argv)
     fprintf (stderr, "%s: could not open liberty file `%s'\n", argv[0], argv[1]);
     return 0;
   }
+  save_to_log (argc, argv, "s");
 
   LispSetReturnInt (ptr_register ("liberty", lib));
 
@@ -70,6 +71,7 @@ int process_timer_init (int argc, char **argv)
     fprintf (stderr, "%s: need top level of design set\n", argv[0]);
     return 0;
   }
+  
   A_DECL (int, args);
   A_INIT (args);
   for (int i=1; i < argc; i++) {
@@ -87,6 +89,8 @@ int process_timer_init (int argc, char **argv)
   }
 
   F.timer = TIMER_INIT;
+
+  save_to_log (argc, argv, "i*");
   
   return 1;
 }
@@ -113,6 +117,7 @@ int process_timer_run (int argc, char **argv)
     fprintf (stderr, "%s: error running timer\n -> %s\n", argv[0], msg);
     return 0;
   }
+  save_to_log (argc, argv, "");
 
   F.timer = TIMER_RUN;
   
@@ -163,6 +168,7 @@ static int process_phydb_init (int argc, char **argv)
   }
 
   F.phydb = new phydb::PhyDB();
+  save_to_log (argc, argv, "");
 
   return 1;
 }
@@ -180,6 +186,8 @@ static int process_phydb_close (int argc, char **argv)
  
   delete F.phydb;
   F.phydb = NULL;
+
+  save_to_log (argc, argv, "");
 
   return 1;
 }
@@ -210,6 +218,8 @@ static int process_phydb_read_lef (int argc, char **argv)
   F.phydb->ReadLef (argv[1]);
   F.phydb_lef = 1;
 
+  save_to_log (argc, argv, "s");
+
   return 1;
 }
 
@@ -239,6 +249,7 @@ static int process_phydb_read_def (int argc, char **argv)
   
   F.phydb->ReadDef (argv[1]);
   F.phydb_def = 1;
+  save_to_log (argc, argv, "s");
 
   return 1;
 }
@@ -268,6 +279,7 @@ static int process_phydb_read_cell (int argc, char **argv)
   
   F.phydb->ReadCell (argv[1]);
   F.phydb_cell = 1;
+  save_to_log (argc, argv, "s");
 
   return 1;
 }
@@ -303,6 +315,7 @@ static int process_dali_init (int argc, char **argv)
   }
 
   F.dali = new dali::Dali(F.phydb, argv[1]);
+  save_to_log (argc, argv, "i");
 
   return 1;
 }
@@ -327,6 +340,7 @@ static int process_dali_place_design (int argc, char **argv)
   }
 
   F.dali->StartPlacement(density);
+  save_to_log (argc, argv, "f");
 
   return 1;
 }
@@ -343,6 +357,7 @@ static int process_dali_place_io (int argc, char **argv)
   }
 
   F.dali->SimpleIoPinPlacement(argv[1]);
+  save_to_log (argc, argv, "s");
 
   return 1;
 }
@@ -359,6 +374,7 @@ static int process_dali_export_phydb (int argc, char **argv)
   }
 
   F.dali->ExportToPhyDB();
+  save_to_log (argc, argv, "");
 
   return 1;
 }
@@ -374,6 +390,7 @@ static int process_dali_close (int argc, char **argv)
     delete F.dali;
     F.dali = NULL;
   }
+  save_to_log (argc, argv, "");
 
   return 1;
 }
