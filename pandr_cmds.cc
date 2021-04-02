@@ -345,13 +345,29 @@ static int process_dali_export_phydb (int argc, char **argv)
   return 1;
 }
 
+static int process_dali_close (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali != NULL) {
+    F.dali->Close();
+    delete F.dali;
+    F.dali = NULL;
+  }
+
+  return 1;
+}
+
 static struct LispCliCommand dali_cmds[] = {
   { NULL, "Placement", NULL },
   
   { "init", "dali:init - initialize placement engine", process_dali_init },
   { "place-design", "dali:place-design - place design", process_dali_place_design },
   { "place-io", "dali:place-io - place I/O pins", process_dali_place_io },
-  { "export-phydb", "dali:export-phydb - export placement to phydb", process_dali_export_phydb }
+  { "export-phydb", "dali:export-phydb - export placement to phydb", process_dali_export_phydb },
+  { "close", "dali:close - close dali", process_dali_close }
 
 };
 
