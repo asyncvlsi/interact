@@ -44,7 +44,13 @@ endif
 endif
 
 ifdef dali_INCLUDE
-DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
+DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log
+ifeq ($(BASEOS),darwin)
+DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
+else
+DALI_PIECES+=-lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
+endif
+
 endif
 
 ifdef phydb_INCLUDE

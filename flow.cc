@@ -53,7 +53,7 @@ static const char *get_state_str (void)
     break;
     
   }
-  snprintf (buf, 1024, "%s", s);
+  snprintf (buf, 1024, "%s\n  ", s);
   if (F.ckt_gen) {
     snprintf (buf + strlen (buf), 1000, " ckt:yes");
   }
@@ -74,6 +74,32 @@ static const char *get_state_str (void)
   else {
     snprintf (buf + strlen (buf), 1000, " top:unset");
   }
+  if (F.timer == 0) {
+    snprintf (buf + strlen (buf), 1000, " timer:none");
+  }
+  else if (F.timer == TIMER_INIT) {
+    snprintf (buf + strlen (buf), 1000, " timer:init");
+  }
+  else if (F.timer == TIMER_RUN) {
+    snprintf (buf + strlen (buf), 1000, " timer:run");
+  }
+#ifdef FOUND_dali
+  if (F.dali) {
+    snprintf (buf + strlen (buf), 1000, " placer:init");
+  } 
+  else {
+    snprintf (buf + strlen (buf), 1000, " placer:none");
+  }
+#endif
+#ifdef FOUND_phydb
+  if (F.phydb) {
+    snprintf (buf + strlen (buf), 1000, " phydb:init");
+  } 
+  else {
+    snprintf (buf + strlen (buf), 1000, " phydb:none");
+  }
+#endif
+     
   return buf;
 }
 

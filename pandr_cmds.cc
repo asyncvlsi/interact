@@ -167,6 +167,23 @@ static int process_phydb_init (int argc, char **argv)
   return 1;
 }
 
+static int process_phydb_close (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: no database!\n", argv[0]);
+    return 0;
+  }
+ 
+  delete F.phydb;
+  F.phydb = NULL;
+
+  return 1;
+}
+
 static int process_phydb_read_lef (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
@@ -264,7 +281,8 @@ static struct LispCliCommand phydb_cmds[] = {
   { "read-def", "phydb:read-def <file> - read DEF and populate database",
     process_phydb_read_def },
   { "read-cell", "phydb:read-cell <file> - read CELL file and populate database", 
-    process_phydb_read_cell }
+    process_phydb_read_cell },
+  { "close", "phydb:close - tear down physical database", process_phydb_close }
 
 };
 
