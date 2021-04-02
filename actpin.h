@@ -65,50 +65,55 @@ class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
  */
 class ActNet {
 public:
-  ActNet (const char *_iname, act_connection *_net) {
-    inst = _iname;
-    net = _net;
+  ActNet (TimingVertexInfo *driver, act_connection *net) {
+    _driver = driver;
+    _net = net;
   }
 
   int operator==(ActNet& n) {
-    return (n.net == net && n.inst == inst);
+    return (n._net == _net && n._driver == _driver);
   }
 
   void Print (FILE *fp) {
     ActId *tmp;
-    if (inst) {
-      fprintf (fp, "%s/", inst);
+    if (_driver) {
+      char *tmp = _driver->getInstPath();
+      fprintf (fp, "%s/", tmp);
+      FREE (tmp);
     }
-    tmp = net->toid();
+    tmp = _net->toid();
     tmp->Print (fp);
     delete tmp;
   }
 
 private:
-  const char *inst;		// root of where the net exists
-  act_connection *net;		// the net within that root instance
+  TimingVertexInfo *_driver;
+  act_connection *_net;		// the net within that root instance
 };
 
 class ActCell {
 public:
-  ActCell (const char *_inst, Process *_p) {
-    inst = _inst;
-    p = _p;
+  ActCell (TimingVertexInfo *driver, Process *p) {
+    _driver = driver;
+    _p = p;
   }
 
-  Process *getCellProc () { return p; }
-  const char *getInstName() { return inst; }
+  Process *getCellProc () { return _p; }
+  TimingVertexInfo *getInst() { return _driver; }
 
   int operator==(ActCell& ac) {
-    return inst == ac.inst && p == ac.p;
+    return _driver == ac._driver && _p == ac._p;
+  }
+
+  char *getInstName() {
+    return _driver->getFullInstPath();
   }
 
 private:
-  const char *inst;
-  Process *p;
+  TimingVertexInfo *_driver;
+  Process *_p;
 };
   
-
 
 class ActPin {
 public:

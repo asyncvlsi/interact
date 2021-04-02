@@ -116,6 +116,8 @@ void ActPin::sPrintCellType (char *buf, int sz)
 
 void ActPin::sPrintFullName (char *buf, int sz)
 {
-  snprintf (buf, 10240, "%s:", ac->getInstName());
+  char *tmp = ac->getInstName ();
+  snprintf (buf, 10240, "%s:", tmp);
+  FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));
 }

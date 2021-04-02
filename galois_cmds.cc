@@ -175,8 +175,6 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     Assert (vup_i->getFirstConn() == vdn_i->getFirstConn(), "What?!");
 
     act_connection *netinfo =  vup_i->getFirstConn();
-    const char *iname = vup_i->getInstPath ();
-
     Process *cellname = vup_i->getCell();
     Assert (cellname, "What?");
 
@@ -197,9 +195,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     if (!pinname) {
       fatal_error ("Gate %s has no output pin?", cellname->getName());
     }
-    ap = new ActPin (new ActNet (iname, netinfo),
-		     new ActCell (vup_i->getFullInstPath(), cellname),
-		     pinname);
+    ap = new ActPin (new ActNet (vdn_i, netinfo),
+		     new ActCell (vdn_i, cellname), pinname);
     
     vup_i->setSpace (ap);
     vdn_i->setSpace (ap);
