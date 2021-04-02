@@ -62,7 +62,13 @@ ifeq ($(BASEOS),linux)
 CFLAGS+= -pthread
 endif
 
+OMPFLAG=-fopenmp
+UNAME := $(shell uname)
+ifeq ($(BASEOS),darwin)
+OMPFLAG=-lomp
+endif
+
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -fopenmp -ldl -ledit
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) $(OMPFLAG) -ldl -ledit
 
 -include Makefile.deps
