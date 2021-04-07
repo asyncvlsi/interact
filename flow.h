@@ -81,6 +81,8 @@ struct flow_state {
   Act *act_design;		/* Act: entire design */
   
   Process *act_toplevel;	/* Top-level module */
+
+  ActStatePass *sp;
 };
 
 extern flow_state F;

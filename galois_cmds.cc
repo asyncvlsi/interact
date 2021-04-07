@@ -195,8 +195,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     if (!pinname) {
       fatal_error ("Gate %s has no output pin?", cellname->getName());
     }
-    ap = new ActPin (new ActNet (vdn_i, netinfo),
-		     new ActCell (vdn_i, cellname), pinname);
+    ap = new ActPin (vdn_i, vdn_i, pinname);
+    /* driver is the same as the cell with the pin */
     
     vup_i->setSpace (ap);
     vdn_i->setSpace (ap);
@@ -228,6 +228,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     ActPin *gate_out = (ActPin *)vup_i->getSpace();
     Assert (gate_out, "What?");
 
+    /* -- gate_out is the output pin for the timing vertex -- */
+
     AGvertexBwdIter bw(gr, i);
     for (bw = bw.begin(); bw != bw.end(); bw++) {
       AGedge *be = (*bw);
@@ -238,14 +240,16 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 
       drv_pin = (ActPin *) src_v->getSpace();
 
+      /* drv_pin is the driving pin that drives one of the gate inputs */
+
       TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
       if (ei->getIPin() < 0) continue;
 
       ActPin *ap;
-      act_connection *pinname;
-      
-      int pinid = ei->getIPin();
 
+      /* find the pin name */
+      act_connection *pinname;
+      int pinid = ei->getIPin();
       act_boolean_netlist_t *bnl = gate_out->cellBNL(bp);
       Assert (bnl, "What?");
 
@@ -258,12 +262,12 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 	}
 	pinid--;
       }
-      
       Assert (pinname, "Can't find pin?");
 
-      ap = new ActPin (drv_pin->getNet(),
-		       gate_out->getCell(), 
-		       pinname);
+      /* create a new pin for this net, hooked up to pin "pinname" of
+	 the "gate_out" vertex */
+
+      ap = new ActPin (drv_pin->getNet(), gate_out->getCell(), pinname);
 		       
       TS.engine->addLoadPin (ap);
       //printf ("add load pin: "); actpin_print (ap);
@@ -413,6 +417,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
   return NULL;
 }
 
+#include <lispCli.h>
 
 const char *timer_run (void)
 {
@@ -424,11 +429,15 @@ const char *timer_run (void)
   
   TS.engine->computeCriticalCycle(TS.lib);
   auto stats = TS.engine->getCriticalCycleRatioAndTicks();
-  std::cout << "maximum cycle ratio = " << stats.first << ".\n";
-  std::cout << "# ticks on critical cycle = " << stats.second << ".\n";
 
   // timing propagation
   TS.engine->computeTiming4Pins();
+
+  LispSetReturnListStart ();
+  LispAppendReturnFloat (stats.first);
+  LispAppendReturnInt (stats.second);
+  LispSetReturnListEnd ();
+
   return NULL;
 }
 

@@ -121,7 +121,23 @@ int process_timer_run (int argc, char **argv)
 
   F.timer = TIMER_RUN;
   
-  return 1;
+  return 5;
+}
+
+
+int process_timer_info (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return 0;
+  }
+
+  save_to_log (argc, argv, "s");
+
 }
 
 
@@ -132,8 +148,11 @@ static struct LispCliCommand timer_cmds[] = {
     process_read_lib },
   { "init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
-  { "run", "timer:run - run timing analysis",
-    process_timer_run }
+  { "run", "timer:run - run timing analysis, and returns list (p M)",
+    process_timer_run },
+
+  { "info", "timer:info <net> - display information about the net",
+    process_timer_info }
 
 };
 

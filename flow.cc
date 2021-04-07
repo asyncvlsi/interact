@@ -163,6 +163,7 @@ void flow_init (void)
   F.cell_map = 0;
   F.ckt_gen = 0;
   F.timer = 0;
+  F.sp = NULL;
 
   F.act_design = NULL;
   F.act_toplevel = NULL;

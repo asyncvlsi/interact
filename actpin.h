@@ -91,50 +91,31 @@ private:
   act_connection *_net;		// the net within that root instance
 };
 
-class ActCell {
-public:
-  ActCell (TimingVertexInfo *driver, Process *p) {
-    _driver = driver;
-    _p = p;
-  }
-
-  Process *getCellProc () { return _p; }
-  TimingVertexInfo *getInst() { return _driver; }
-
-  int operator==(ActCell& ac) {
-    return _driver == ac._driver && _p == ac._p;
-  }
-
-  char *getInstName() {
-    return _driver->getFullInstPath();
-  }
-
-private:
-  TimingVertexInfo *_driver;
-  Process *_p;
-};
-  
 
 class ActPin {
 public:
-  ActPin (ActNet *_n, ActCell *_ac, act_connection *_pin) {
-    net = _n;
-    ac = _ac;
-    pin = _pin;
+  ActPin (TimingVertexInfo *net, // this is the timing vertex for the driver
+	  TimingVertexInfo *pinvtx,  // this is the timing vertex for the pin
+	  act_connection *pinname) { // the pin name for "ac"
+
+    _driver_vtx = net;
+    _pin_vtx = pinvtx;
+    _pin = pinname;
   }
 	  
   void Print (FILE *fp);
 
-  ActNet *getNet() { return net; }
-  ActCell *getCell() { return ac; }
+  TimingVertexInfo *getNet() { return _driver_vtx; }
+  TimingVertexInfo *getCell() { return _pin_vtx; }
+  act_connection *getPin() { return _pin; }
 
   act_boolean_netlist_t *cellBNL(ActBooleanizePass *p) {
-    return p->getBNL (ac->getCellProc());
+    return p->getBNL (_pin_vtx->getCell());
   }
 
   /* checks if two pins are connected, i.e. they belong to the same net */
   int operator==(ActPin &a) {
-    return (*(a.net) == *net);
+    return (a._driver_vtx == _driver_vtx);
   }
 
   void sPrintPin (char *buf, int sz);
@@ -142,11 +123,11 @@ public:
   void sPrintFullName (char *buf, int sz);
   
 private:
-  ActNet *net;			// net name
+  TimingVertexInfo *_driver_vtx; // net name
 
   /* pin */
-  ActCell *ac;
-  act_connection *pin;
+  TimingVertexInfo *_pin_vtx;
+  act_connection *_pin;
 };
 
 

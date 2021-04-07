@@ -61,13 +61,27 @@ std::string ActPinTranslator::getFullName (void * const p) const
 /* -- fixme -- */
 bool ActPinTranslator::isP1LessThanP2 (void * const p1, void * const p2) const
 {
-  return ((unsigned long)p1) < ((unsigned long)p2);
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+  if (((unsigned long)x1->getCell()) < ((unsigned long)x2->getCell())) {
+    return true;
+  }
+  else {
+    if (((unsigned long)x1->getPin()) < ((unsigned long)x2->getPin())) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
 }
 
 /* -- fixme -- */
 bool ActPinTranslator::isSamePin (void * const p1, void * const p2) const
 {
-  return ((unsigned long)p1) == ((unsigned long)p2);
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+  return (x1->getCell() == x2->getCell() && x1->getPin() == x2->getPin());
 }
 
 bool ActPinTranslator::isInSameNet (void * const p1, void * const p2) const
@@ -75,7 +89,7 @@ bool ActPinTranslator::isInSameNet (void * const p1, void * const p2) const
   ActPin *x1 = (ActPin *)p1;
   ActPin *x2 = (ActPin *)p2;
 
-  return (*x1) == (*x2);
+  return (x1->getNet() == x2->getNet());
 }
 
 bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
@@ -83,11 +97,10 @@ bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
   ActPin *x1 = (ActPin *)p1;
   ActPin *x2 = (ActPin *)p2;
 
-  return (*(x1->getCell()) == *(x2->getCell()));
+  return (x1->getCell() == x2->getCell());
 }
 
 #endif
-
 
 /* -- printing functions -- */
 
@@ -96,7 +109,11 @@ void ActPin::Print (FILE *fp)
   ActId *x;
   char buf[1024];
 
-  net->Print (fp);
+  if (_driver_vtx) {
+    char *tmp = _driver_vtx->getFullInstPath();
+    fprintf (fp, "%s", tmp);
+    FREE (tmp);
+  }
   sPrintFullName (buf, 1024);
   fprintf (fp, "(%s)", buf);
 }
@@ -104,19 +121,19 @@ void ActPin::Print (FILE *fp)
 void ActPin::sPrintPin (char *buf, int sz)
 {
   ActId *tmp;
-  tmp = pin->toid();
+  tmp = _pin->toid();
   tmp->sPrint (buf, sz);
   delete tmp;
 }
 
 void ActPin::sPrintCellType (char *buf, int sz)
 {
-  ActNamespace::Global()->Act()->msnprintfproc (buf, sz, ac->getCellProc());
+  ActNamespace::Global()->Act()->msnprintfproc (buf, sz, _pin_vtx->getCell());
 }
 
 void ActPin::sPrintFullName (char *buf, int sz)
 {
-  char *tmp = ac->getInstName ();
+  char *tmp = _pin_vtx->getInstPath ();
   snprintf (buf, 10240, "%s:", tmp);
   FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));
