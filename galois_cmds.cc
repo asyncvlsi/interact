@@ -106,8 +106,6 @@ void *read_lib_file (const char *file)
   return (void *)lib;
 }
 
-
-
 /*------------------------------------------------------------------------
  *
  * Push timing graph to Galois timer (return NULL on success, error
@@ -115,47 +113,34 @@ void *read_lib_file (const char *file)
  *
  *------------------------------------------------------------------------
  */
-const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
+galois::eda::asyncsta::AsyncTimingEngine *
+timer_engine_init (ActPass *tg, Process *p, int nlibs,
+		   galois::eda::liberty::CellLib **libs,
+		   ActPinTranslator **ret_apt)
+							     
 {
-  init ();
-  
-  ActPass *ap = a->pass_find ("taggedTG");
-  if (!ap) {
-    return "no timing graph found";
-  }
-
-  if (TS.dp) {
-    return "timing graph already initialized";
-  }
-
-  TS.dp = dynamic_cast<ActDynamicPass *> (ap);
-  Assert (TS.dp, "What?");
+  galois::eda::asyncsta::AsyncTimingEngine *engine = NULL;
 
   /* -- make sure we've created the timing graph in the ACT library -- */
-  TS.dp->run (p);
-  
-  TS.apt = new ActPinTranslator ();
-  TS.engine = new galois::eda::asyncsta::AsyncTimingEngine(TS.apt);
+  tg->run (p);
+
+  /* -- create the pin translator -- */
+  *ret_apt = new ActPinTranslator ();
+
+  /* -- create timer -- */
+  engine = new galois::eda::asyncsta::AsyncTimingEngine(*ret_apt);
 
   auto maxmode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
 
   /* -- add cell library -- */
   for (int i=0; i < nlibs; i++) { 
-    galois::eda::liberty::CellLib *lib;
-    lib = (galois::eda::liberty::CellLib *) ptr_get ("liberty", libids[i]);
-    if (!lib) {
-      return "timing lib file found";
-    }
-    TS.engine->addCellLib (lib, maxmode, true);
-    if (i == 0) {
-      TS.lib = lib;
-    }
+    engine->addCellLib (libs[i], maxmode, true);
   }
   
-  TaggedTG *gr = (TaggedTG *) TS.dp->getMap (p);
+  TaggedTG *gr = (TaggedTG *) tg->getMap (p);
   
   ActBooleanizePass *bp =
-    dynamic_cast<ActBooleanizePass *> (a->pass_find ("booleanize"));
+    dynamic_cast<ActBooleanizePass *> (tg->getPass ("booleanize"));
 
   int gr_create_error = 0;
 
@@ -201,7 +186,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     vup_i->setSpace (ap);
     vdn_i->setSpace (ap);
 
-    TS.engine->addDriverPin (ap);
+    engine->addDriverPin (ap);
 #if 0
     printf ("add driver pin: ");
     actpin_print (ap);
@@ -269,7 +254,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 
       ap = new ActPin (drv_pin->getNet(), gate_out->getCell(), pinname);
 		       
-      TS.engine->addLoadPin (ap);
+      engine->addLoadPin (ap);
       //printf ("add load pin: "); actpin_print (ap);
       //printf ("\n");
 
@@ -278,8 +263,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
       A_INC (cur_gate_pins);
       
       /* -- interconnect arcs -- */
-      TS.engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
-      TS.engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
+      engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
+      engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
 
 #if 0      
       printf ("add net leg: "); actpin_print (drv_pin);
@@ -288,7 +273,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 #endif      
 	
       /* -- internal arc from this signal to gate output for v_dn -- */
-      if (!TS.engine->addDelayArc
+      if (!engine->addDelayArc
 	  (ap, TransMode::TRANS_RISE, gate_out, TransMode::TRANS_FALL)) {
 	if (!ei->isGuess()) {
 	  char buf[100];
@@ -310,7 +295,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 #if 0	
 	printf (" ** tick\n");
 #endif	
-	TS.engine->setEdgeTick
+	engine->setEdgeTick
 	  (ap, TransMode::TRANS_RISE, gate_out, TransMode::TRANS_FALL, true);
       }
     }
@@ -359,7 +344,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 	Assert (pinname, "Can't find pin?");
 	ap = new ActPin (drv_pin->getNet(), gate_out->getCell(), pinname);
 
-	TS.engine->addLoadPin (ap);
+	engine->addLoadPin (ap);
 #if 0	
 	printf ("add load pin: "); actpin_print (ap);
 	printf ("\n");
@@ -370,8 +355,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 	A_INC (cur_gate_pins);
       
 	/* -- interconnect arcs -- */
-	TS.engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
-	TS.engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
+	engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
+	engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
 #if 0
 	printf ("add net leg: "); actpin_print (drv_pin);
 	printf (" -> "); actpin_print (ap);
@@ -380,7 +365,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
       }
 
       /* -- internal arc from this signal to gate output for v_up -- */
-      if (!TS.engine->addDelayArc
+      if (!engine->addDelayArc
 	  (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE)) {
 	if (!ei->isGuess()) {
 	  char buf[100];
@@ -402,7 +387,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 #if 0	
 	printf (" ** tick\n");
 #endif	
-	TS.engine->setEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
+	engine->setEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
       }
     }
     A_LEN (cur_gate_pins) = 0;
@@ -410,6 +395,58 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
   A_FREE (cur_gate_pins);
 
   if (gr_create_error) {
+    return NULL;
+  }
+  return engine;
+}
+
+
+/*------------------------------------------------------------------------
+ *
+ * Push timing graph to Galois timer (return NULL on success, error
+ * message otherwise)
+ *
+ *------------------------------------------------------------------------
+ */
+const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
+{
+  init ();
+  
+  ActPass *ap = a->pass_find ("taggedTG");
+  if (!ap) {
+    return "no timing graph found";
+  }
+
+  if (TS.dp) {
+    return "timing graph already initialized";
+  }
+
+  TS.dp = dynamic_cast<ActDynamicPass *> (ap);
+  Assert (TS.dp, "What?");
+
+  /* -- add cell library -- */
+  galois::eda::liberty::CellLib **libs;
+
+  if (nlibs == 0) {
+    return "no libraries?";
+  }
+  
+  MALLOC (libs, galois::eda::liberty::CellLib *, nlibs);
+  
+  for (int i=0; i < nlibs; i++) { 
+    libs[i] = (galois::eda::liberty::CellLib *) ptr_get ("liberty", libids[i]);
+    if (!libs[i]) {
+      return "timing lib file found";
+    }
+    if (i == 0) {
+      TS.lib = libs[i];
+    }
+  }
+
+  /* -- initialize engine -- */
+  TS.engine = timer_engine_init (ap, p, nlibs, libs, &TS.apt);
+  FREE (libs);
+  if (!TS.engine) {
     clear_timer ();
     return "timing graph construction failed; arcs missing from .lib";
   }

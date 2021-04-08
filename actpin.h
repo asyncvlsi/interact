@@ -56,42 +56,6 @@ class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
 */
 
 
-/*------------------------------------------------------------------------
- *
- *  ActNet pointer: a combination of a path to an instance, followed
- *  by the local canonical net.
- * 
- *------------------------------------------------------------------------
- */
-class ActNet {
-public:
-  ActNet (TimingVertexInfo *driver, act_connection *net) {
-    _driver = driver;
-    _net = net;
-  }
-
-  int operator==(ActNet& n) {
-    return (n._net == _net && n._driver == _driver);
-  }
-
-  void Print (FILE *fp) {
-    ActId *tmp;
-    if (_driver) {
-      char *tmp = _driver->getInstPath();
-      fprintf (fp, "%s/", tmp);
-      FREE (tmp);
-    }
-    tmp = _net->toid();
-    tmp->Print (fp);
-    delete tmp;
-  }
-
-private:
-  TimingVertexInfo *_driver;
-  act_connection *_net;		// the net within that root instance
-};
-
-
 class ActPin {
 public:
   ActPin (TimingVertexInfo *net, // this is the timing vertex for the driver
