@@ -136,8 +136,23 @@ int process_timer_info (int argc, char **argv)
     return 0;
   }
 
+  ActId *id = act_string_to_id (argv[1]);
+  if (!id) {
+    fprintf (stderr, "%s: could not parse identifier `%s'", argv[0], argv[1]);
+    return 0;
+  }
+
+  Array *x;
+  if (F.act_toplevel->CurScope()->FullLookup (id, &x) == NULL) {
+    fprintf (stderr, "%s: could not find identifier `%s'", argv[0], argv[1]);
+    return 0;
+  }
+
+  /* -- find connection pointer and scope combo -- */
+
   save_to_log (argc, argv, "s");
 
+  return 1;
 }
 
 

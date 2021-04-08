@@ -666,7 +666,7 @@ static struct LispCliCommand act_cmds[] = {
   { "getchan", "act:getchan [<ns>] - returns list of processes in <ns>",
     process_getproc },
 
-  { "display-type", "act:display-type [<proc>] <name> - display type of <name> in <proc>",
+  { "display-type", "act:display-type [<proc>] <name> - display type of instance <name> in <proc>",
     process_show_type },
 
   { NULL, "ACT dynamic pass management", NULL },

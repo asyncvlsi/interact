@@ -63,7 +63,7 @@ bool ActPinTranslator::isP1LessThanP2 (void * const p1, void * const p2) const
 {
   ActPin *x1 = (ActPin *)p1;
   ActPin *x2 = (ActPin *)p2;
-  if (((unsigned long)x1->getCell()) < ((unsigned long)x2->getCell())) {
+  if (((unsigned long)x1->getInst()) < ((unsigned long)x2->getInst())) {
     return true;
   }
   else {
@@ -81,7 +81,7 @@ bool ActPinTranslator::isSamePin (void * const p1, void * const p2) const
 {
   ActPin *x1 = (ActPin *)p1;
   ActPin *x2 = (ActPin *)p2;
-  return (x1->getCell() == x2->getCell() && x1->getPin() == x2->getPin());
+  return (x1->getInst() == x2->getInst() && x1->getPin() == x2->getPin());
 }
 
 bool ActPinTranslator::isInSameNet (void * const p1, void * const p2) const
@@ -97,7 +97,7 @@ bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
   ActPin *x1 = (ActPin *)p1;
   ActPin *x2 = (ActPin *)p2;
 
-  return (x1->getCell() == x2->getCell());
+  return (x1->getInst() == x2->getInst());
 }
 
 #endif

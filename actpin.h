@@ -70,7 +70,7 @@ public:
   void Print (FILE *fp);
 
   TimingVertexInfo *getNet() { return _driver_vtx; }
-  TimingVertexInfo *getCell() { return _pin_vtx; }
+  TimingVertexInfo *getInst() { return _pin_vtx; }
   act_connection *getPin() { return _pin; }
 
   act_boolean_netlist_t *cellBNL(ActBooleanizePass *p) {

@@ -42,6 +42,8 @@ static struct timing_state {
   galois::eda::asyncsta::AsyncTimingEngine *engine; /* sta engine */
 
   galois::eda::liberty::CellLib *lib; /* used for cycle ratio */
+
+  struct pHashtable *edgeMap;	/* maps TimingEdgeInfo to input pins */
   
 } TS;
 
@@ -59,6 +61,10 @@ static void clear_timer()
     delete TS.engine;
     TS.engine = NULL;
   }
+  if (TS.edgeMap) {
+    phash_free (TS.edgeMap);
+    TS.edgeMap = NULL;
+  }    
   TS.lib = NULL;
 }
 
@@ -198,6 +204,8 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
   A_DECL (ActPin *, cur_gate_pins);
   A_INIT (cur_gate_pins);
+
+  TS.edgeMap = phash_new (32);
     
   for (int i=0; i < gr->numVertices(); i += 2) {
     AGvertex *vdn = gr->getVertex (i);
@@ -252,7 +260,10 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       /* create a new pin for this net, hooked up to pin "pinname" of
 	 the "gate_out" vertex */
 
-      ap = new ActPin (drv_pin->getNet(), gate_out->getCell(), pinname);
+      ap = new ActPin (drv_pin->getNet(), gate_out->getInst(), pinname);
+
+      phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
+      act_pin->v = ap;
 		       
       engine->addLoadPin (ap);
       //printf ("add load pin: "); actpin_print (ap);
@@ -342,7 +353,10 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	  pinid--;
 	}
 	Assert (pinname, "Can't find pin?");
-	ap = new ActPin (drv_pin->getNet(), gate_out->getCell(), pinname);
+	ap = new ActPin (drv_pin->getNet(), gate_out->getInst(), pinname);
+
+	phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
+	act_pin->v = ap;
 
 	engine->addLoadPin (ap);
 #if 0	
@@ -477,5 +491,7 @@ const char *timer_run (void)
 
   return NULL;
 }
+
+
 
 #endif
