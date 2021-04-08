@@ -522,6 +522,8 @@ static int process_namespace_list (int argc, char **argv)
   list_t *l = g->getSubNamespaces();
   listitem_t *li;
 
+  save_to_log (argc, argv, "s");
+  
   LispSetReturnListStart ();
 
   for (li = list_first (l); li; li = list_next (li)) {
@@ -561,6 +563,8 @@ static int process_getproc (int argc, char **argv)
   else {
     l = g->getChanList ();
   }
+
+  save_to_log (argc, argv, "s");
   
   listitem_t *li;
 
@@ -576,6 +580,55 @@ static int process_getproc (int argc, char **argv)
   list_free (l);
   
   return 5;
+}
+
+
+static int process_show_type (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, argc == 2 ? 2 : 3, "[<proc>] <name>", STATE_EXPANDED)) {
+    return 0;
+  }
+  Process *x;
+  if (argc == 2) {
+    if (!F.act_toplevel) {
+      fprintf (stderr, "%s: default process is -top-level-, but that is not set\n", argv[0]);
+      return 0;
+    }
+    x = F.act_toplevel;
+  }
+  else {
+    x = F.act_design->findProcess (argv[1]);
+    if (!x) {
+      fprintf (stderr, "%s: process `%s' not found\n", argv[0], argv[1]);
+      return 0;
+    }
+  }
+
+  ActId *tmp = act_string_to_id (argv[argc-1]);
+  if (!tmp) {
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[argc-1]);
+  }
+
+  Array *ar;
+  InstType *it;
+  it = x->CurScope()->FullLookup (tmp, &ar);
+  if (!it) {
+    fprintf (stderr, "%s: could not find id `%s' in `%s'\n", argv[0], argv[argc-1], x->getName());
+    return 0;
+  }
+
+  printf ("In `%s', %s: ", x->getName(), argv[argc-1]);
+  if (ar) {
+    printf ("deref: ");
+    ar->Print (stdout);
+    printf ("; ");
+  }
+  it->Print (stdout);
+  printf ("\n");
+    
+  save_to_log (argc, argv, "ss");
+  
+  return 1;
 }
 
 
@@ -602,7 +655,7 @@ static struct LispCliCommand act_cmds[] = {
   { NULL, "ACT design query API", NULL },
   { "save-insts", "act:save-insts <file> - save circuit instance hierarchy to file",
     process_des_insts },
-  { "typeinfo", "act:typeinfo <name> - print type signature of a user-defined type",
+  { "typesig", "act:typesig <name> - print type signature of a user-defined type",
     process_type_info },
   { "getns", "act:getns [<ns>] - returns list of sub-namespaces within <ns>",
     process_namespace_list },
@@ -612,7 +665,9 @@ static struct LispCliCommand act_cmds[] = {
     process_getproc },
   { "getchan", "act:getchan [<ns>] - returns list of processes in <ns>",
     process_getproc },
-  
+
+  { "display-type", "act:display-type [<proc>] <name> - display type of <name> in <proc>",
+    process_show_type },
 
   { NULL, "ACT dynamic pass management", NULL },
   { "pass:load", "act:pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
