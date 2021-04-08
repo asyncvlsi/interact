@@ -420,6 +420,12 @@ void *ActDesignHier::local_op (Process *p, int mode)
   return NULL;
 }
 
+/*------------------------------------------------------------------------
+ *
+ * Save design hierarchy to a file
+ *
+ *------------------------------------------------------------------------
+ */
 int process_des_insts (int argc, char **argv)
 {
   FILE *fp;
@@ -446,6 +452,135 @@ int process_des_insts (int argc, char **argv)
 
 /*------------------------------------------------------------------------
  *
+ *  Display type signature
+ *
+ *------------------------------------------------------------------------
+ */
+static int process_type_info (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<typename>", STATE_EXPANDED)) {
+    return 0;
+  }
+  UserDef *u = F.act_design->findUserdef (argv[1]);
+
+  if (!u) {
+    fprintf (stderr, "%s: could not find user-defined type `%s'", argv[0],
+	     argv[1]);
+    return 0;
+  }
+
+  if (TypeFactory::isProcessType (u)) {
+    u->PrintHeader (stdout, "defproc");
+  }
+  else if (TypeFactory::isChanType (u)) {
+    u->PrintHeader (stdout, "defchan");
+  }
+  else if (TypeFactory::isDataType (u)) {
+    u->PrintHeader (stdout, "deftype");
+  }
+  else if (TypeFactory::isFuncType (u)) {
+    Function *f = dynamic_cast<Function *> (u);
+    Assert (f, "Hmm");
+    u->PrintHeader (stdout, "function");
+    printf (" : ");
+    f->getRetType()->Print (stdout);
+  }
+  else {
+    fatal_error ("What happened?");
+  }
+  printf ("\n");
+
+  if (u->isExpanded()) {
+    printf (" --> expanded type\n");
+  }
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
+
+static int process_namespace_list (int argc, char **argv)
+{
+  if (argc == 2) {
+    if (!std_argcheck (argc, argv, 2, "[<ns>]", STATE_EXPANDED)) {
+      return 0;
+    }
+  }
+  else {
+    if (!std_argcheck (argc, argv, 1, "[<ns>]", STATE_EXPANDED)) {
+      return 0;
+    }
+  }
+  ActNamespace *g = F.act_design->Global();
+  if (argc == 2) {
+    g = F.act_design->findNamespace (argv[1]);
+    if (!g) {
+      fprintf (stderr, "%s: could not find namespace `%s'\n", argv[0], argv[1]);
+      return 0;
+    }
+  }
+  list_t *l = g->getSubNamespaces();
+  listitem_t *li;
+
+  LispSetReturnListStart ();
+
+  for (li = list_first (l); li; li = list_next (li)) {
+    char *tmp = (char *) list_value (li);
+    LispAppendReturnString (tmp);
+  }
+
+  LispSetReturnListEnd ();
+
+  list_free (l);
+  
+  return 5;
+}
+
+static int process_getproc (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[<ns>]", STATE_EXPANDED)) {
+    return 0;
+  }
+  ActNamespace *g = F.act_design->Global();
+  if (argc == 2) {
+    g = F.act_design->findNamespace (argv[1]);
+    if (!g) {
+      fprintf (stderr, "%s: could not find namespace `%s'\n", argv[0], argv[1]);
+      return 0;
+    }
+  }
+  list_t *l;
+  char x = argv[0][strlen(argv[0])-1];
+  
+  if (x == 'c') {
+    l = g->getProcList ();
+  }
+  else if (x == 'a') {
+    l = g->getDataList ();
+  }
+  else {
+    l = g->getChanList ();
+  }
+  
+  listitem_t *li;
+
+  LispSetReturnListStart ();
+
+  for (li = list_first (l); li; li = list_next (li)) {
+    char *tmp = (char *) list_value (li);
+    LispAppendReturnString (tmp);
+  }
+
+  LispSetReturnListEnd ();
+
+  list_free (l);
+  
+  return 5;
+}
+
+
+/*------------------------------------------------------------------------
+ *
  * All core ACT commands
  *
  *------------------------------------------------------------------------
@@ -467,6 +602,17 @@ static struct LispCliCommand act_cmds[] = {
   { NULL, "ACT design query API", NULL },
   { "save-insts", "act:save-insts <file> - save circuit instance hierarchy to file",
     process_des_insts },
+  { "typeinfo", "act:typeinfo <name> - print type signature of a user-defined type",
+    process_type_info },
+  { "getns", "act:getns [<ns>] - returns list of sub-namespaces within <ns>",
+    process_namespace_list },
+  { "getproc", "act:getproc [<ns>] - returns list of processes in <ns>",
+    process_getproc },
+  { "getdata", "act:getdata [<ns>] - returns list of processes in <ns>",
+    process_getproc },
+  { "getchan", "act:getchan [<ns>] - returns list of processes in <ns>",
+    process_getproc },
+  
 
   { NULL, "ACT dynamic pass management", NULL },
   { "pass:load", "act:pass:load <dylib> <pass-name> <prefix> - load a dynamic ACT pass",
