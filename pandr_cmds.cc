@@ -296,6 +296,13 @@ int process_timer_constraint (int argc, char **argv)
   
   timer_get_period (&p, &M);
 
+  int tmp = tg->numConstraints();
+  int nzeros = 0;
+  while (tmp > 0) {
+    nzeros++;
+    tmp /= 10;
+  }
+
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
     c = tg->getConstraint (i);
@@ -344,6 +351,9 @@ int process_timer_constraint (int argc, char **argv)
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
 
+	printf ("[%*d/%*d] %s -> %s\n", nzeros, i+1, nzeros,
+		tg->numConstraints(), buf1, buf2);
+	
 	for (int i=0; i < M; i++) {
 	  int j;
 	  double adj;
@@ -354,22 +364,28 @@ int process_timer_constraint (int argc, char **argv)
 	  }
 	  else if (c->from_tick) {
 	    j = (i+M-1) % M;
-	    if (M == 1) {
-	      adj = -p;
+	    if (j >= i) {
+	      adj = -M*p;
 	    }
 	  }
 	  else {
 	    j = (i+1) % M;
-	    if (M == 1) {
-	      adj = p;
+	    if (j <= i) {
+	      adj = M*p;
 	    }
 	  }
-	  printf ("iter %2d: %s -> %s: ", i, buf1, buf2);
+	  printf ("\titer %2d: ", i);
 	  
 	  for (int ii=0; ii < nfrom; ii++) {
 	    for (int jj=0; jj < nto; jj++) {
-	      double x = - ti[0][from_dirs[ii]]->arr[i] +
-		ti[1][to_dirs[jj]]->arr[j] + adj;
+	      double tsrc, tdst;
+
+	      tsrc = ti[0][from_dirs[ii]]->arr[i];
+	      tdst = ti[1][to_dirs[jj]]->arr[j];
+
+	      /* XXX: this isn't right... */
+	      double x = tdst - tsrc + adj;
+
 	      printf (" %g%c%c", my_round_2 (x),
 		      from_dirs[ii] ? '+' : '-',
 		      to_dirs[jj] ? '+' : '-');
