@@ -21,10 +21,12 @@
  */
 #include <stdio.h>
 #include <act/passes.h>
+#include <common/list.h>
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
 #include "flow.h"
+#include "actpin.h"
 
 #ifdef FOUND_galois_eda
 
@@ -81,7 +83,7 @@ int process_timer_init (int argc, char **argv)
   }
   
   const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
-                      args, A_LEN (args));
+				       args, A_LEN (args));
   
   if (msg) {
     fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
@@ -125,6 +127,13 @@ int process_timer_run (int argc, char **argv)
 }
 
 
+static double my_round (double d)
+{
+  d = d*1e5 + 0.5;
+  d = ((int)d)/1.0e5;
+  return d;
+}
+  
 int process_timer_info (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
@@ -136,20 +145,80 @@ int process_timer_info (int argc, char **argv)
     return 0;
   }
 
-  ActId *id = act_string_to_id (argv[1]);
+  if (!F.sp) {
+    ActPass *ap = F.act_design->pass_find ("collect_state");
+    if (!ap) {
+      fprintf (stderr, "Internal error: state pass missing but timer present?\n");
+      return 0;
+    }
+    F.sp = dynamic_cast<ActStatePass *> (ap);
+    Assert (F.sp, "What?");
+  }
+
+  ActId *id = ActId::parseId (argv[1]);
   if (!id) {
-    fprintf (stderr, "%s: could not parse identifier `%s'", argv[0], argv[1]);
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
     return 0;
   }
 
   Array *x;
-  if (F.act_toplevel->CurScope()->FullLookup (id, &x) == NULL) {
-    fprintf (stderr, "%s: could not find identifier `%s'", argv[0], argv[1]);
+  InstType *itx;
+
+  /* -- validate the type of this identifier -- */
+  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
+  if (itx == NULL) {
+    fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+  if (!TypeFactory::isBoolType (itx)) {
+    fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
+    itx->Print (stderr);
+    fprintf (stderr, ")\n");
+    return 0;
+  }
+  if (itx->arrayInfo() && (!x || !x->isDeref())) {
+    fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
     return 0;
   }
 
-  /* -- find connection pointer and scope combo -- */
+  /* -- check all the de-references are valid -- */
+  if (!id->validateDeref (F.act_toplevel->CurScope())) {
+    fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
+    return 0;
+  }
 
+  int goff = F.sp->globalBoolOffset (id);
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  Assert (tg, "What?");
+
+  int vid = 2*(tg->globOffset() + goff);
+
+  list_t *l = timer_query (vid);
+
+  if (l) {
+    listitem_t *li;
+    double p;
+    int M;
+
+    timer_get_period (&p, &M);
+
+    for (li = list_first (l); li; li = list_next (li)) {
+      struct timing_info *ti = (struct timing_info *) list_value (li);
+      char buf[10240];
+
+      ti->pin->sPrintFullName (buf, 10240);
+      printf ("%s%c (%s)\n", buf, ti->dir ? '+' : '-',
+	      ti->dir ? "rise" : "fall");
+      for (int i=0; i < M; i++) {
+	printf ("\titer %2d: arr: %g; req: %g; slk: %g\n", i,
+		ti->arr[i], ti->req[i], my_round (ti->req[i]-ti->arr[i]));
+      }
+      delete ti;
+    }
+    list_free (l);
+  }
+  
   save_to_log (argc, argv, "s");
 
   return 1;

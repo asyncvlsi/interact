@@ -83,6 +83,7 @@ struct flow_state {
   Process *act_toplevel;	/* Top-level module */
 
   ActStatePass *sp;
+  ActDynamicPass *tp;		/* timing, if exists */
 };
 
 extern flow_state F;

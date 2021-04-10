@@ -604,7 +604,7 @@ static int process_show_type (int argc, char **argv)
     }
   }
 
-  ActId *tmp = act_string_to_id (argv[argc-1]);
+  ActId *tmp = ActId::parseId (argv[argc-1]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[argc-1]);
   }

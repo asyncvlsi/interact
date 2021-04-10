@@ -100,8 +100,6 @@ bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
   return (x1->getInst() == x2->getInst());
 }
 
-#endif
-
 /* -- printing functions -- */
 
 void ActPin::Print (FILE *fp)
@@ -138,3 +136,6 @@ void ActPin::sPrintFullName (char *buf, int sz)
   FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));
 }
+
+#endif
+

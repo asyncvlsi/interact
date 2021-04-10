@@ -23,9 +23,34 @@
 #define __GALOIS_CMDS_H__
 
 #include <act/act.h>
+#include "config_pkg.h"
 
 void *read_lib_file (const char *file);
 const char *timing_graph_init (Act *a, Process *p, int *lib_id, int nlibs);
 const char *timer_run (void);
+void timer_get_period (double *p, int *M);
+
+#ifdef FOUND_galois_eda
+
+#include "actpin.h"
+#include "galois/eda/asyncsta/AsyncTimingEngine.h"
+
+class timing_info {
+ public:
+  /* array of arrival times and required times */
+  timing_info ();
+  ~timing_info();
+
+  void populate (ActPin *p, galois::eda::utility::TransitionMode m);
+  
+  double *arr;
+  double *req;
+  ActPin *pin;
+  int dir;
+};
+
+list_t *timer_query (int vid);
+
+#endif
 
 #endif /* __GALOIS_CMDS_H__ */

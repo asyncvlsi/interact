@@ -44,8 +44,6 @@ class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
   bool isInSameInst (void * const p1, void * const p2) const;
 };
 
-#endif
-
 /*
   Pins can be inputs or outputs of gates
   
@@ -54,7 +52,6 @@ class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
   An input pin and output pin of a gate has two timingvertexinfo * associated with it
   (for rise and fall)
 */
-
 
 class ActPin {
 public:
@@ -94,5 +91,6 @@ private:
   act_connection *_pin;
 };
 
+#endif
 
 #endif /* __ACTPIN_H__ */

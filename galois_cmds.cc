@@ -20,6 +20,7 @@
  **************************************************************************
  */
 #include "config_pkg.h"
+#include "flow.h"
 
 #ifdef FOUND_galois_eda
 
@@ -34,8 +35,6 @@
 #include "actpin.h"
 
 static struct timing_state {
-  ActDynamicPass *dp;		/* timing graph pass */
-  
   ActPinTranslator *apt;	/* pin translator between ACT and
 				   timer */
 
@@ -43,15 +42,20 @@ static struct timing_state {
 
   galois::eda::liberty::CellLib *lib; /* used for cycle ratio */
 
-  struct pHashtable *edgeMap;	/* maps TimingEdgeInfo to input pins */
+  struct pHashtable *edgeMap;	/* maps TimingEdgeInfo to input pins
+				   */
+  int M;
+  double p;
+
+  TaggedTG *tg;
   
 } TS;
 
 static void clear_timer()
 {
-  if (TS.dp) {
-    delete TS.dp;
-    TS.dp = NULL;
+  if (F.tp) {
+    delete F.tp;
+    F.tp = NULL;
   }
   if (TS.apt) {
     delete TS.apt;
@@ -66,6 +70,7 @@ static void clear_timer()
     TS.edgeMap = NULL;
   }    
   TS.lib = NULL;
+  TS.tg = NULL;
 }
 
 static void init (int mode = 0)
@@ -75,7 +80,6 @@ static void init (int mode = 0)
   if (mode == 0) {
     if (!g) {
       g = new galois::SharedMemSys;
-      TS.dp = NULL;
       TS.apt = NULL;
       TS.engine = NULL;
     }
@@ -144,6 +148,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   }
   
   TaggedTG *gr = (TaggedTG *) tg->getMap (p);
+  TS.tg = gr;
   
   ActBooleanizePass *bp =
     dynamic_cast<ActBooleanizePass *> (tg->getPass ("booleanize"));
@@ -264,6 +269,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
       phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
       act_pin->v = ap;
+      //printf ("add pin to %p (src=%d, dst=%d)\n", ei, be->src, be->dst);
 		       
       engine->addLoadPin (ap);
       //printf ("add load pin: "); actpin_print (ap);
@@ -357,6 +363,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
 	phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
 	act_pin->v = ap;
+	//printf ("add pin to %p (src=%d, dst=%d)\n", ei, be->src, be->dst);
 
 	engine->addLoadPin (ap);
 #if 0	
@@ -431,12 +438,12 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     return "no timing graph found";
   }
 
-  if (TS.dp) {
+  if (F.tp) {
     return "timing graph already initialized";
   }
 
-  TS.dp = dynamic_cast<ActDynamicPass *> (ap);
-  Assert (TS.dp, "What?");
+  F.tp = dynamic_cast<ActDynamicPass *> (ap);
+  Assert (F.tp, "What?");
 
   /* -- add cell library -- */
   galois::eda::liberty::CellLib **libs;
@@ -485,13 +492,130 @@ const char *timer_run (void)
   TS.engine->computeTiming4Pins();
 
   LispSetReturnListStart ();
+
   LispAppendReturnFloat (stats.first);
+  TS.p = stats.first;
+  
   LispAppendReturnInt (stats.second);
+  TS.M = stats.second;
+  
   LispSetReturnListEnd ();
 
   return NULL;
 }
 
+timing_info::timing_info ()
+{
+  pin = NULL;
+  MALLOC (arr, double, TS.M);
+  MALLOC (req, double, TS.M);
+  for (int i=0; i < TS.M; i++) {
+    arr[i] = 0;
+    req[i] = 0;
+  }
+  dir = -1;
+}
 
+timing_info::~timing_info ()
+{
+  FREE (arr);
+  FREE (req);
+}
+
+void timing_info::populate (ActPin *p,
+			    galois::eda::utility::TransitionMode mode)
+{
+  pin = p;
+
+  auto maxmode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
+  
+  for (int i=0; i < TS.M; i++) {
+    arr[i] = TS.engine->getPinArrv (p, mode, TS.lib, maxmode, i);
+    req[i] = TS.engine->getPinReq (p, mode, TS.lib, maxmode, i);
+  }
+
+  if (mode == galois::eda::utility::TransitionMode::TRANS_RISE) {
+    dir = 1;
+  }
+  else {
+    dir = 0;
+  }
+}
+
+
+
+void timer_get_period (double *p, int *M)
+{
+  if (!TS.engine) {
+    return;
+  }
+  if (p) {
+    *p = TS.p;
+  }
+  if (M) {
+    *M = TS.M;
+  }
+}
+
+
+/*
+ *  Vertex for driver (which is the net)
+ *  Returns a list of (arrival time, required time)
+ */
+list_t *timer_query (int vid)
+{
+  list_t *l;
+  AGvertex *v = TS.tg->getVertex (vid);
+  TimingVertexInfo *di = (TimingVertexInfo *) v->getInfo();
+  timing_info *ti;
+  if (!di) {
+    /* no driver, external signal, no info */
+    return NULL;
+  }
+
+  ActPin *p = (ActPin *) di->getSpace ();
+  if (!p) {
+    /* ok this is weird */
+    return NULL;
+  }
+
+  l = list_new ();
+
+  using TransMode = galois::eda::utility::TransitionMode;
+
+  ti = new timing_info ();
+  ti->populate (p, TransMode::TRANS_RISE);
+  list_append (l, ti);
+
+  ti = new timing_info ();
+  ti->populate (p, TransMode::TRANS_FALL);
+  list_append (l, ti);
+  
+  AGvertexFwdIter fw(TS.tg, (vid | 1));
+  for (fw = fw.begin(); fw != fw.end(); fw++) {
+    AGedge *e = (*fw);
+    phash_bucket_t *b;
+    TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+
+    b = phash_lookup (TS.edgeMap, ei);
+    
+    if (!b) {
+      warning ("could not find one of the pins for this net");
+    }
+    else {
+      p = (ActPin *)b->v;
+
+      ti = new timing_info ();
+      ti->populate (p, TransMode::TRANS_RISE);
+      list_append (l, ti);
+
+      ti = new timing_info ();
+      ti->populate (p, TransMode::TRANS_FALL);
+      list_append (l, ti);
+    }
+  }
+
+  return l;
+}
 
 #endif

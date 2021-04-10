@@ -87,6 +87,8 @@ int ptr_unregister (const char *tag, int idx)
   struct ptr_entries *e;
   phash_bucket_t *pb;
 
+  init ();
+  
   b = hash_lookup (tag_hash, tag);
   if (!b) {
     return -1;
@@ -114,6 +116,8 @@ void *ptr_get (const char *tag, int idx)
   struct ptr_entries *e;
   phash_bucket_t *pb;
 
+  init ();
+  
   b = hash_lookup (tag_hash, tag);
   if (!b) {
     return NULL;

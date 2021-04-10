@@ -164,6 +164,7 @@ void flow_init (void)
   F.ckt_gen = 0;
   F.timer = 0;
   F.sp = NULL;
+  F.tp = NULL;
 
   F.act_design = NULL;
   F.act_toplevel = NULL;
