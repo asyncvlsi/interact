@@ -133,6 +133,13 @@ static double my_round (double d)
   d = ((int)d)/1.0e5;
   return d;
 }
+
+static double my_round_2 (double d)
+{
+  d = d*1e2 + 0.5;
+  d = ((int)d)/1.0e2;
+  return d;
+}
   
 int process_timer_info (int argc, char **argv)
 {
@@ -214,15 +221,173 @@ int process_timer_info (int argc, char **argv)
 	printf ("\titer %2d: arr: %g; req: %g; slk: %g\n", i,
 		ti->arr[i], ti->req[i], my_round (ti->req[i]-ti->arr[i]));
       }
-      delete ti;
     }
-    list_free (l);
+  }
+  timer_query_free (l);
+  
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
+
+int process_timer_constraint (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return 0;
+  }
+
+  if (!F.sp) {
+    ActPass *ap = F.act_design->pass_find ("collect_state");
+    if (!ap) {
+      fprintf (stderr, "Internal error: state pass missing but timer present?\n");
+      return 0;
+    }
+    F.sp = dynamic_cast<ActStatePass *> (ap);
+    Assert (F.sp, "What?");
+  }
+
+  ActId *id = ActId::parseId (argv[1]);
+  if (!id) {
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  Array *x;
+  InstType *itx;
+
+  /* -- validate the type of this identifier -- */
+  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
+  if (itx == NULL) {
+    fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+  if (!TypeFactory::isBoolType (itx)) {
+    fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
+    itx->Print (stderr);
+    fprintf (stderr, ")\n");
+    return 0;
+  }
+  if (itx->arrayInfo() && (!x || !x->isDeref())) {
+    fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  /* -- check all the de-references are valid -- */
+  if (!id->validateDeref (F.act_toplevel->CurScope())) {
+    fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  int goff = F.sp->globalBoolOffset (id);
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  Assert (tg, "What?");
+
+  int vid = 2*(tg->globOffset() + goff);
+
+  int M;
+  double p;
+  
+  timer_get_period (&p, &M);
+
+  for (int i=0; i < tg->numConstraints(); i++) {
+    TaggedTG::constraint *c;
+    c = tg->getConstraint (i);
+    if (c->root == vid) {
+      /* found a constraint! */
+      int from_dirs[2];
+      int to_dirs[2];
+      int nfrom, nto;
+      char from_char, to_char;
+	  
+      if (c->from_dir == 0) {
+	from_dirs[0] = 0;
+	from_dirs[1] = 1;
+	nfrom = 2;
+	from_char = ' ';
+      }
+      else {
+	nfrom = 1;
+	from_dirs[0] = (c->from_dir == 1 ? 1 : 0);
+	from_char = (c->from_dir == 1 ? '+' : '-');
+      }
+      if (c->to_dir == 0) {
+	to_dirs[0] = 0;
+	to_dirs[1] = 1;
+	nto = 2;
+	to_char = ' ';
+      }
+      else {
+	nto = 1;
+	to_dirs[0] = (c->to_dir == 1 ? 1 : 0);
+	to_char = (c->to_dir == 1 ? '+' : '-');
+      }
+      
+      list_t *l[2];
+      l[0] = timer_query_driver (c->from);
+      l[1] = timer_query_driver (c->to);
+      
+      if (l[0] && l[1]) {
+	timing_info *ti[2][2];
+	for (int i=0; i < 2; i++) {
+	  ti[i][0] = (timing_info *) list_value (list_first (l[i]));
+	  ti[i][1] = (timing_info *) list_value (list_next (list_first (l[i])));
+	}
+
+	char buf1[1024],  buf2[1024];
+	ti[0][0]->pin->sPrintFullName (buf1, 1024);
+	ti[1][0]->pin->sPrintFullName (buf2, 1024);
+
+	for (int i=0; i < M; i++) {
+	  int j;
+	  double adj;
+
+	  adj = 0;
+	  if (c->from_tick == c->to_tick) {
+	    j = i;
+	  }
+	  else if (c->from_tick) {
+	    j = (i+M-1) % M;
+	    if (M == 1) {
+	      adj = -p;
+	    }
+	  }
+	  else {
+	    j = (i+1) % M;
+	    if (M == 1) {
+	      adj = p;
+	    }
+	  }
+	  printf ("iter %2d: %s -> %s: ", i, buf1, buf2);
+	  
+	  for (int ii=0; ii < nfrom; ii++) {
+	    for (int jj=0; jj < nto; jj++) {
+	      double x = - ti[0][from_dirs[ii]]->arr[i] +
+		ti[1][to_dirs[jj]]->arr[j] + adj;
+	      printf (" %g%c%c", my_round_2 (x),
+		      from_dirs[ii] ? '+' : '-',
+		      to_dirs[jj] ? '+' : '-');
+	    }
+	  }
+	  printf ("\n");
+	}
+      }
+      timer_query_free (l[0]);
+      timer_query_free (l[1]);
+    }
   }
   
   save_to_log (argc, argv, "s");
 
   return 1;
 }
+
 
 
 static struct LispCliCommand timer_cmds[] = {
@@ -236,8 +401,11 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_run },
 
   { "info", "timer:info <net> - display information about the net",
-    process_timer_info }
+    process_timer_info },
 
+  { "constraint", "timer:constraint <root> - display information about all constraints rooted at <root>",
+    process_timer_constraint }
+  
 };
 
 #endif

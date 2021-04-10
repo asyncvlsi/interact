@@ -131,7 +131,7 @@ void ActPin::sPrintCellType (char *buf, int sz)
 
 void ActPin::sPrintFullName (char *buf, int sz)
 {
-  char *tmp = _pin_vtx->getInstPath ();
+  char *tmp = _pin_vtx->getFullInstPath ();
   snprintf (buf, 10240, "%s:", tmp);
   FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));

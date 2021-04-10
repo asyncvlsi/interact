@@ -51,6 +51,11 @@ class timing_info {
 
 list_t *timer_query (int vid);
 
+/* returns nothing, or two timing_info * objects: fall followed by rise */
+list_t *timer_query_driver (int vid);
+
+void timer_query_free (list_t *l);
+
 #endif
 
 #endif /* __GALOIS_CMDS_H__ */

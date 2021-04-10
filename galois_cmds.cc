@@ -584,11 +584,11 @@ list_t *timer_query (int vid)
   using TransMode = galois::eda::utility::TransitionMode;
 
   ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_RISE);
+  ti->populate (p, TransMode::TRANS_FALL);
   list_append (l, ti);
 
   ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_FALL);
+  ti->populate (p, TransMode::TRANS_RISE);
   list_append (l, ti);
   
   AGvertexFwdIter fw(TS.tg, (vid | 1));
@@ -606,16 +606,65 @@ list_t *timer_query (int vid)
       p = (ActPin *)b->v;
 
       ti = new timing_info ();
-      ti->populate (p, TransMode::TRANS_RISE);
+      ti->populate (p, TransMode::TRANS_FALL);
       list_append (l, ti);
 
       ti = new timing_info ();
-      ti->populate (p, TransMode::TRANS_FALL);
+      ti->populate (p, TransMode::TRANS_RISE);
       list_append (l, ti);
     }
   }
 
   return l;
+}
+
+/*
+ *  Vertex for driver (which is the net)
+ *  Returns a list of (arrival time, required time)
+ */
+list_t *timer_query_driver (int vid)
+{
+  list_t *l;
+  AGvertex *v = TS.tg->getVertex (vid);
+  TimingVertexInfo *di = (TimingVertexInfo *) v->getInfo();
+  timing_info *ti;
+  if (!di) {
+    /* no driver, external signal, no info */
+    return NULL;
+  }
+
+  ActPin *p = (ActPin *) di->getSpace ();
+  if (!p) {
+    /* ok this is weird */
+    return NULL;
+  }
+
+  l = list_new ();
+
+  using TransMode = galois::eda::utility::TransitionMode;
+
+  ti = new timing_info ();
+  ti->populate (p, TransMode::TRANS_FALL);
+  list_append (l, ti);
+
+  ti = new timing_info ();
+  ti->populate (p, TransMode::TRANS_RISE);
+  list_append (l, ti);
+
+  return l;
+}
+
+void timer_query_free (list_t *l)
+{
+  if (!l) {
+    return;
+  }
+  listitem_t *li;
+  for (li = list_first (l); li; li = list_next (li)) {
+    timing_info *ti = (timing_info *) list_value (li);
+    delete ti;
+  }
+  list_free (l);
 }
 
 #endif
