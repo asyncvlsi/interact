@@ -233,7 +233,7 @@ int process_timer_info (int argc, char **argv)
 
 int process_timer_constraint (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[<net>]", STATE_EXPANDED)) {
     return 0;
   }
 
@@ -252,44 +252,57 @@ int process_timer_constraint (int argc, char **argv)
     Assert (F.sp, "What?");
   }
 
-  ActId *id = ActId::parseId (argv[1]);
-  if (!id) {
-    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
-    return 0;
-  }
+  int goff;
+  
+  if (argc == 2) {
+    ActId *id = ActId::parseId (argv[1]);
+    if (!id) {
+      fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
+      return 0;
+    }
 
-  Array *x;
-  InstType *itx;
+    Array *x;
+    InstType *itx;
 
-  /* -- validate the type of this identifier -- */
-  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
-  if (itx == NULL) {
-    fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
-    return 0;
-  }
-  if (!TypeFactory::isBoolType (itx)) {
-    fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
-    itx->Print (stderr);
-    fprintf (stderr, ")\n");
-    return 0;
-  }
-  if (itx->arrayInfo() && (!x || !x->isDeref())) {
-    fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
-    return 0;
-  }
+    /* -- validate the type of this identifier -- */
+    itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
+    if (itx == NULL) {
+      fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
+      return 0;
+    }
+    if (!TypeFactory::isBoolType (itx)) {
+      fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
+      itx->Print (stderr);
+      fprintf (stderr, ")\n");
+      return 0;
+    }
+    if (itx->arrayInfo() && (!x || !x->isDeref())) {
+      fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
+      return 0;
+    }
 
-  /* -- check all the de-references are valid -- */
-  if (!id->validateDeref (F.act_toplevel->CurScope())) {
-    fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
-    return 0;
-  }
+    /* -- check all the de-references are valid -- */
+    if (!id->validateDeref (F.act_toplevel->CurScope())) {
+      fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
+      return 0;
+    }
 
-  int goff = F.sp->globalBoolOffset (id);
+    goff = F.sp->globalBoolOffset (id);
+  }
+  else {
+    goff = 0;
+  }
 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
   Assert (tg, "What?");
 
-  int vid = 2*(tg->globOffset() + goff);
+  int vid;
+  if (argc != 1) {
+    vid = 2*(tg->globOffset() + goff);
+  }
+  else {
+    vid = -1;
+  }
 
   int M;
   double p;
@@ -306,7 +319,7 @@ int process_timer_constraint (int argc, char **argv)
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
     c = tg->getConstraint (i);
-    if (c->root == vid) {
+    if (vid == -1 || (c->root == vid || c->from == vid || c->to == vid)) {
       /* found a constraint! */
       int from_dirs[2];
       int to_dirs[2];
@@ -419,7 +432,7 @@ static struct LispCliCommand timer_cmds[] = {
   { "info", "timer:info <net> - display information about the net",
     process_timer_info },
 
-  { "constraint", "timer:constraint <root> - display information about all constraints rooted at <root>",
+  { "constraint", "timer:constraint [<net>] - display information about all timing forks that involve <net>",
     process_timer_constraint }
   
 };
