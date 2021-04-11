@@ -274,16 +274,16 @@ static int process_conf_set_default_string (int argc, char **argv)
 
 static struct LispCliCommand conf_cmds[] = {
   { NULL, "Configuration parameters", NULL },
-  { "gettype", "conf:gettype <name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
-  { "set_int", "conf:get_int <name> <val> - set integer config parameter", process_conf_set_int },
-  { "set_string", "conf:set_string <name> <val> - set string config parameter", process_conf_set_string },
-  { "set_real", "conf:set_real <name> <val> - set real config parameter", process_conf_set_real },
-  { "set_default_int", "conf:set_default_int <name> <val> - set default integer config parameter", process_conf_set_int },
-  { "set_default_string", "conf:set_default_string <name> <val> - set default string config parameter", process_conf_set_string },
-  { "set_default_real", "conf:set_default_real <name> <val> - set default real config parameter", process_conf_set_real },
-  { "get_int", "conf:set_int <name> - return integer config parameter", process_conf_get_int },
-  { "get_string", "conf:get_string <name> - get string config parameter", process_conf_get_string },
-  { "get_real", "conf:get_real <name> - get real config parameter", process_conf_get_real }
+  { "gettype", "<name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
+  { "set_int", "<name> <val> - set integer config parameter", process_conf_set_int },
+  { "set_string", "<name> <val> - set string config parameter", process_conf_set_string },
+  { "set_real", "<name> <val> - set real config parameter", process_conf_set_real },
+  { "set_default_int", "<name> <val> - set default integer config parameter", process_conf_set_int },
+  { "set_default_string", "<name> <val> - set default string config parameter", process_conf_set_string },
+  { "set_default_real", "<name> <val> - set default real config parameter", process_conf_set_real },
+  { "get_int", "<name> - return integer config parameter", process_conf_get_int },
+  { "get_string", "<name> - get string config parameter", process_conf_get_string },
+  { "get_real", "<name> - get real config parameter", process_conf_get_real }
 };
 
 

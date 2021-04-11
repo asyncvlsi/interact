@@ -265,25 +265,25 @@ static int process_cell_save (int argc, char **argv)
 
 static struct LispCliCommand ckt_cmds[] = {
   { NULL, "ACT circuit generation", NULL },
-  { "map", "ckt:map - generate transistor-level description",
+  { "map", "- generate transistor-level description",
     process_ckt_map },
-  { "save-sp", "ckt:save-sp <file> - save SPICE netlist to <file>",
+  { "save-sp", "<file> - save SPICE netlist to <file>",
     process_ckt_save_sp },
-  { "mk-nets", "ckt:mk-nets - preparation for DEF generation",
+  { "mk-nets", "- preparation for DEF generation",
     process_ckt_mknets },
-  { "save-prs", "ckt:save-prs <file> - save flat production rule set to <file> for simulation",
+  { "save-prs", "<file> - save flat production rule set to <file> for simulation",
     process_ckt_save_prs },
-  { "save-lvp", "ckt:save-lprs <file> - save flat production rule set to <file> for lvp",
+  { "save-lvp", "<file> - save flat production rule set to <file> for lvp",
     process_ckt_save_lvp },
-  { "save-sim", "ckt:save-sim <file-prefix> - save flat .sim/.al file",
+  { "save-sim", "<file-prefix> - save flat .sim/.al file",
     process_ckt_save_sim },
-  { "save-vnet", "ckt:save-vnet <file> - save Verilog netlist to <file>",
+  { "save-vnet", "<file> - save Verilog netlist to <file>",
     process_ckt_save_v },
   
 
   { NULL, "ACT cell mapper", NULL },
-  { "cell-map", "ckt:cell-map - map gates to cell library", process_cell_map },
-  { "cell-save", "ckt:cell-save <file> - save cells to file", process_cell_save }
+  { "cell-map", "- map gates to cell library", process_cell_map },
+  { "cell-save", "<file> - save cells to file", process_cell_save }
 };
 
 void ckt_cmds_init (void)

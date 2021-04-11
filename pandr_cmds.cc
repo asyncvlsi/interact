@@ -422,17 +422,16 @@ int process_timer_constraint (int argc, char **argv)
 static struct LispCliCommand timer_cmds[] = {
 
   { NULL, "Timing and power analysis", NULL },
-  { "lib-read", "timer:lib-read <file> - read liberty timing file and return handle",
+  { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
-  { "init", "timer:init <l1> <l2> ... - initialize timer with specified liberty handles",
+  { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
-  { "run", "timer:run - run timing analysis, and returns list (p M)",
+  { "run", "- run timing analysis, and returns list (p M)",
     process_timer_run },
 
-  { "info", "timer:info <net> - display information about the net",
+  { "info", "<net> - display information about the net",
     process_timer_info },
-
-  { "constraint", "timer:constraint [<net>] - display information about all timing forks that involve <net>",
+  { "constraint", "[<net>] - display information about all timing forks that involve <net>",
     process_timer_constraint }
   
 };
@@ -587,14 +586,14 @@ static int process_phydb_read_cell (int argc, char **argv)
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
-  { "init", "phydb:init - initialize physical database", process_phydb_init },
-  { "read-lef", "phydb:read-lef <file> - read LEF and populate database",
+  { "init", "- initialize physical database", process_phydb_init },
+  { "read-lef", "<file> - read LEF and populate database",
     process_phydb_read_lef },
-  { "read-def", "phydb:read-def <file> - read DEF and populate database",
+  { "read-def", "<file> - read DEF and populate database",
     process_phydb_read_def },
-  { "read-cell", "phydb:read-cell <file> - read CELL file and populate database", 
+  { "read-cell", "<file> - read CELL file and populate database", 
     process_phydb_read_cell },
-  { "close", "phydb:close - tear down physical database", process_phydb_close }
+  { "close", "- tear down physical database", process_phydb_close }
 
 };
 
@@ -698,11 +697,11 @@ static int process_dali_close (int argc, char **argv)
 static struct LispCliCommand dali_cmds[] = {
   { NULL, "Placement", NULL },
   
-  { "init", "dali:init <verbosity_level(0-5)> - initialize placement engine", process_dali_init },
-  { "place-design", "dali:place-design <target_density> - place design", process_dali_place_design },
-  { "place-io", "dali:place-io <metal_name> - place I/O pins", process_dali_place_io },
-  { "export-phydb", "dali:export-phydb - export placement to phydb", process_dali_export_phydb },
-  { "close", "dali:close - close dali", process_dali_close }
+  { "init", "<verbosity_level(0-5)> - initialize Dali placement engine", process_dali_init },
+  { "place-design", "<target_density> - place design", process_dali_place_design },
+  { "place-io", "<metal_name> - place I/O pins", process_dali_place_io },
+  { "export-phydb", "- export placement to phydb", process_dali_export_phydb },
+  { "close", "- close Dali", process_dali_close }
 
 };
 

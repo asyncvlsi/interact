@@ -211,13 +211,13 @@ int process_putenv (int argc, char **argv)
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
-  { "getopt", "getopt <string> - run getopt", process_getopt },
-  { "getargc", "getargc - return number of arguments", process_getargnum },
-  { "getargv", "getargv # - return command-line argument", process_getarg },
-  { "getenv", "getenv <string> - return environment variable", process_getenv },
-  { "putenv", "putenv <name> <value> - set environment variable", process_putenv },
-  { "echo", "echo [-n] args - display to screen", process_echo },
-  { "prompt", "prompt <str> - change prompt to the specified string", process_prompt }
+  { "getopt", "<string> - run getopt", process_getopt },
+  { "getargc", "- return number of arguments", process_getargnum },
+  { "getargv", "<n> - return command-line argument #n", process_getarg },
+  { "getenv", "<string> - return environment variable", process_getenv },
+  { "putenv", "<name> <value> - set environment variable", process_putenv },
+  { "echo", "[-n] args - display to screen", process_echo },
+  { "prompt", "<str> - change prompt to the specified string", process_prompt }
 };
 
 int main (int argc, char **argv)
