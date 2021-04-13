@@ -590,8 +590,16 @@ list_t *timer_query (int vid)
   ti = new timing_info ();
   ti->populate (p, TransMode::TRANS_RISE);
   list_append (l, ti);
-  
-  AGvertexFwdIter fw(TS.tg, (vid | 1));
+
+  int vid2;
+  if (vid & 1) {
+    vid2 = vid-1;
+  }
+  else {
+    vid2 = vid+1;
+  }
+
+  AGvertexFwdIter fw(TS.tg, vid);
   for (fw = fw.begin(); fw != fw.end(); fw++) {
     AGedge *e = (*fw);
     phash_bucket_t *b;
@@ -600,20 +608,43 @@ list_t *timer_query (int vid)
     b = phash_lookup (TS.edgeMap, ei);
     
     if (!b) {
-      warning ("could not find one of the pins for this net");
+      continue;
     }
-    else {
-      p = (ActPin *)b->v;
 
-      ti = new timing_info ();
-      ti->populate (p, TransMode::TRANS_FALL);
-      list_append (l, ti);
+    p = (ActPin *)b->v;
 
-      ti = new timing_info ();
-      ti->populate (p, TransMode::TRANS_RISE);
-      list_append (l, ti);
-    }
+    ti = new timing_info ();
+    ti->populate (p, TransMode::TRANS_FALL);
+    list_append (l, ti);
+
+    ti = new timing_info ();
+    ti->populate (p, TransMode::TRANS_RISE);
+    list_append (l, ti);
   }
+
+  AGvertexFwdIter fw2(TS.tg, vid2);
+  for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
+    AGedge *e = (*fw2);
+    phash_bucket_t *b;
+    TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+
+    b = phash_lookup (TS.edgeMap, ei);
+    
+    if (!b) {
+      continue;
+    }
+      
+    p = (ActPin *)b->v;
+
+    ti = new timing_info ();
+    ti->populate (p, TransMode::TRANS_FALL);
+    list_append (l, ti);
+
+    ti = new timing_info ();
+    ti->populate (p, TransMode::TRANS_RISE);
+    list_append (l, ti);
+  }
+  
 
   return l;
 }
