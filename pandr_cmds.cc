@@ -356,16 +356,17 @@ int process_timer_constraint (int argc, char **argv)
       if (l[0] && l[1]) {
 	timing_info *ti[2][2];
 	for (int i=0; i < 2; i++) {
-	  ti[i][0] = (timing_info *) list_value (list_first (l[i]));
-	  ti[i][1] = (timing_info *) list_value (list_next (list_first (l[i])));
+	  ti[i][0] = timer_query_extract_fall (l[i]);
+	  ti[i][1] = timer_query_extract_rise (l[i]);
 	}
 
 	char buf1[1024],  buf2[1024];
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
 
-	printf ("[%*d/%*d] %s -> %s\n", nzeros, i+1, nzeros,
-		tg->numConstraints(), buf1, buf2);
+	printf ("[%*d/%*d] %s -> %s%s\n", nzeros, i+1, nzeros,
+		tg->numConstraints(), buf1, buf2,
+		c->error ? " *root-err*" : "");
 	
 	for (int i=0; i < M; i++) {
 	  int j;

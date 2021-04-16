@@ -477,6 +477,8 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
 
 #include <lispCli.h>
 
+static void timer_validate_constraints (void);
+
 const char *timer_run (void)
 {
   init ();
@@ -488,16 +490,20 @@ const char *timer_run (void)
   TS.engine->computeCriticalCycle(TS.lib);
   auto stats = TS.engine->getCriticalCycleRatioAndTicks();
 
+  // set core metrics
+  TS.p = stats.first;
+  TS.M = stats.second;
+
   // timing propagation
   TS.engine->computeTiming4Pins();
 
+  // check root from/to ordering in constraints
+  timer_validate_constraints ();
+
   LispSetReturnListStart ();
 
-  LispAppendReturnFloat (stats.first);
-  TS.p = stats.first;
-  
-  LispAppendReturnInt (stats.second);
-  TS.M = stats.second;
+  LispAppendReturnFloat (TS.p);
+  LispAppendReturnInt (TS.M);
   
   LispSetReturnListEnd ();
 
@@ -696,6 +702,94 @@ void timer_query_free (list_t *l)
     delete ti;
   }
   list_free (l);
+}
+
+static void check_one_constraint (TaggedTG::constraint *c)
+{
+  if (!c) return;
+  if (!TS.engine) {
+    return;
+  }
+
+  list_t *l[3];
+  l[0] = timer_query_driver (c->root);
+  l[1] = timer_query_driver (c->from);
+  l[2] = timer_query_driver (c->to);
+  if (!l[0] || !l[1] || !l[2]) {
+    timer_query_free (l[0]);
+    timer_query_free (l[1]);
+    timer_query_free (l[2]);
+    return;
+  }
+
+  timing_info *ti[3][2];
+  for (int i=0; i < 3; i++) {
+    ti[i][0] = timer_query_extract_fall (l[i]);
+    ti[i][1] = timer_query_extract_rise (l[i]);
+  }
+
+  for (int i=0; i < TS.M; i++) {
+    int from_id, to_id;
+    double from_adj, to_adj;
+    double root_tm, from_tm, to_tm;
+
+    from_id = c->from_tick ? from_id+1 : from_id;
+    if (from_id == TS.M) {
+      from_adj = TS.M*TS.p;
+    }
+    else {
+      from_adj = 0;
+    }
+    
+    to_id = c->to_tick ? to_id+1 : to_id;
+    if (to_id == TS.M) {
+      to_adj = TS.M*TS.p;
+    }
+    else {
+      to_adj = 0;
+    }
+#ifndef MAX
+#define MAX(a,b) ((a) < (b) ? (b) : (a))
+#endif
+
+#define EXTRACT_TIME(id,time,which,idx)					\
+    do {								\
+      if (c->id == 0) {							\
+	/* both */							\
+	time = MAX(ti[which][0]->arr[idx], ti[which][1]->arr[idx]);	\
+      }									\
+      else if (c->id == 1) {						\
+	/* rise */							\
+	time = ti[which][1]->arr[idx];					\
+      }									\
+      else {								\
+	/* fall */							\
+	time = ti[which][0]->arr[idx];					\
+      }									\
+    } while (0)
+
+    EXTRACT_TIME(root_dir, root_tm, 0, i);
+    EXTRACT_TIME(from_dir, from_tm, 1, from_id);
+    EXTRACT_TIME(to_dir, to_tm, 2, to_id);
+    from_tm += from_adj;
+    to_tm += to_adj;
+
+    if (root_tm > (from_tm+1e-5) || root_tm > (to_tm+1e-5)) {
+      c->error = 1;
+      break;
+    }
+  }
+  timer_query_free (l[0]);
+  timer_query_free (l[1]);
+  timer_query_free (l[2]);
+}
+
+static void timer_validate_constraints (void)
+{
+  /* -- check that the root occurs before src -> dst! -- */
+  for (int i=0; i < TS.tg->numConstraints(); i++) {
+    check_one_constraint (TS.tg->getConstraint (i));
+  }
 }
 
 #endif

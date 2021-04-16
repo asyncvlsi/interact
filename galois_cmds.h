@@ -54,6 +54,9 @@ list_t *timer_query (int vid);
 /* returns nothing, or two timing_info * objects: fall followed by rise */
 list_t *timer_query_driver (int vid);
 
+#define timer_query_extract_fall(x) ((timing_info *)list_value(list_first(x)))
+#define timer_query_extract_rise(x) ((timing_info *)list_value(list_next(list_first(x))))
+
 void timer_query_free (list_t *l);
 
 #endif
