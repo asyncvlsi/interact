@@ -316,6 +316,16 @@ int process_timer_constraint (int argc, char **argv)
     tmp /= 10;
   }
 
+  double delay_units;
+
+  if (config_exists ("net.delay")) {
+    delay_units = config_get_real ("net.delay");
+  }
+  else {
+    /* rule of thumb: FO4 is roughly F/2 ps where F is in nm units */
+    delay_units = config_get_real ("net.lambda")*1e-3;
+  }
+
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
     c = tg->getConstraint (i);
@@ -359,14 +369,27 @@ int process_timer_constraint (int argc, char **argv)
 	  ti[i][0] = timer_query_extract_fall (l[i]);
 	  ti[i][1] = timer_query_extract_rise (l[i]);
 	}
-
+	
+	double margin = c->margin*delay_units;
 	char buf1[1024],  buf2[1024];
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
 
-	printf ("[%*d/%*d] %s -> %s%s\n", nzeros, i+1, nzeros,
+	printf ("[%*d/%*d] %s -> %s%s", nzeros, i+1, nzeros,
 		tg->numConstraints(), buf1, buf2,
 		c->error ? " *root-err*" : "");
+	if (c->margin != 0) {
+	  if (margin < 1e-9) {
+	    printf (" [%g ps]", margin*1e12);
+	  }
+	  else if (margin < 1e-6) {
+	    printf (" [%g ns]", margin*1e9);
+	  }
+	  else {
+	    printf (" [%g us]", margin*1e6);
+	  }
+	}
+	printf ("\n");
 	
 	for (int i=0; i < M; i++) {
 	  int j;
@@ -400,9 +423,10 @@ int process_timer_constraint (int argc, char **argv)
 	      /* XXX: this isn't right... */
 	      double x = tdst - tsrc + adj;
 
-	      printf (" %g%c%c", my_round_2 (x),
+	      printf (" %g%c%c%s", my_round_2 (x),
 		      from_dirs[ii] ? '+' : '-',
-		      to_dirs[jj] ? '+' : '-');
+		      to_dirs[jj] ? '+' : '-',
+		      (x < margin ? "*ER" : ""));
 	    }
 	  }
 	  printf ("\n");
