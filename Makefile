@@ -58,10 +58,14 @@ ifdef phydb_INCLUDE
 PHYDB_PIECES=-lphydb -llef -ldef
 endif
 
-ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE)
+ifdef pwroute_INCLUDE
+PWROUTE_PIECES=-lpwroute 
+endif
+
+ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE)
 
 ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
-	$(GALOIS_PIECES) $(DALI_PIECES) $(PHYDB_PIECES)
+	$(GALOIS_PIECES) $(DALI_PIECES) $(PHYDB_PIECES) $(PWROUTE_PIECES)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)

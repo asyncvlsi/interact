@@ -488,7 +488,7 @@ static struct LispCliCommand timer_cmds[] = {
 
 #endif
 
-#if defined(FOUND_dali) && defined(FOUND_phydb)
+#if defined(FOUND_phydb)
 
 static int process_phydb_init (int argc, char **argv)
 {
@@ -633,6 +633,32 @@ static int process_phydb_read_cell (int argc, char **argv)
   return 1;
 }
 
+static int process_phydb_read_cluster (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open cluster file `%s' for reading\n", argv[0],
+        argv[1]);
+    return 0;
+  }
+  fclose (fp);
+
+  
+  F.phydb->ReadCluster (argv[1]);
+  F.phydb_cluster = 1;
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
@@ -643,10 +669,15 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_def },
   { "read-cell", "<file> - read CELL file and populate database", 
     process_phydb_read_cell },
+  { "read-cluster", "<file> - read Cluster file and populate database", 
+    process_phydb_read_cluster },
   { "close", "- tear down physical database", process_phydb_close }
 
 };
 
+#endif //end FOUND_phydb
+
+#if defined(FOUND_dali) 
 static int process_dali_init (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<verbosity level>", STATE_EXPANDED)) {
@@ -757,6 +788,10 @@ static struct LispCliCommand dali_cmds[] = {
 
 #endif  
 
+#if defined(FOUND_pwroute) 
+  #include "pwroute_cmds.h"
+#endif
+
 void pandr_cmds_init (void)
 {
 #ifdef FOUND_galois_eda
@@ -764,12 +799,19 @@ void pandr_cmds_init (void)
             sizeof (timer_cmds)/sizeof (timer_cmds[0]));
 #endif
 
-#if defined(FOUND_dali) && defined(FOUND_phydb)
+#if defined(FOUND_phydb)
   LispCliAddCommands ("phydb", phydb_cmds,
             sizeof (phydb_cmds)/sizeof (phydb_cmds[0]));
+#endif
 
+#if defined(FOUND_dali) 
   LispCliAddCommands ("dali", dali_cmds,
             sizeof (dali_cmds)/sizeof (dali_cmds[0]));
+#endif
+
+#if defined(FOUND_pwroute) 
+  LispCliAddCommands ("pwroute", pwroute_cmds,
+            sizeof (pwroute_cmds)/sizeof (pwroute_cmds[0]));
 #endif
   
 }

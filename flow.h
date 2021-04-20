@@ -34,6 +34,10 @@
 #include <phydb/phydb.h>
 #endif
 
+#ifdef FOUND_pwroute
+#include <pwroute/pwroute.h>
+#endif
+
 enum design_state {
 		   STATE_EMPTY,    /* no act file/design has been
 				      specified */
@@ -69,12 +73,17 @@ struct flow_state {
   dali::Dali *dali;
 #endif
 
+#ifdef FOUND_pwroute
+  pwroute::PWRoute *pwroute;
+#endif
+
 #ifdef FOUND_phydb
   phydb::PhyDB *phydb;
 
   unsigned int phydb_lef:1;	/* read in LEF */
   unsigned int phydb_def:1;	/* read in DEF */
   unsigned int phydb_cell:1;	/* read in CELL */
+  unsigned int phydb_cluster:1;	/* read in CLUSTER */
   
 #endif  
 

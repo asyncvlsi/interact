@@ -8,7 +8,7 @@ echo "*/" >> ./config_pkg.h
 
 echo > ./config.mk
 
-for i in boost galois/eda dali phydb
+for i in boost galois/eda dali phydb pwroute
 do
 	if ./findpkg -i $i >/dev/null
 	then
