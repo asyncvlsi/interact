@@ -317,6 +317,7 @@ int process_timer_constraint (int argc, char **argv)
   }
 
   double delay_units;
+  double timer_units;
 
   if (config_exists ("net.delay")) {
     delay_units = config_get_real ("net.delay");
@@ -324,6 +325,14 @@ int process_timer_constraint (int argc, char **argv)
   else {
     /* rule of thumb: FO4 is roughly F/2 ps where F is in nm units */
     delay_units = config_get_real ("net.lambda")*1e-3;
+  }
+
+  if (config_exists ("xcell.units.time_conv")) {
+    timer_units = config_get_real ("xcell.units.time_conv");
+  }
+  else {
+    /* default: ps */
+    timer_units = 1e-12;
   }
 
   for (int i=0; i < tg->numConstraints(); i++) {
@@ -390,7 +399,8 @@ int process_timer_constraint (int argc, char **argv)
 	  }
 	}
 	printf ("\n");
-	
+
+
 	for (int i=0; i < M; i++) {
 	  int j;
 	  double adj;
@@ -420,10 +430,25 @@ int process_timer_constraint (int argc, char **argv)
 	      tsrc = ti[0][from_dirs[ii]]->arr[i];
 	      tdst = ti[1][to_dirs[jj]]->arr[j];
 
-	      /* XXX: this isn't right... */
-	      double x = tdst - tsrc + adj;
+	      double x = (tdst - tsrc + adj)*timer_units;
+	      char c;
+	      double amt;
 
-	      printf (" %g%c%c%s", my_round_2 (x),
+	      amt = x-margin;
+
+	      if (fabs(amt) < 1e-9) {
+		amt *= 1e12;
+		c = 'p';
+	      }
+	      else if (fabs(amt) < 1e-6) {
+		c = 'n';
+		amt *= 1e9;
+	      }
+	      else {
+		c = 'u';
+		amt *= 1e6;
+	      }
+	      printf ("[%g %cs]%c%c%s", my_round_2 (amt), c,
 		      from_dirs[ii] ? '+' : '-',
 		      to_dirs[jj] ? '+' : '-',
 		      (x < margin ? "*ER" : ""));
