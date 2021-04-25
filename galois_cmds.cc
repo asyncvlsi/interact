@@ -123,7 +123,7 @@ void *read_lib_file (const char *file)
  *
  *------------------------------------------------------------------------
  */
-galois::eda::asyncsta::AsyncTimingEngine *
+static galois::eda::asyncsta::AsyncTimingEngine *
 timer_engine_init (ActPass *tg, Process *p, int nlibs,
 		   galois::eda::liberty::CellLib **libs,
 		   ActPinTranslator **ret_apt)
@@ -132,7 +132,9 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   galois::eda::asyncsta::AsyncTimingEngine *engine = NULL;
 
   /* -- make sure we've created the timing graph in the ACT library -- */
-  tg->run (p);
+  if (!tg->completed()) {
+    tg->run (p);
+  }
 
   /* -- create the pin translator -- */
   *ret_apt = new ActPinTranslator ();
@@ -304,13 +306,13 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	}
       }
 #if 0
-      printf ("add delay arc: "); ap->Print (stdout);
+      printf ("add delay arc (%d -> %d): ", be->src, be->dst); ap->Print (stdout);
       printf (" (r) -> "); gate_out->Print (stdout);
       printf (" (f)\n");
 #endif      
       if (ei->isTicked()) {
-#if 0	
-	printf (" ** tick\n");
+#if 0
+	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
 #endif	
 	engine->setEdgeTick
 	  (ap, TransMode::TRANS_RISE, gate_out, TransMode::TRANS_FALL, true);
@@ -400,13 +402,13 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	}
       }
 #if 0
-      printf ("add delay arc: "); ap->Print (stdout);
+      printf ("add delay arc (%d -> %d): ", be->src, be->dst); ap->Print (stdout);
       printf (" (f) -> "); gate_out->Print (stdout);
       printf (" (r)\n");
 #endif      
       if (ei->isTicked()) {
-#if 0	
-	printf (" ** tick\n");
+#if 0
+	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
 #endif	
 	engine->setEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
       }
@@ -419,6 +421,27 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     return NULL;
   }
   return engine;
+}
+
+const char *timer_create_graph (Act *a, Process *p)
+{
+  ActPass *ap = a->pass_find ("taggedTG");
+
+  if (!ap) {
+    return "no timing graph found";
+  }
+
+  if (!F.tp) {
+    F.tp = dynamic_cast<ActDynamicPass *> (ap);
+  }
+  Assert (F.tp, "Hmm");
+
+  /* -- create timing graph -- */
+  if (!F.tp->completed()) {
+    F.tp->run (p);
+  }
+
+  return NULL;
 }
 
 
@@ -438,11 +461,9 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     return "no timing graph found";
   }
 
-  if (F.tp) {
-    return "timing graph already initialized";
+  if (!F.tp) {
+    F.tp = dynamic_cast<ActDynamicPass *> (ap);
   }
-
-  F.tp = dynamic_cast<ActDynamicPass *> (ap);
   Assert (F.tp, "What?");
 
   /* -- add cell library -- */

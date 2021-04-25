@@ -58,6 +58,166 @@ int process_read_lib (int argc, char **argv)
   return 2;
 }
 
+
+static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
+{
+  ActId *id = ActId::parseId (name);
+  int goff;
+
+  if (!F.tp) {
+    fprintf (stderr, "%s: cannot run without creating a timing graph!", cmd);
+    return 0;
+  }
+
+  if (!F.sp) {
+    ActPass *ap = F.act_design->pass_find ("collect_state");
+    if (!ap) {
+      fprintf (stderr, "Internal error: state pass missing but timer present?\n");
+      return 0;
+    }
+    F.sp = dynamic_cast<ActStatePass *> (ap);
+    Assert (F.sp, "What?");
+  }
+
+  if (!id) {
+    return 0;
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", cmd, name);
+    return 0;
+  }
+
+  Array *x;
+  InstType *itx;
+
+  /* -- validate the type of this identifier -- */
+  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
+  if (itx == NULL) {
+    fprintf (stderr, "%s: could not find identifier `%s'\n", cmd, name);
+    return 0;
+  }
+  if (!TypeFactory::isBoolType (itx)) {
+    fprintf (stderr, "%s: identifier `%s' is not a signal (", cmd, name);
+    itx->Print (stderr);
+    fprintf (stderr, ")\n");
+    return 0;
+  }
+  if (itx->arrayInfo() && (!x || !x->isDeref())) {
+    fprintf (stderr, "%s: identifier `%s' is an array.\n", cmd, name);
+    return 0;
+  }
+
+  /* -- check all the de-references are valid -- */
+  if (!id->validateDeref (F.act_toplevel->CurScope())) {
+    fprintf (stderr, "%s: `%s' contains an array reference.\n", cmd, name);
+    return 0;
+  }
+
+  Assert (F.sp && F.tp, "Hmm");
+  
+  goff = F.sp->globalBoolOffset (id);
+  
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  
+  *vid = 2*(tg->globOffset() + goff);
+
+  return 1;
+}
+
+
+/*------------------------------------------------------------------------
+ *
+ *  process_timer_build -
+ *
+ *------------------------------------------------------------------------
+ */
+static int process_timer_build (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+  if (!F.act_toplevel) {
+    fprintf (stderr, "%s: need top level of design set\n", argv[0]);
+    return 0;
+  }
+  const char *msg = timer_create_graph (F.act_design, F.act_toplevel);
+  if (msg) {
+    fprintf (stderr, "%s: %s\n", argv[0], msg);
+    return 0;
+  }
+  return 1;
+}
+
+
+static int process_timer_tick (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 3, "<net1> <net2>", STATE_EXPANDED)) {
+    return 0;
+  }
+  if (!F.tp) {
+    fprintf (stderr, "%s: need to build timing graph first", argv[0]);
+  }
+  int dir1, dir2;
+  int len1, len2;
+  len1 = strlen (argv[1]);
+  len2 = strlen (argv[2]);
+  if (argv[1][len1-1] == '+') {
+    dir1 = 1;
+  }
+  else if (argv[1][len1-1] == '-') {
+    dir1 = 0;
+  }
+  else {
+    fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[1]);
+    return 0;
+  }
+  if (argv[2][len2-1] == '+') {
+    dir2 = 1;
+  }
+  else if (argv[2][len2-1] == '-') {
+    dir2 = 0;
+  }
+  else {
+    fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[2]);
+    return 0;
+  }
+  argv[1][len1-1] = '\0';
+  argv[2][len2-1] = '\0';
+
+  int vid1, vid2;
+
+  if (!get_net_to_timing_vertex (argv[0], argv[1], &vid1) ||
+      !get_net_to_timing_vertex (argv[0], argv[2], &vid2)) {
+    argv[1][len1-1] = dir1 ? '+' : '-';
+    argv[2][len2-1] = dir2 ? '+' : '-';
+    return 0;
+  }
+  vid1 += dir1;
+  vid2 += dir2;
+
+  argv[1][len1-1] = dir1 ? '+' : '-';
+  argv[2][len2-1] = dir2 ? '+' : '-';
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+
+  /* find edge from vid1 to vid2 */
+  AGvertexFwdIter fw(tg, vid1);
+  for (fw = fw.begin(); fw != fw.end(); fw++) {
+    AGedge *e = (*fw);
+    if (e->dst != vid2) {
+      continue;
+    }
+    TimingEdgeInfo *te = (TimingEdgeInfo *)e->getInfo();
+    te->tickEdge();
+    //printf ("tick %d -> %d\n", vid1, vid2);
+    break;
+  }
+  if (fw == fw.end()) {
+    fprintf (stderr, "%s: could not find timing edge %s -> %s\n", argv[0],
+	     argv[1], argv[2]);
+    return 0;
+  }
+  return 1;
+}
+
 /*------------------------------------------------------------------------
  *
  *  Create timing graph and push it to the timing analysis engine
@@ -109,7 +269,7 @@ int process_timer_run (int argc, char **argv)
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return 0;
   }
-  if (F.timer != TIMER_INIT) {
+  if (F.timer == TIMER_NONE) {
     fprintf (stderr, "%s: timer needs to be initialized\n", argv[0]);
     return 0;
   }
@@ -162,44 +322,13 @@ int process_timer_info (int argc, char **argv)
     Assert (F.sp, "What?");
   }
 
-  ActId *id = ActId::parseId (argv[1]);
-  if (!id) {
-    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
+  int vid;
+  if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
     return 0;
   }
-
-  Array *x;
-  InstType *itx;
-
-  /* -- validate the type of this identifier -- */
-  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
-  if (itx == NULL) {
-    fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
-    return 0;
-  }
-  if (!TypeFactory::isBoolType (itx)) {
-    fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
-    itx->Print (stderr);
-    fprintf (stderr, ")\n");
-    return 0;
-  }
-  if (itx->arrayInfo() && (!x || !x->isDeref())) {
-    fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
-    return 0;
-  }
-
-  /* -- check all the de-references are valid -- */
-  if (!id->validateDeref (F.act_toplevel->CurScope())) {
-    fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
-    return 0;
-  }
-
-  int goff = F.sp->globalBoolOffset (id);
-
+				 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
   Assert (tg, "What?");
-
-  int vid = 2*(tg->globOffset() + goff);
 
   list_t *l = timer_query (vid);
 
@@ -252,63 +381,23 @@ int process_timer_constraint (int argc, char **argv)
     Assert (F.sp, "What?");
   }
 
-  int goff;
+  int vid;
   
   if (argc == 2) {
-    ActId *id = ActId::parseId (argv[1]);
-    if (!id) {
-      fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[1]);
+    if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
       return 0;
     }
-
-    Array *x;
-    InstType *itx;
-
-    /* -- validate the type of this identifier -- */
-    itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
-    if (itx == NULL) {
-      fprintf (stderr, "%s: could not find identifier `%s'\n", argv[0], argv[1]);
-      return 0;
-    }
-    if (!TypeFactory::isBoolType (itx)) {
-      fprintf (stderr, "%s: identifier `%s' is not a signal (", argv[0], argv[1]);
-      itx->Print (stderr);
-      fprintf (stderr, ")\n");
-      return 0;
-    }
-    if (itx->arrayInfo() && (!x || !x->isDeref())) {
-      fprintf (stderr, "%s: identifier `%s' is an array.\n", argv[0], argv[1]);
-      return 0;
-    }
-
-    /* -- check all the de-references are valid -- */
-    if (!id->validateDeref (F.act_toplevel->CurScope())) {
-      fprintf (stderr, "%s: `%s' contains an array reference.\n", argv[0], argv[1]);
-      return 0;
-    }
-
-    goff = F.sp->globalBoolOffset (id);
-  }
-  else {
-    goff = 0;
-  }
-
-  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
-  Assert (tg, "What?");
-
-  int vid;
-  if (argc != 1) {
-    vid = 2*(tg->globOffset() + goff);
   }
   else {
     vid = -1;
   }
-
+    
   int M;
   double p;
   
   timer_get_period (&p, &M);
 
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
   int tmp = tg->numConstraints();
   int nzeros = 0;
   while (tmp > 0) {
@@ -474,6 +563,8 @@ static struct LispCliCommand timer_cmds[] = {
   { NULL, "Timing and power analysis", NULL },
   { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
+  { "build-graph", "- build timing graph", process_timer_build },
+  { "tick", "<net1> <net2> - add a tick (iteration boundary) to the timing graph", process_timer_tick },
   { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
   { "run", "- run timing analysis, and returns list (p M)",
