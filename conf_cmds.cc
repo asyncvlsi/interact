@@ -55,6 +55,47 @@ static const char *conf_name (int t)
   }
 }
 
+static int process_conf_read (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return 0;
+  }
+  save_to_log (argc, argv, "s");
+  char *tmp = config_file_name (argv[1]);
+  if (!tmp) {
+    fprintf (stderr, "%s: Could not find configuration file `%s'",
+	     argv[0], argv[1]);
+    return 0;
+  }
+  FILE *fp = fopen (tmp, "r");
+  FREE (tmp);
+  if (!fp) {
+    fprintf (stderr, "%s: Could not find configuration file `%s'", argv[0],
+	     argv[1]);
+    return 0;
+  }
+  config_read (argv[1]);
+  return 1;
+}
+
+static int process_conf_save (int argc, char **argv)
+{
+  FILE *fp;
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return 0;
+  }
+  fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s'", argv[0], argv[1]);
+    return 0;
+  }
+  config_dump (fp);
+  fclose (fp);
+  return 1;
+}
+
 static int process_conf_gettype (int argc, char **argv)
 {
   if (argc != 2) {
@@ -274,6 +315,8 @@ static int process_conf_set_default_string (int argc, char **argv)
 
 static struct LispCliCommand conf_cmds[] = {
   { NULL, "Configuration parameters", NULL },
+  { "read", "<file> - read configuration file", process_conf_read },
+  { "save", "<file> - write parameters to file", process_conf_save },
   { "gettype", "<name> - get config paramter type (-1 = missing, 0 = int, 1 = string, 2 = real)", process_conf_gettype },
   { "set_int", "<name> <val> - set integer config parameter", process_conf_set_int },
   { "set_string", "<name> <val> - set string config parameter", process_conf_set_string },

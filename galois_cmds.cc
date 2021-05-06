@@ -808,6 +808,8 @@ static void check_one_constraint (TaggedTG::constraint *c)
 static void timer_validate_constraints (void)
 {
   /* -- check that the root occurs before src -> dst! -- */
+  TS.tg->chkSortConstraints ();
+  
   for (int i=0; i < TS.tg->numConstraints(); i++) {
     check_one_constraint (TS.tg->getConstraint (i));
   }

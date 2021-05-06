@@ -149,12 +149,18 @@ static int process_timer_build (int argc, char **argv)
 
 static int process_timer_tick (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 3, "<net1> <net2>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 3, "<net1>+/- <net2>+/-", STATE_EXPANDED)) {
     return 0;
   }
   if (!F.tp) {
-    fprintf (stderr, "%s: need to build timing graph first", argv[0]);
+    fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
+    return 0;
   }
+  if (F.timer == TIMER_RUN) {
+    fprintf (stderr, "%s: need to mark edges before running the timer.\n", argv[0]);
+    return 0;
+  }
+  
   int dir1, dir2;
   int len1, len2;
   len1 = strlen (argv[1]);
@@ -359,6 +365,61 @@ int process_timer_info (int argc, char **argv)
   return 1;
 }
 
+int process_timer_addconstraint (int argc, char **argv)
+{
+  if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- <fast>+/- <slow>+/- [margin]", STATE_EXPANDED)) {
+    return 0;
+  }
+  if (!F.tp) {
+    fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
+    return 0;
+  }
+  if (F.timer == TIMER_RUN) {
+    fprintf (stderr, "%s: need to add constraints before running the timer.\n", argv[0]);
+    return 0;
+  }
+
+  int dir[3];
+  int len[3];
+  int vid[3];
+  for (int i=0; i < 3; i++) {
+    len[i] = strlen (argv[i+1]);
+    if (argv[i+1][len[i]-1] == '+') {
+      dir[i] = 1;
+    }
+    else if (argv[i+1][len[i]-1] == '-') {
+      dir[i] = 0;
+    }
+    else {
+      fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0],
+	       argv[i+1]);
+      return 0;
+    }
+    argv[i+1][len[i]-1] = '\0';
+    if (!get_net_to_timing_vertex (argv[0], argv[i+1], &vid[i])) {
+      for (int j=0; j <= i; j++) {
+	argv[j+1][len[j]-1] = dir[j] ? '+' : '-';
+      }
+      return 0;
+    }
+    vid[i] += dir[i];
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  int margin;
+  
+  if (argc == 5) {
+    margin = atoi (argv[5]);
+  }
+  else {
+    margin = 0;
+  }
+      
+  /* add constraint! */
+  tg->addConstraint (vid[0], vid[1], vid[2], margin);
+  
+  return 1;
+}
 
 int process_timer_constraint (int argc, char **argv)
 {
@@ -564,7 +625,8 @@ static struct LispCliCommand timer_cmds[] = {
   { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
   { "build-graph", "- build timing graph", process_timer_build },
-  { "tick", "<net1> <net2> - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+  { "tick", "<net1>+/- <net2-dir>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+  { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
   { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
   { "run", "- run timing analysis, and returns list (p M)",
