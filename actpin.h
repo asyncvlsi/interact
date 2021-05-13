@@ -30,19 +30,49 @@
 #ifdef FOUND_galois_eda
 
 #include <act/timing/tgraph.h>
-#include "galois/eda/utility/ExtPinTranslator.h"
+#include "galois/eda/utility/ExtNetlistAdaptor.h"
 
-class ActPinTranslator : public galois::eda::utility::ExtPinTranslator {
- public:
-  std::string getPinName (void * const p) const;
-  std::string getCellInstType (void * const p) const;
-  std::string getFullName (void * const p) const;
+class ActNetlistAdaptor : public galois::eda::utility::ExtNetlistAdaptor {
+private:
+  Act *_a;
+  Process *_top;
+  TaggedTG *_tg;
+  
+public:
+  ActNetlistAdaptor (Act *a, Process *p);
+  
+  void *getPinFromFullName (const std::string& name,
+			    const char divider = '/',
+			    const char busDelimL = '[',
+			    const char busDelimR = ']',
+			    const char delimiter = ':') const;
+  void *getInstFromFullName (const std::string& name,
+			     const char divider = '/',
+			     const char busDelimL = '[',
+			     const char busDelimR = ']') const;
+  void *getNetFromFullName (const std::string& name,
+			     const char divider = '/',
+			     const char busDelimL = '[',
+			     const char busDelimR = ']') const;
 
-  bool isP1LessThanP2 (void * const p1, void * const p2) const;
+  std::string getFullName4Pin (void *const pin) const;
+  std::string getFullName4Inst (void *const inst) const;
+  std::string getFullName4Net (void *const net) const;
+
+  void *getInst4Pin (void *const pin) const;
+  std::string getInstTypeName4Inst(void* const inst) const;
+  std::string getPinNameInInst4Pin(void* const pin) const;
+
+  void *getNet4Pin (void *const pin) const;
+
+  bool isPin1LessThanPin2 (void * const p1, void * const p2) const;
+  bool isNet1LessThanNet2 (void * const p1, void * const p2) const;
+  bool isInst1LessThanInst2 (void * const p1, void * const p2) const;
   bool isSamePin (void * const p1, void * const p2) const;
-  bool isInSameNet (void * const p1, void * const p2) const;
-  bool isInSameInst (void * const p1, void * const p2) const;
+  bool isSameNet (void * const p1, void * const p2) const;
+  bool isSameInst (void * const p1, void * const p2) const;
 };
+
 
 /*
   Pins can be inputs or outputs of gates

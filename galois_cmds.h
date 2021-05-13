@@ -34,7 +34,7 @@ const char *timer_create_graph (Act *a, Process *p);
 #ifdef FOUND_galois_eda
 
 #include "actpin.h"
-#include "galois/eda/asyncsta/AsyncTimingEngine.h"
+#include "cyclone/AsyncTimingEngine.h"
 
 class timing_info {
  public:

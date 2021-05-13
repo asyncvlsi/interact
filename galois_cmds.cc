@@ -28,17 +28,23 @@
 #include "galois/eda/liberty/CellLib.h"
 #include "galois/eda/liberty/Cell.h"
 #include "galois/eda/liberty/CellPin.h"
-#include "galois/eda/asyncsta/AsyncTimingEngine.h"
+#include "galois/eda/delaycalc/NldmDelayCalculator.h"
+#include "galois/eda/parasitics/Manager.h"
+#include "galois/eda/parasitics/Net.h"
+#include "galois/eda/parasitics/Node.h"
+#include "galois/eda/parasitics/Edge.h"
+
+#include "cyclone/AsyncTimingEngine.h"
 
 #include "ptr_manager.h"
 #include "galois_cmds.h"
 #include "actpin.h"
 
 static struct timing_state {
-  ActPinTranslator *apt;	/* pin translator between ACT and
+  ActNetlistAdaptor *anl;	/* netlist adaptor between ACT and
 				   timer */
 
-  galois::eda::asyncsta::AsyncTimingEngine *engine; /* sta engine */
+  cyclone::AsyncTimingEngine *engine; /* sta engine */
 
   galois::eda::liberty::CellLib *lib; /* used for cycle ratio */
 
@@ -57,9 +63,9 @@ static void clear_timer()
     delete F.tp;
     F.tp = NULL;
   }
-  if (TS.apt) {
-    delete TS.apt;
-    TS.apt = NULL;
+  if (TS.anl) {
+    delete TS.anl;
+    TS.anl = NULL;
   }
   if (TS.engine) {
     delete TS.engine;
@@ -80,7 +86,7 @@ static void init (int mode = 0)
   if (mode == 0) {
     if (!g) {
       g = new galois::SharedMemSys;
-      TS.apt = NULL;
+      TS.anl = NULL;
       TS.engine = NULL;
     }
   }
@@ -116,6 +122,17 @@ void *read_lib_file (const char *file)
   return (void *)lib;
 }
 
+static
+galois::eda::utility::Float
+getPortCap(void* const,                          // external pin pointer
+           galois::eda::utility::TransitionMode, // TRANS_FALL or TRANS_RISE
+           galois::eda::liberty::CellLib* const, // cell library
+           galois::eda::utility::AnalysisMode    // ANALYSIS_MIN or ANALYSIS_MAX
+          )
+{
+  return 0.0;
+}
+
 /*------------------------------------------------------------------------
  *
  * Push timing graph to Galois timer (return NULL on success, error
@@ -123,13 +140,13 @@ void *read_lib_file (const char *file)
  *
  *------------------------------------------------------------------------
  */
-static galois::eda::asyncsta::AsyncTimingEngine *
+static cyclone::AsyncTimingEngine *
 timer_engine_init (ActPass *tg, Process *p, int nlibs,
 		   galois::eda::liberty::CellLib **libs,
-		   ActPinTranslator **ret_apt)
+		   ActNetlistAdaptor **ret_anl)
 							     
 {
-  galois::eda::asyncsta::AsyncTimingEngine *engine = NULL;
+  cyclone::AsyncTimingEngine *engine = NULL;
 
   /* -- make sure we've created the timing graph in the ACT library -- */
   if (!tg->completed()) {
@@ -137,17 +154,27 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   }
 
   /* -- create the pin translator -- */
-  *ret_apt = new ActPinTranslator ();
+  *ret_anl = new ActNetlistAdaptor (F.act_design, p);
 
   /* -- create timer -- */
-  engine = new galois::eda::asyncsta::AsyncTimingEngine(*ret_apt);
+  engine = new cyclone::AsyncTimingEngine(*ret_anl);
 
   auto maxmode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
 
   /* -- add cell library -- */
-  for (int i=0; i < nlibs; i++) { 
-    engine->addCellLib (libs[i], maxmode, true);
+  for (int i=0; i < nlibs; i++) {
+    if (i == nlibs-1) {
+      engine->addCellLib (libs[i], maxmode, true);
+    }
+    else {
+      engine->addCellLib (libs[i], maxmode);
+    }
   }
+  engine->setEpsilon (1e-6); // slew convergence tolerance
+
+  auto nldm = new galois::eda::delaycalc::NldmDelayCalculator (engine);
+  nldm->setFuncPtr4GetPortCap (getPortCap);
+  engine->setDelayCalculator (nldm);
   
   TaggedTG *gr = (TaggedTG *) tg->getMap (p);
   TS.tg = gr;
@@ -314,7 +341,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #if 0
 	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
 #endif	
-	engine->setEdgeTick
+	engine->setDelayEdgeTick
 	  (ap, TransMode::TRANS_RISE, gate_out, TransMode::TRANS_FALL, true);
       }
     }
@@ -410,12 +437,14 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #if 0
 	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
 #endif	
-	engine->setEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
+	engine->setDelayEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
       }
     }
     A_LEN (cur_gate_pins) = 0;
   }
   A_FREE (cur_gate_pins);
+
+  engine->checkAndPadParasitics ();
 
   if (gr_create_error) {
     return NULL;
@@ -486,7 +515,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
   }
 
   /* -- initialize engine -- */
-  TS.engine = timer_engine_init (ap, p, nlibs, libs, &TS.apt);
+  TS.engine = timer_engine_init (ap, p, nlibs, libs, &TS.anl);
   FREE (libs);
   if (!TS.engine) {
     clear_timer ();

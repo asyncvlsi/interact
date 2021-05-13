@@ -80,7 +80,6 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
   }
 
   if (!id) {
-    return 0;
     fprintf (stderr, "%s: could not parse identifier `%s'\n", cmd, name);
     return 0;
   }
@@ -107,7 +106,7 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
 
   /* -- check all the de-references are valid -- */
   if (!id->validateDeref (F.act_toplevel->CurScope())) {
-    fprintf (stderr, "%s: `%s' contains an array reference.\n", cmd, name);
+    fprintf (stderr, "%s: `%s' contains an invalid array reference.\n", cmd, name);
     return 0;
   }
 

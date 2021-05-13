@@ -25,83 +25,7 @@
 
 #ifdef FOUND_galois_eda
 
-/*-- for .lib lookup --*/
-std::string ActPinTranslator::getPinName (void * const p) const
-{
-  ActPin *x = (ActPin *)p;
-  char buf[1024], buf2[1024];
-
-  x->sPrintPin (buf, 1024);
-  ActNamespace::Global()->Act()->msnprintf (buf2, 1024, "%s", buf);
-  return std::string (buf2);
-}
-
-/*-- for .lib lookup --*/
-std::string ActPinTranslator::getCellInstType (void * const p) const
-{
-  ActPin *x = (ActPin *)p;
-  char buf[1024];
-
-  x->sPrintCellType (buf, 1024);
-  
-  return std::string (buf);
-}
-
-/*-- for printing --*/
-std::string ActPinTranslator::getFullName (void * const p) const
-{
-  ActPin *x = (ActPin *)p;
-  char buf[10240];
-
-  x->sPrintFullName (buf, 10240);
-
-  return std::string (buf);
-}
-
-/* -- fixme -- */
-bool ActPinTranslator::isP1LessThanP2 (void * const p1, void * const p2) const
-{
-  ActPin *x1 = (ActPin *)p1;
-  ActPin *x2 = (ActPin *)p2;
-  if (((unsigned long)x1->getInst()) < ((unsigned long)x2->getInst())) {
-    return true;
-  }
-  else {
-    if (((unsigned long)x1->getPin()) < ((unsigned long)x2->getPin())) {
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-}
-
-/* -- fixme -- */
-bool ActPinTranslator::isSamePin (void * const p1, void * const p2) const
-{
-  ActPin *x1 = (ActPin *)p1;
-  ActPin *x2 = (ActPin *)p2;
-  return (x1->getInst() == x2->getInst() && x1->getPin() == x2->getPin());
-}
-
-bool ActPinTranslator::isInSameNet (void * const p1, void * const p2) const
-{
-  ActPin *x1 = (ActPin *)p1;
-  ActPin *x2 = (ActPin *)p2;
-
-  return (x1->getNet() == x2->getNet());
-}
-
-bool ActPinTranslator::isInSameInst (void * const p1, void * const p2) const
-{
-  ActPin *x1 = (ActPin *)p1;
-  ActPin *x2 = (ActPin *)p2;
-
-  return (x1->getInst() == x2->getInst());
-}
-
 /* -- printing functions -- */
-
 void ActPin::Print (FILE *fp)
 {
   ActId *x;
@@ -135,6 +59,177 @@ void ActPin::sPrintFullName (char *buf, int sz)
   snprintf (buf, 10240, "%s:", tmp);
   FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));
+}
+
+
+
+ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
+{
+  ActPass *pass;
+  _a = a;
+  _top = p;
+
+  pass = a->pass_find ("taggedTG");
+  if (!pass) {
+    fatal_error ("Need to have timing analysis!");
+  }
+  _tg = (TaggedTG *) pass->getMap (_top);
+  if (!_tg) {
+    fatal_error ("No timing graph!");
+  }
+}
+
+void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
+					     const char divider,
+					     const char busDelimL,
+					     const char busDelimR,
+					     const char delimiter) const
+{
+  ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
+			     busDelimR, delimiter);
+  return NULL;
+}
+
+void *ActNetlistAdaptor::getInstFromFullName (const std::string& name,
+					      const char divider,
+					      const char busDelimL,
+					      const char busDelimR) const
+{
+  ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
+			     busDelimR, divider);
+  return NULL;
+}
+
+void *ActNetlistAdaptor::getNetFromFullName (const std::string& name,
+					     const char divider,
+					     const char busDelimL,
+					     const char busDelimR) const
+{
+  ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
+			     busDelimR, divider);
+  return NULL;
+}
+
+/*-- file I/O and debugging --*/
+std::string ActNetlistAdaptor::getFullName4Pin (void *const pin) const
+{
+  ActPin *x = (ActPin *)pin;
+  char buf[1024];
+
+  x->sPrintPin (buf, 1024);
+  return std::string (buf);
+}
+
+
+std::string ActNetlistAdaptor::getFullName4Inst (void *const inst) const
+{
+  TimingVertexInfo *_inst = (TimingVertexInfo *)inst;
+  char *tmp = _inst->getFullInstPath();
+  std::string ret = std::string (tmp);
+  FREE (tmp);
+  return ret;
+}
+
+std::string ActNetlistAdaptor::getFullName4Net (void *const net) const
+{
+  TimingVertexInfo *_net = (TimingVertexInfo *)net;
+  char *tmp = _net->getFullInstPath();
+  std::string ret = std::string (tmp);
+  FREE (tmp);
+  return ret;
+}
+
+void *ActNetlistAdaptor::getInst4Pin (void *const pin) const
+{
+  ActPin *p = (ActPin *)pin;
+  return p->getInst();
+}
+
+std::string ActNetlistAdaptor::getInstTypeName4Inst (void *const inst) const
+{
+  TimingVertexInfo *_inst = (TimingVertexInfo *)inst;
+  char buf[1024];
+
+  _a->msnprintfproc (buf, 1024, _inst->getCell());
+
+  return std::string (buf);
+}
+
+std::string ActNetlistAdaptor::getPinNameInInst4Pin (void *const pin) const
+{
+  ActPin *x = (ActPin *)pin;
+  char buf[1024], buf2[1024];
+
+  x->sPrintPin (buf, 1024);
+  ActNamespace::Global()->Act()->msnprintf (buf2, 1024, "%s", buf);
+  return std::string (buf2);
+}
+
+void *ActNetlistAdaptor::getNet4Pin (void *const pin) const
+{
+  ActPin *p = (ActPin *)pin;
+  return p->getNet();
+}
+
+bool ActNetlistAdaptor::isPin1LessThanPin2 (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+  if (((unsigned long)x1->getInst()) < ((unsigned long)x2->getInst())) {
+    return true;
+  }
+  else {
+    if (((unsigned long)x1->getPin()) < ((unsigned long)x2->getPin())) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+}
+
+bool ActNetlistAdaptor::isNet1LessThanNet2 (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+
+  return ((unsigned long)x1->getNet()) < ((unsigned long)x2->getNet()) ?
+    true : false;
+}
+
+
+bool ActNetlistAdaptor::isInst1LessThanInst2 (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+
+  return ((unsigned long)x1->getInst()) < ((unsigned long)x2->getInst()) ?
+    true : false;
+}
+
+bool ActNetlistAdaptor::isSamePin (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+
+  return (x1->getInst() == x2->getInst()) && (x1->getPin() == x2->getPin());
+}
+
+bool ActNetlistAdaptor::isSameNet (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+
+  return (x1->getNet() == x2->getNet());
+}
+
+
+bool ActNetlistAdaptor::isSameInst (void * const p1, void * const p2) const
+{
+  ActPin *x1 = (ActPin *)p1;
+  ActPin *x2 = (ActPin *)p2;
+
+  return (x1->getInst() == x2->getInst());
 }
 
 #endif
