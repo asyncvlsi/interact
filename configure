@@ -10,12 +10,12 @@ echo > ./config.mk
 
 for i in boost galois/eda dali phydb pwroute
 do
-	if ./findpkg -i $i >/dev/null
+	if $ACT_HOME/scripts/findpkg -i $i >/dev/null
 	then
 		j=`echo $i | sed s,/,_,g`
 		echo "#define FOUND_$j" >> ./config_pkg.h
-		echo "${j}_INCLUDE=\$(shell ./findpkg -i $i)" >> ./config.mk
-		echo "${j}_LIBDIR=\$(shell ./findpkg -l $i)" >> ./config.mk
+		echo "${j}_INCLUDE=\$(shell $ACT_HOME/scripts/findpkg -i $i)" >> ./config.mk
+		echo "${j}_LIBDIR=\$(shell $ACT_HOME/scripts/findpkg -l $i)" >> ./config.mk
 		echo "Package $i: YES"
 	else	  
 		echo "Package $i: NO"
