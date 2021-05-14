@@ -234,8 +234,6 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #endif    
   }
 
-  using TransMode = galois::eda::utility::TransitionMode;
-
   A_DECL (ActPin *, cur_gate_pins);
   A_INIT (cur_gate_pins);
 
@@ -842,6 +840,12 @@ static void timer_validate_constraints (void)
   for (int i=0; i < TS.tg->numConstraints(); i++) {
     check_one_constraint (TS.tg->getConstraint (i));
   }
+}
+
+
+TimingPath timer_get_crit (void)
+{
+  return TS.engine->getCriticalCycle ();
 }
 
 #endif

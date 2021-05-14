@@ -116,7 +116,7 @@ std::string ActNetlistAdaptor::getFullName4Pin (void *const pin) const
   ActPin *x = (ActPin *)pin;
   char buf[1024];
 
-  x->sPrintPin (buf, 1024);
+  x->sPrintFullName (buf, 1024);
   return std::string (buf);
 }
 

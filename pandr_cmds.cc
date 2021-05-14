@@ -364,6 +364,53 @@ int process_timer_info (int argc, char **argv)
   return 1;
 }
 
+
+int process_timer_cycle (int argc, char **argv)
+{
+  char buf[1024];
+  
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return 0;
+  }
+
+  TimingPath cyc = timer_get_crit ();
+
+  if (cyc.empty()) {
+    printf ("%s: No critical cycle.\n", argv[0]);
+  }
+  else {
+    int count = 0;
+    int first = 1;
+    for (auto x : cyc) {
+      if (count == 3) {
+	printf ("\n  ");
+	count = 0;
+      }
+      count++;
+      if (first) {
+	printf ("  ");
+      }
+      else {
+	printf (" -> ");
+      }
+      first = 0;
+      ActPin *p = (ActPin *) x.first;
+      TransMode t = x.second;
+      p->sPrintFullName (buf, 1024);
+      printf ("%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+    }
+    printf ("\n");
+  }
+  return 1;
+}
+
+
+
 int process_timer_addconstraint (int argc, char **argv)
 {
   if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- <fast>+/- <slow>+/- [margin]", STATE_EXPANDED)) {
@@ -630,6 +677,8 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_init },
   { "run", "- run timing analysis, and returns list (p M)",
     process_timer_run },
+
+  { "crit", "- show critical cycle", process_timer_cycle },
 
   { "info", "<net> - display information about the net",
     process_timer_info },

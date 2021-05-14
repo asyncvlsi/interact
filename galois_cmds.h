@@ -36,6 +36,12 @@ const char *timer_create_graph (Act *a, Process *p);
 #include "actpin.h"
 #include "cyclone/AsyncTimingEngine.h"
 
+using TransMode = galois::eda::utility::TransitionMode;
+using TimingPath = cyclone::TimingPath;
+
+TimingPath timer_get_crit (void);
+
+
 class timing_info {
  public:
   /* array of arrival times and required times */
@@ -59,6 +65,7 @@ list_t *timer_query_driver (int vid);
 #define timer_query_extract_rise(x) ((timing_info *)list_value(list_next(list_first(x))))
 
 void timer_query_free (list_t *l);
+
 
 #endif
 
