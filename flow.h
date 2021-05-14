@@ -104,4 +104,6 @@ FILE *std_open_output (const char *cmd, const char *s);
 void std_close_output (FILE *fp);
 void flow_init (void);
 
+extern int output_window_width;
+
 #endif /* __INTERACT_FLOW_H__ */

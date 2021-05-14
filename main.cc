@@ -209,6 +209,20 @@ int process_putenv (int argc, char **argv)
   return 1;
 }
 
+int process_window (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <width>\n", argv[0]);
+    return 0;
+  }
+  save_to_log (argc, argv, "i");
+  output_window_width = atoi (argv[1]);
+  if (output_window_width < 40) {
+    output_window_width = 40;
+  }
+  return 1;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
   { "getopt", "<string> - run getopt", process_getopt },
@@ -217,7 +231,8 @@ struct LispCliCommand Cmds[] = {
   { "getenv", "<string> - return environment variable", process_getenv },
   { "putenv", "<name> <value> - set environment variable", process_putenv },
   { "echo", "[-n] args - display to screen", process_echo },
-  { "prompt", "<str> - change prompt to the specified string", process_prompt }
+  { "prompt", "<str> - change prompt to the specified string", process_prompt },
+  { "window-width", "<width> - set output window width in characters (min 40)", process_window }
 };
 
 int main (int argc, char **argv)
@@ -226,6 +241,8 @@ int main (int argc, char **argv)
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
+
+  output_window_width = 72;
 
   signal (SIGINT, signal_handler);
 

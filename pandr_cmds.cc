@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <act/passes.h>
 #include <common/list.h>
+#include <common/pp.h>
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
@@ -384,27 +385,24 @@ int process_timer_cycle (int argc, char **argv)
     printf ("%s: No critical cycle.\n", argv[0]);
   }
   else {
-    int count = 0;
     int first = 1;
+    pp_t *pp = pp_init (stdout, output_window_width);
+    pp_puts (pp, "   ");
+    pp_setb (pp);
     for (auto x : cyc) {
-      if (count == 3) {
-	printf ("\n  ");
-	count = 0;
-      }
-      count++;
-      if (first) {
-	printf ("  ");
-      }
-      else {
-	printf (" -> ");
+      pp_lazy (pp, 0);
+      if (!first) {
+	pp_printf (pp, " .. ");
       }
       first = 0;
       ActPin *p = (ActPin *) x.first;
       TransMode t = x.second;
       p->sPrintFullName (buf, 1024);
-      printf ("%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+      pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
     }
-    printf ("\n");
+    pp_endb (pp);
+    pp_forced (pp, 0);
+    pp_stop (pp);
   }
   return 1;
 }

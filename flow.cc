@@ -23,6 +23,8 @@
 #include <string.h>
 #include "flow.h"
 
+int output_window_width;
+
 /*************************************************************************
  *
  *
