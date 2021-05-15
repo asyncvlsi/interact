@@ -143,6 +143,7 @@ static int process_timer_build (int argc, char **argv)
     fprintf (stderr, "%s: %s\n", argv[0], msg);
     return 0;
   }
+  save_to_log (argc, argv, "s");
   return 1;
 }
 
@@ -160,7 +161,7 @@ static int process_timer_tick (int argc, char **argv)
     fprintf (stderr, "%s: need to mark edges before running the timer.\n", argv[0]);
     return 0;
   }
-  
+
   int dir1, dir2;
   int len1, len2;
   len1 = strlen (argv[1]);
@@ -221,6 +222,8 @@ static int process_timer_tick (int argc, char **argv)
 	     argv[1], argv[2]);
     return 0;
   }
+  save_to_log (argc, argv, "s*");
+  
   return 1;
 }
 
@@ -404,6 +407,8 @@ int process_timer_cycle (int argc, char **argv)
     pp_forced (pp, 0);
     pp_stop (pp);
   }
+  save_to_log (argc, argv, "s*");
+  
   return 1;
 }
 
@@ -461,6 +466,8 @@ int process_timer_addconstraint (int argc, char **argv)
       
   /* add constraint! */
   tg->addConstraint (vid[0], vid[1], vid[2], margin);
+
+  save_to_log (argc, argv, "sssi");
   
   return 1;
 }
