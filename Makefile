@@ -35,7 +35,7 @@ include config.mk
 
 ifdef galois_eda_INCLUDE
 
-GALOIS_PIECES=-lacttpass -lgalois_eda -lgalois_shmem -lcyclone
+GALOIS_PIECES=-lacttpass -lcyclone -lgalois_eda -lgalois_shmem 
 
 ifeq ($(BASEOS),linux)
 GALOIS_PIECES+=-lnuma
