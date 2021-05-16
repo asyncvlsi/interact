@@ -382,7 +382,7 @@ int process_timer_cycle (int argc, char **argv)
     return 0;
   }
 
-  TimingPath cyc = timer_get_crit ();
+  cyclone::TimingPath cyc = timer_get_crit ();
 
   if (cyc.empty()) {
     printf ("%s: No critical cycle.\n", argv[0]);

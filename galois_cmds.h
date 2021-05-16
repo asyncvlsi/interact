@@ -37,9 +37,8 @@ const char *timer_create_graph (Act *a, Process *p);
 #include "cyclone/AsyncTimingEngine.h"
 
 using TransMode = galois::eda::utility::TransitionMode;
-using TimingPath = cyclone::TimingPath;
 
-TimingPath timer_get_crit (void);
+cyclone::TimingPath timer_get_crit (void);
 
 
 class timing_info {

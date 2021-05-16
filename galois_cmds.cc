@@ -843,7 +843,7 @@ static void timer_validate_constraints (void)
 }
 
 
-TimingPath timer_get_crit (void)
+cyclone::TimingPath timer_get_crit (void)
 {
   return TS.engine->getCriticalCycle ();
 }
