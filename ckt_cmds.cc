@@ -263,6 +263,140 @@ static int process_cell_save (int argc, char **argv)
 }
 
 
+static int process_add_buffer (int argc, char **argv)
+{
+  FILE *fp;
+
+  if (!std_argcheck (argc, argv, 5, "<proc> <inst> <pin> <buf>",
+		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    return 0;
+  }
+
+  ActCellPass *cp = getCellPass();
+  Assert (cp && cp->completed(), "What?");
+
+  Process *proc = F.act_design->findProcess (argv[1]);
+  if (!proc) {
+    fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  if (!proc->isExpanded()) {
+    fprintf (stderr, "%s: Process `%s' is not expanded\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  ActId *tmp = ActId::parseId (argv[2]);
+  if (!tmp) {
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[2]);
+    return 0;
+  }
+
+  if (tmp->Rest() || tmp->arrayInfo()) {
+    delete tmp;
+    fprintf (stderr, "%s: `%s' needs to be a simple instance name\n",
+	     argv[0], argv[2]);
+    return 0;
+  }
+  delete tmp;
+
+  tmp = ActId::parseId (argv[3]);
+  if (!tmp) {
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[3]);
+    return 0;
+  }
+
+  if (tmp->Rest()) {
+    delete tmp;
+    fprintf (stderr, "%s: `%s' needs to be a simple pin name\n",
+	     argv[0], argv[3]);
+    return 0;
+  }
+
+  Process *buftype = F.act_design->findProcess (argv[4]);
+  if (!buftype) {
+    fprintf (stderr, "%s: could not find buffer type `%s'\n", argv[0], argv[4]);
+    return 0;
+  }
+
+  if (!buftype->isExpanded()) {
+    buftype = buftype->Expand (ActNamespace::Global(),
+			       buftype->CurScope(), 0, NULL);
+  }
+  Assert (buftype->isExpanded(), "What?");
+
+  const char *nm;
+  if ((nm = proc->addBuffer (argv[2], tmp, buftype))) {
+    save_to_log (argc, argv, "s*");
+    LispSetReturnString (nm);
+    return 3;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+static int process_edit_cell (int argc, char **argv)
+{
+  FILE *fp;
+
+  if (!std_argcheck (argc, argv, 4, "<proc> <inst> <newcell>",
+		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    return 0;
+  }
+
+  ActCellPass *cp = getCellPass();
+  Assert (cp && cp->completed(), "What?");
+
+  Process *proc = F.act_design->findProcess (argv[1]);
+  if (!proc) {
+    fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  if (!proc->isExpanded()) {
+    fprintf (stderr, "%s: Process `%s' is not expanded\n", argv[0], argv[1]);
+    return 0;
+  }
+
+  ActId *tmp = ActId::parseId (argv[2]);
+  if (!tmp) {
+    fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[2]);
+    return 0;
+  }
+
+  if (tmp->Rest() || tmp->arrayInfo()) {
+    delete tmp;
+    fprintf (stderr, "%s: `%s' needs to be a simple instance name\n",
+	     argv[0], argv[2]);
+    return 0;
+  }
+  delete tmp;
+
+  Process *celltype = F.act_design->findProcess (argv[3]);
+  if (!celltype) {
+    fprintf (stderr, "%s: could not find cell type `%s'\n", argv[0], argv[3]);
+    return 0;
+  }
+
+  if (!celltype->isExpanded()) {
+    celltype = celltype->Expand (ActNamespace::Global(),
+				 celltype->CurScope(), 0, NULL);
+  }
+  Assert (celltype->isExpanded(), "What?");
+
+  if (proc->updateInst (argv[2], celltype)) {
+    save_to_log (argc, argv, "s*");
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+
 static struct LispCliCommand ckt_cmds[] = {
   { NULL, "ACT circuit generation", NULL },
   { "map", "- generate transistor-level description",
@@ -281,9 +415,13 @@ static struct LispCliCommand ckt_cmds[] = {
     process_ckt_save_v },
   
 
-  { NULL, "ACT cell mapper", NULL },
+  { NULL, "ACT cell mapping and editing", NULL },
   { "cell-map", "- map gates to cell library", process_cell_map },
-  { "cell-save", "<file> - save cells to file", process_cell_save }
+  { "cell-save", "<file> - save cells to file", process_cell_save },
+  { "cell-addbuf", "<proc> <inst> <pin> <buf> - add buffer to the pin within the process",
+    process_add_buffer },
+  { "cell-edit", "<proc> <inst> <newcell> - replace cell for instance within <proc>",
+    process_edit_cell }
 };
 
 void ckt_cmds_init (void)
