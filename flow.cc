@@ -53,6 +53,10 @@ static const char *get_state_str (void)
   case STATE_ERROR:
     s = "[error]";
     break;
+
+  case STATE_DIRTY:
+    s = "[dirty]";
+    break;
     
   }
   snprintf (buf, 1024, "%s\n  ", s);

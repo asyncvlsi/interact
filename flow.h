@@ -46,6 +46,8 @@ enum design_state {
 				      expanded */
 		   
 		   STATE_EXPANDED, /* design expanded */
+
+		   STATE_DIRTY,    /* passes are dirty */
 		   
 		   STATE_ERROR	/* something bad happened: never
 				   reached, used to make sure there

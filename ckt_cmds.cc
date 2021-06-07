@@ -266,11 +266,19 @@ static int process_cell_save (int argc, char **argv)
 static int process_add_buffer (int argc, char **argv)
 {
   FILE *fp;
+  design_state tmp_s;
+
+  tmp_s = F.s;
+  if (F.s == STATE_DIRTY) {
+    F.s = STATE_EXPANDED;
+  }
 
   if (!std_argcheck (argc, argv, 5, "<proc> <inst> <pin> <buf>",
 		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    F.s = tmp_s;
     return 0;
   }
+  F.s = tmp_s;
 
   ActCellPass *cp = getCellPass();
   Assert (cp && cp->completed(), "What?");
@@ -329,6 +337,7 @@ static int process_add_buffer (int argc, char **argv)
   if ((nm = proc->addBuffer (argv[2], tmp, buftype))) {
     save_to_log (argc, argv, "s*");
     LispSetReturnString (nm);
+    F.s = STATE_DIRTY;
     return 3;
   }
   else {
@@ -336,15 +345,22 @@ static int process_add_buffer (int argc, char **argv)
   }
 }
 
-
 static int process_edit_cell (int argc, char **argv)
 {
   FILE *fp;
+  design_state tmp_s;
+
+  tmp_s = F.s;
+  if (F.s == STATE_DIRTY) {
+    F.s = STATE_EXPANDED;
+  }
 
   if (!std_argcheck (argc, argv, 4, "<proc> <inst> <newcell>",
 		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    F.s = tmp_s;
     return 0;
   }
+  F.s = tmp_s;
 
   ActCellPass *cp = getCellPass();
   Assert (cp && cp->completed(), "What?");
@@ -387,12 +403,39 @@ static int process_edit_cell (int argc, char **argv)
   Assert (celltype->isExpanded(), "What?");
 
   if (proc->updateInst (argv[2], celltype)) {
+    F.s = STATE_DIRTY;
     save_to_log (argc, argv, "s*");
     return 1;
   }
   else {
     return 0;
   }
+}
+
+
+static int process_update_cell (int argc, char **argv)
+{
+  design_state tmp_s;
+
+  tmp_s = F.s;
+  if (F.s == STATE_DIRTY) {
+    F.s = STATE_EXPANDED;
+  }
+
+  if (!std_argcheck (argc, argv, 1, "",
+		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    F.s = tmp_s;
+    return 0;
+  }
+  F.s = tmp_s;
+
+  if (tmp_s == STATE_DIRTY) {
+    ActPass::refreshAll (F.act_design, F.act_toplevel);
+  }
+  save_to_log (argc, argv, "s");
+  F.s = STATE_EXPANDED;
+  
+  return 1;
 }
 
 
@@ -421,7 +464,10 @@ static struct LispCliCommand ckt_cmds[] = {
   { "cell-addbuf", "<proc> <inst> <pin> <buf> - add buffer to the pin within the process",
     process_add_buffer },
   { "cell-edit", "<proc> <inst> <newcell> - replace cell for instance within <proc>",
-    process_edit_cell }
+    process_edit_cell },
+
+  { "cell-update", "- take the design back to the clean state",
+    process_update_cell }
 };
 
 void ckt_cmds_init (void)
