@@ -79,6 +79,6 @@ OMPFLAG=-lomp
 endif
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) $(OMPFLAG) -ldl -ledit
+	$(CXX) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) $(OMPFLAG) -ldl -ledit
 
 -include Makefile.deps

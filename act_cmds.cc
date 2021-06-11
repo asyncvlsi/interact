@@ -214,8 +214,16 @@ static int process_pass_dyn (int argc, char **argv)
     }
   }
   
-  new ActDynamicPass (F.act_design, argv[2], argv[1], argv[3]);
-  return 1;
+  ActDynamicPass *dp =
+    new ActDynamicPass (F.act_design, argv[2], argv[1], argv[3]);
+  
+  if (dp->loaded()) {
+    return 1;
+  }
+  else {
+    delete dp;
+    return 0;
+  }
 }
 
 static ActDynamicPass *getDynamicPass (const char *cmd, const char *name)
