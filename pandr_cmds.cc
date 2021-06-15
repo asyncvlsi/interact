@@ -865,6 +865,23 @@ static int process_phydb_read_cluster (int argc, char **argv)
   return 1;
 }
 
+static int process_phydb_write_def (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+  
+  F.phydb->WriteDef (argv[1]);
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
@@ -877,6 +894,8 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_cell },
   { "read-cluster", "<file> - read Cluster file and populate database", 
     process_phydb_read_cluster },
+  { "write-def", "<file> - write DEF from database",
+    process_phydb_write_def},
   { "close", "- tear down physical database", process_phydb_close }
 
 };
@@ -908,7 +927,7 @@ static int process_dali_init (int argc, char **argv)
 
 static int process_dali_place_design (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<target density>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
     return 0;
   }
 
@@ -943,6 +962,48 @@ static int process_dali_place_io (int argc, char **argv)
   }
 
   F.dali->SimpleIoPinPlacement(argv[1]);
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
+static int process_dali_global_place (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  double density = -1;
+  try {
+    density = std::stod(argv[1]);
+  } catch (...) {
+    fprintf (stderr, "%s: invalid target density!\n", argv[1]);
+    return 0;
+  }
+
+  F.dali->GlobalPlace(density);
+  save_to_log (argc, argv, "s");
+
+  return 1;
+}
+
+static int process_dali_external_refine (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<engine>", STATE_EXPANDED)) {
+    return 0;
+  }
+
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return 0;
+  }
+
+  F.dali->ExternalDetailedPlaceAndLegalize(argv[1]);
   save_to_log (argc, argv, "s");
 
   return 1;
@@ -987,6 +1048,8 @@ static struct LispCliCommand dali_cmds[] = {
   { "init", "<verbosity_level(0-5)> - initialize Dali placement engine", process_dali_init },
   { "place-design", "<target_density> - place design", process_dali_place_design },
   { "place-io", "<metal_name> - place I/O pins", process_dali_place_io },
+  { "global-place", "<target_density> - global placement", process_dali_global_place},
+  { "refine-place", "<engine> - refine placement using an external placer", process_dali_external_refine},
   { "export-phydb", "- export placement to phydb", process_dali_export_phydb },
   { "close", "- close Dali", process_dali_close }
 
