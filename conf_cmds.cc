@@ -59,24 +59,24 @@ static int process_conf_read (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   char *tmp = config_file_name (argv[1]);
   if (!tmp) {
     fprintf (stderr, "%s: Could not find configuration file `%s'",
 	     argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   FILE *fp = fopen (tmp, "r");
   FREE (tmp);
   if (!fp) {
     fprintf (stderr, "%s: Could not find configuration file `%s'", argv[0],
 	     argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   config_read (argv[1]);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_conf_save (int argc, char **argv)
@@ -84,28 +84,28 @@ static int process_conf_save (int argc, char **argv)
   FILE *fp;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   fp = fopen (argv[1], "w");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s'", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   config_dump (fp);
   fclose (fp);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_conf_gettype (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   
   LispSetReturnInt (config_gettype (argv[1]));
-  return 2;
+  return LISP_RET_INT;
 }
 
 static int process_conf_set_int (int argc, char **argv)
@@ -113,7 +113,7 @@ static int process_conf_set_int (int argc, char **argv)
   int v, x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "si");
   
@@ -121,12 +121,12 @@ static int process_conf_set_int (int argc, char **argv)
   x = config_gettype (argv[1]);
   if (x == -1 || x == 0) {
     config_set_int (argv[1], v);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
 }
 
@@ -135,23 +135,23 @@ static int process_conf_get_int (int argc, char **argv)
   int v, x;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s*");
   
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (x != 0) {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
   v = config_get_int (argv[1]);
   LispSetReturnInt (v);
-  return 2;
+  return LISP_RET_INT;
 }
 
 static int process_conf_set_string (int argc, char **argv)
@@ -159,19 +159,19 @@ static int process_conf_set_string (int argc, char **argv)
   int x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s*");
   
   x = config_gettype (argv[1]);
   if (x == -1 || x == 1) {
     config_set_string (argv[1], argv[2]);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
 }
 
@@ -180,22 +180,22 @@ static int process_conf_get_string (int argc, char **argv)
   int x;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (x != 1) {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
   LispSetReturnString (config_get_string (argv[1]));
-  return 3;
+  return LISP_RET_STRING;
 }
 
 static int process_conf_set_real (int argc, char **argv)
@@ -204,7 +204,7 @@ static int process_conf_set_real (int argc, char **argv)
   int x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "si");
   
@@ -212,12 +212,12 @@ static int process_conf_set_real (int argc, char **argv)
   x = config_gettype (argv[1]);
   if (x == -1 || x == 2) {
     config_set_real (argv[1], v);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
   return 1;
 }
@@ -228,22 +228,22 @@ static int process_conf_get_real (int argc, char **argv)
   int x;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   
   x = config_gettype (argv[1]);
   if (x == -1) {
     fprintf (stderr, "%s: `%s' does not exist\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (x != 2) {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
   LispSetReturnFloat (config_get_real (argv[1]));
-  return 4;
+  return LISP_RET_FLOAT;
 }
 
 static int process_conf_set_default_int (int argc, char **argv)
@@ -251,7 +251,7 @@ static int process_conf_set_default_int (int argc, char **argv)
   int v, x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "si");
   
@@ -259,12 +259,12 @@ static int process_conf_set_default_int (int argc, char **argv)
   x = config_gettype (argv[1]);
   if (x == -1 || x == 0) {
     config_set_int (argv[1], v);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
 }
 
@@ -274,7 +274,7 @@ static int process_conf_set_default_real (int argc, char **argv)
   int x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "sf");
   
@@ -282,12 +282,12 @@ static int process_conf_set_default_real (int argc, char **argv)
   x = config_gettype (argv[1]);
   if (x == -1 || x == 2) {
     config_set_real (argv[1], v);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
 }
 
@@ -296,19 +296,19 @@ static int process_conf_set_default_string (int argc, char **argv)
   int x;
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "ss");
   
   x = config_gettype (argv[1]);
   if (x == -1 || x == 1) {
     config_set_string (argv[1], argv[2]);
-    return 1;
+    return LISP_RET_TRUE;
   }
   else {
     fprintf (stderr, "%s: `%s' exists with different type (%s)\n", argv[0],
 	     argv[1], conf_name (x));
-    return 0;
+    return LISP_RET_ERROR;
   }
 }
 

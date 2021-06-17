@@ -25,72 +25,72 @@
 
 static int process_pwroute_init (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.pwroute = new pwroute::PWRoute(F.phydb);
   save_to_log (argc, argv, "i");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_pwroute_set_parameters (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 4, "<reinforcement_width, reinforcement_step, cluster_mesh_width>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.pwroute == NULL) {
     fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   
   F.pwroute->SetMeshWidthStep(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_pwroute_run (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.pwroute == NULL) {
     fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.pwroute->RunPWRoute();
   save_to_log (argc, argv, "f");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
 static int process_pwroute_export_phydb (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.pwroute == NULL) {
     fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.pwroute->ExportToPhyDB();
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_pwroute_close (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.pwroute != NULL) {
@@ -98,7 +98,7 @@ static int process_pwroute_close (int argc, char **argv) {
     F.pwroute = NULL;
   }
   save_to_log (argc, argv, "");
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static struct LispCliCommand pwroute_cmds[] = {

@@ -57,7 +57,7 @@ int process_getargnum (int argc, char **argv)
 {
   if (argc != 1) {
     fprintf (stderr, "Usage: %s\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, NULL);
   
@@ -67,7 +67,7 @@ int process_getargnum (int argc, char **argv)
   else {
     LispSetReturnInt (cmd_argc);
   }
-  return 2;
+  return LISP_RET_INT;
 }
 
 
@@ -78,7 +78,7 @@ int process_getarg (int argc, char **argv)
 
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <num>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "i");
   
@@ -91,7 +91,7 @@ int process_getarg (int argc, char **argv)
   val = atoi (argv[1]);
   if (val < 0 || val >= l + cmd_argc) {
     fprintf (stderr, "%s: argument (%d) out of range\n", argv[0], val);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (val == 0) {
     LispSetReturnString (cmd_argv[0]);
@@ -120,7 +120,7 @@ int process_getarg (int argc, char **argv)
       LispSetReturnString (cmd_argv[val]);
     }
   }
-  return 3;
+  return LISP_RET_STRING;
 }
 
 int process_echo (int argc, char **argv)
@@ -139,26 +139,26 @@ int process_echo (int argc, char **argv)
     printf ("\n");
   }
   save_to_log (argc, argv, "s*");
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_prompt (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <str>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   
   LispCliSetPrompt (argv[1]);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_getopt (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <string>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
 
@@ -166,9 +166,9 @@ int process_getopt (int argc, char **argv)
 
   if (!Act::getOptions (&cmd_argc, &cmd_argv)) {
     fprintf (stderr, "Unknown command-line option specified.");
-    return 0;
+    return LISP_RET_ERROR;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_getenv (int argc, char **argv)
@@ -176,7 +176,7 @@ int process_getenv (int argc, char **argv)
   char *s;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <string>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
   
@@ -189,7 +189,7 @@ int process_getenv (int argc, char **argv)
   else {
     LispSetReturnString (s);
   }
-  return 3;
+  return LISP_RET_STRING;
 }
 
 int process_putenv (int argc, char **argv)
@@ -198,29 +198,29 @@ int process_putenv (int argc, char **argv)
 
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <value>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "ss");
   
   if (setenv (argv[1], argv[2], 1) == -1) {
     fprintf (stderr, "%s failed", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_window (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <width>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "i");
   output_window_width = atoi (argv[1]);
   if (output_window_width < 40) {
     output_window_width = 40;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 struct LispCliCommand Cmds[] = {

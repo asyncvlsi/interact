@@ -35,7 +35,7 @@ static int process_file_open (int argc, char **argv)
   
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <r|w|a>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s*");
   
@@ -43,18 +43,18 @@ static int process_file_open (int argc, char **argv)
       strcmp (argv[2], "w") != 0 &&
       strcmp (argv[2], "a") != 0) {
     fprintf (stderr, "Usage: %s <name> <r|w|a>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   fp = fopen (argv[1], argv[2]);
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' (mode: %s)\n", argv[0],
 	     argv[1], argv[2]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   i = ptr_register ("file", fp);
   LispSetReturnInt (i);
-  return 2;
+  return LISP_RET_INT;
 }
 
 static int process_file_close (int argc, char **argv)
@@ -62,7 +62,7 @@ static int process_file_close (int argc, char **argv)
   int v, x;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <id>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "i");
   
@@ -71,17 +71,17 @@ static int process_file_close (int argc, char **argv)
   void *fv = ptr_get ("file", v);
   if (!fv) {
     fprintf (stderr, "%s: file <#%d> does not exist.\n", argv[0], v);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   fclose ((FILE *)fv);
 
   if (ptr_unregister ("file", v) != 0) {
     fprintf (stderr, "%s: file <#%d> internal error.\n", argv[0], v);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 FILE *sys_get_fileptr (int v)
@@ -95,7 +95,7 @@ int process_log_file (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
 
@@ -106,16 +106,16 @@ int process_log_file (int argc, char **argv)
   if (!_logfile) {
     fprintf (stderr, "%s: could not open file `%s' for writing\n", argv[0],
 	     argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_end_log (int argc, char **argv)
 {
   if (argc != 1) {
     fprintf (stderr, "Usage: %s\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, NULL);
   if (_logfile) {
@@ -124,9 +124,9 @@ int process_end_log (int argc, char **argv)
   }
   else {
     fprintf (stderr, "%s: no log file detected\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static struct LispCliCommand conf_cmds[] = {

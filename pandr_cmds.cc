@@ -44,19 +44,19 @@ int process_read_lib (int argc, char **argv)
   void *lib;
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <liberty-file>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   lib = read_lib_file (argv[1]);
   if (!lib) {
     fprintf (stderr, "%s: could not open liberty file `%s'\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
 
   LispSetReturnInt (ptr_register ("liberty", lib));
 
-  return 2;
+  return LISP_RET_INT;
 }
 
 
@@ -67,14 +67,14 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
 
   if (!F.tp) {
     fprintf (stderr, "%s: cannot run without creating a timing graph!", cmd);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (!F.sp) {
     ActPass *ap = F.act_design->pass_find ("collect_state");
     if (!ap) {
       fprintf (stderr, "Internal error: state pass missing but timer present?\n");
-      return 0;
+      return LISP_RET_ERROR;
     }
     F.sp = dynamic_cast<ActStatePass *> (ap);
     Assert (F.sp, "What?");
@@ -132,34 +132,34 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
 static int process_timer_build (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (!F.act_toplevel) {
     fprintf (stderr, "%s: need top level of design set\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   const char *msg = timer_create_graph (F.act_design, F.act_toplevel);
   if (msg) {
     fprintf (stderr, "%s: %s\n", argv[0], msg);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
 static int process_timer_tick (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 3, "<net1>+/- <net2>+/-", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (!F.tp) {
     fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (F.timer == TIMER_RUN) {
     fprintf (stderr, "%s: need to mark edges before running the timer.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   int dir1, dir2;
@@ -174,7 +174,7 @@ static int process_timer_tick (int argc, char **argv)
   }
   else {
     fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (argv[2][len2-1] == '+') {
     dir2 = 1;
@@ -184,7 +184,7 @@ static int process_timer_tick (int argc, char **argv)
   }
   else {
     fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[2]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   argv[1][len1-1] = '\0';
   argv[2][len2-1] = '\0';
@@ -195,7 +195,7 @@ static int process_timer_tick (int argc, char **argv)
       !get_net_to_timing_vertex (argv[0], argv[2], &vid2)) {
     argv[1][len1-1] = dir1 ? '+' : '-';
     argv[2][len2-1] = dir2 ? '+' : '-';
-    return 0;
+    return LISP_RET_ERROR;
   }
   vid1 += dir1;
   vid2 += dir2;
@@ -220,11 +220,11 @@ static int process_timer_tick (int argc, char **argv)
   if (fw == fw.end()) {
     fprintf (stderr, "%s: could not find timing edge %s -> %s\n", argv[0],
 	     argv[1], argv[2]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s*");
   
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 /*------------------------------------------------------------------------
@@ -236,11 +236,11 @@ static int process_timer_tick (int argc, char **argv)
 int process_timer_init (int argc, char **argv)
 {
   if (!std_argcheck ((argc > 2 ? 2 : argc), argv, 2, "<lib-id1> <lib-id2> ...", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (!F.act_toplevel) {
     fprintf (stderr, "%s: need top level of design set\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   
   A_DECL (int, args);
@@ -256,14 +256,14 @@ int process_timer_init (int argc, char **argv)
   
   if (msg) {
     fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.timer = TIMER_INIT;
 
   save_to_log (argc, argv, "i*");
   
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
@@ -276,23 +276,23 @@ int process_timer_init (int argc, char **argv)
 int process_timer_run (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (F.timer == TIMER_NONE) {
     fprintf (stderr, "%s: timer needs to be initialized\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   const char *msg = timer_run ();
   if (msg) {
     fprintf (stderr, "%s: error running timer\n -> %s\n", argv[0], msg);
-    return 0;
+    return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "");
 
   F.timer = TIMER_RUN;
   
-  return 5;
+  return LISP_RET_LIST;
 }
 
 
@@ -313,19 +313,19 @@ static double my_round_2 (double d)
 int process_timer_info (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.timer != TIMER_RUN) {
     fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (!F.sp) {
     ActPass *ap = F.act_design->pass_find ("collect_state");
     if (!ap) {
       fprintf (stderr, "Internal error: state pass missing but timer present?\n");
-      return 0;
+      return LISP_RET_ERROR;
     }
     F.sp = dynamic_cast<ActStatePass *> (ap);
     Assert (F.sp, "What?");
@@ -333,7 +333,7 @@ int process_timer_info (int argc, char **argv)
 
   int vid;
   if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 				 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
@@ -365,7 +365,7 @@ int process_timer_info (int argc, char **argv)
   
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
@@ -374,12 +374,12 @@ int process_timer_cycle (int argc, char **argv)
   char buf[1024];
   
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.timer != TIMER_RUN) {
     fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   cyclone::TimingPath cyc = timer_get_crit ();
@@ -409,7 +409,7 @@ int process_timer_cycle (int argc, char **argv)
   }
   save_to_log (argc, argv, "s*");
   
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
@@ -417,15 +417,15 @@ int process_timer_cycle (int argc, char **argv)
 int process_timer_addconstraint (int argc, char **argv)
 {
   if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- <fast>+/- <slow>+/- [margin]", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (!F.tp) {
     fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (F.timer == TIMER_RUN) {
     fprintf (stderr, "%s: need to add constraints before running the timer.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   int dir[3];
@@ -442,14 +442,14 @@ int process_timer_addconstraint (int argc, char **argv)
     else {
       fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0],
 	       argv[i+1]);
-      return 0;
+      return LISP_RET_ERROR;
     }
     argv[i+1][len[i]-1] = '\0';
     if (!get_net_to_timing_vertex (argv[0], argv[i+1], &vid[i])) {
       for (int j=0; j <= i; j++) {
 	argv[j+1][len[j]-1] = dir[j] ? '+' : '-';
       }
-      return 0;
+      return LISP_RET_ERROR;
     }
     vid[i] += dir[i];
   }
@@ -469,25 +469,25 @@ int process_timer_addconstraint (int argc, char **argv)
 
   save_to_log (argc, argv, "sssi");
   
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_timer_constraint (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[<net>]", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.timer != TIMER_RUN) {
     fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (!F.sp) {
     ActPass *ap = F.act_design->pass_find ("collect_state");
     if (!ap) {
       fprintf (stderr, "Internal error: state pass missing but timer present?\n");
-      return 0;
+      return LISP_RET_ERROR;
     }
     F.sp = dynamic_cast<ActStatePass *> (ap);
     Assert (F.sp, "What?");
@@ -497,7 +497,7 @@ int process_timer_constraint (int argc, char **argv)
   
   if (argc == 2) {
     if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
-      return 0;
+      return LISP_RET_ERROR;
     }
   }
   else {
@@ -665,7 +665,7 @@ int process_timer_constraint (int argc, char **argv)
   
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
@@ -699,44 +699,44 @@ static struct LispCliCommand timer_cmds[] = {
 static int process_phydb_init (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.act_toplevel == NULL) {
     fprintf (stderr, "%s: no top-level process specified\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.cell_map != 1) {
     fprintf (stderr, "%s: phydb requires the design to be mapped to cells.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.ckt_gen != 1) {
     fprintf (stderr, "%s: phydb requires the transistor netlist to be created.\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb != NULL) {
     fprintf (stderr, "%s: phydb already initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.phydb = new phydb::PhyDB();
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_close (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: no database!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
  
   delete F.phydb;
@@ -744,24 +744,24 @@ static int process_phydb_close (int argc, char **argv)
 
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_read_lef (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
         argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   fclose (fp);
 
@@ -775,55 +775,55 @@ static int process_phydb_read_lef (int argc, char **argv)
 
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_read_def (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
         argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   fclose (fp);
   
   if (F.phydb_def) {
     fprintf (stderr, "%s: already read in DEF file! Command ignored.\n",
         argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   
   F.phydb->ReadDef (argv[1]);
   F.phydb_def = 1;
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_read_cell (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
         argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   fclose (fp);
 
@@ -836,24 +836,24 @@ static int process_phydb_read_cell (int argc, char **argv)
   F.phydb_cell = 1;
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_read_cluster (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   FILE *fp = fopen (argv[1], "r");
   if (!fp) {
     fprintf (stderr, "%s: could not open cluster file `%s' for reading\n", argv[0],
         argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   fclose (fp);
 
@@ -862,24 +862,24 @@ static int process_phydb_read_cluster (int argc, char **argv)
   F.phydb_cluster = 1;
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_phydb_write_def (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   
   F.phydb->WriteDef (argv[1]);
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static struct LispCliCommand phydb_cmds[] = {
@@ -906,34 +906,34 @@ static struct LispCliCommand phydb_cmds[] = {
 static int process_dali_init (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<verbosity level>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.phydb == NULL) {
     fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali != NULL) {
     fprintf (stderr, "%s: dali already initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali = new dali::Dali(F.phydb, argv[1]);
   save_to_log (argc, argv, "i");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_place_design (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali == NULL) {
     fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   double density = -1;
@@ -941,41 +941,41 @@ static int process_dali_place_design (int argc, char **argv)
     density = std::stod(argv[1]);
   } catch (...) {
     fprintf (stderr, "%s: invalid target density!\n", argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali->StartPlacement(density);
   save_to_log (argc, argv, "f");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_place_io (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<metal>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali == NULL) {
     fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali->SimpleIoPinPlacement(argv[1]);
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_global_place (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali == NULL) {
     fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   double density = -1;
@@ -983,53 +983,53 @@ static int process_dali_global_place (int argc, char **argv)
     density = std::stod(argv[1]);
   } catch (...) {
     fprintf (stderr, "%s: invalid target density!\n", argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali->GlobalPlace(density);
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_external_refine (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<engine>", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali == NULL) {
     fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali->ExternalDetailedPlaceAndLegalize(argv[1]);
   save_to_log (argc, argv, "s");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_export_phydb (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali == NULL) {
     fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   F.dali->ExportToPhyDB();
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static int process_dali_close (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (F.dali != NULL) {
@@ -1039,7 +1039,7 @@ static int process_dali_close (int argc, char **argv)
   }
   save_to_log (argc, argv, "");
 
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static struct LispCliCommand dali_cmds[] = {
