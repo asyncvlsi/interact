@@ -925,6 +925,23 @@ static int process_dali_init (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_dali_add_welltap (int argc, char **argv)
+{
+  if (F.dali == NULL) {
+    fprintf (stderr, "%s: dali needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  bool res = F.dali->AddWellTaps(argc, argv);
+  save_to_log (argc, argv, "s");
+
+  if (!res) {
+    return LISP_RET_ERROR;
+  }
+
+  return LISP_RET_TRUE;
+}
+
 static int process_dali_place_design (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
@@ -1046,6 +1063,7 @@ static struct LispCliCommand dali_cmds[] = {
   { NULL, "Placement", NULL },
   
   { "init", "<verbosity_level(0-5)> - initialize Dali placement engine", process_dali_init },
+  { "add-welltap", "<-cell cell_name -interval max_microns> [-checker_board] - add well-tap cell", process_dali_add_welltap},
   { "place-design", "<target_density> - place design", process_dali_place_design },
   { "place-io", "<metal_name> - place I/O pins", process_dali_place_io },
   { "global-place", "<target_density> - global placement", process_dali_global_place},
