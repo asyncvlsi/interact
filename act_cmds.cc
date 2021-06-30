@@ -57,7 +57,6 @@ static int process_read (int argc, char **argv)
   }
   fclose (fp);
   F.act_design = new Act (argv[1]);
-  new ActApplyPass (F.act_design);
   F.s = STATE_DESIGN;
   return LISP_RET_TRUE;
 }

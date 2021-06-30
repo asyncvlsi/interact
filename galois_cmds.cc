@@ -781,6 +781,9 @@ static void check_one_constraint (TaggedTG::constraint *c)
     double from_adj, to_adj;
     double root_tm, from_tm, to_tm;
 
+    from_id = i;
+    to_id = i;
+
     from_id = c->from_tick ? from_id+1 : from_id;
     if (from_id == TS.M) {
       from_adj = TS.M*TS.p;
