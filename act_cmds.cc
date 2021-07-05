@@ -267,6 +267,28 @@ static int process_pass_set_file_param (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_pass_set_string_param (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  char *s;
+
+  if (!std_argcheck (argc, argv, 4, "<pass-name> <name> <string>",
+		     STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "sss");
+
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return LISP_RET_ERROR; }
+
+  if ((s = (char *)dp->getPtrParam (argv[2]))) {
+    FREE (s);
+  }
+  dp->setParam (argv[2], (void *)Strdup (argv[3]));
+  return LISP_RET_TRUE;
+}
+
+
 static int process_pass_set_int_param (int argc, char **argv)
 {
   int v;
@@ -359,6 +381,30 @@ static int process_pass_run (int argc, char **argv)
     dp->run_recursive (F.act_toplevel, v);
   }
   return LISP_RET_TRUE;
+}
+
+static int process_pass_runcmd (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  int v;
+
+  if (!std_argcheck (argc, argv, 2, "<pass-name>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  dp = getDynamicPass (argv[0], argv[1]);
+  if (!dp) { return LISP_RET_ERROR; }
+  v = dp->runcmd ();
+  if (v == 1) {
+    return LISP_RET_TRUE;
+  }
+  else if (v == 0) {
+    return LISP_RET_FALSE;
+  }
+  else {
+    return LISP_RET_ERROR;
+  }
 }
 
 
@@ -683,6 +729,8 @@ static struct LispCliCommand act_cmds[] = {
     process_pass_set_file_param },
   { "pass:set_int", "<pass-name> <name> <ival> - set pass parameter to an integer",
     process_pass_set_int_param },
+  { "pass:set_string", "<pass-name> <string> - set pass parameter to a string",
+    process_pass_set_string_param },
   { "pass:get_int", "<pass-name> <name> - return int parameter from pass",
     process_pass_get_int },
   { "pass:set_real", "<pass-name> <name> <rval> - set pass parameter to a real number",
@@ -690,7 +738,10 @@ static struct LispCliCommand act_cmds[] = {
   { "pass:get_real", "<pass-name> <name> - return real parameter from pass",
     process_pass_get_real },
   { "pass:run", "<pass-name> <mode> - run pass, with mode=0,...",
-    process_pass_run }
+    process_pass_run },
+
+  { "pass:runcmd", "<pass-name> - run pass command",
+    process_pass_runcmd }
 };
 
 

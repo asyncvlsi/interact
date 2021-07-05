@@ -154,6 +154,19 @@ int process_prompt (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_error (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <str>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  fprintf (stderr, "ERROR: %s\n", argv[1]);
+
+  return LISP_RET_ERROR;
+}
+
 int process_getopt (int argc, char **argv)
 {
   if (argc != 2) {
@@ -232,6 +245,7 @@ struct LispCliCommand Cmds[] = {
   { "putenv", "<name> <value> - set environment variable", process_putenv },
   { "echo", "[-n] args - display to screen", process_echo },
   { "prompt", "<str> - change prompt to the specified string", process_prompt },
+  { "error", "<str> - report error and abort execution", process_error },
   { "window-width", "<width> - set output window width in characters (min 40)", process_window }
 };
 

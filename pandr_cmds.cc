@@ -28,6 +28,7 @@
 #include "ptr_manager.h"
 #include "flow.h"
 #include "actpin.h"
+#include <act/tech.h>
 
 #ifdef FOUND_galois_eda
 
@@ -712,6 +713,11 @@ static int process_phydb_init (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
+  ActNetlistPass *np = getNetlistPass();
+  if (np->completed()) {
+    F.ckt_gen = 1;
+  }
+
   if (F.ckt_gen != 1) {
     fprintf (stderr, "%s: phydb requires the transistor netlist to be created.\n", argv[0]);
     return LISP_RET_ERROR;
@@ -765,11 +771,6 @@ static int process_phydb_read_lef (int argc, char **argv)
   }
   fclose (fp);
 
-  if (F.phydb_lef) {
-    fprintf (stderr, "%s: already read in LEF; continuing anyway.\n",
-        argv[0]);
-  }
-  
   F.phydb->ReadLef (argv[1]);
   F.phydb_lef = 1;
 
@@ -777,6 +778,82 @@ static int process_phydb_read_lef (int argc, char **argv)
 
   return LISP_RET_TRUE;
 }
+
+static void _find_macro (void *cookie, Process *p)
+{
+  char buf[10240];
+
+  if (!p) {
+    return;
+  }
+
+  if (!p->isCell()) {
+    return;
+  }
+
+  F.act_design->msnprintfproc (buf, 10240, p);
+
+  Macro *m = F.phydb->GetMacroPtr (std::string (buf));
+  if (!m) {
+    return;
+  }
+
+  double w, h;
+  w = m->GetWidth();
+  h = m->GetHeight();
+
+  w = w*1000.0/Technology::T->scale;
+  h = h*1000.0/Technology::T->scale;
+
+  LispAppendListStart ();
+  LispAppendReturnString (buf);
+  LispAppendReturnInt ((long)w);
+  LispAppendReturnInt ((long)h);
+  LispAppendListEnd ();
+}
+
+static int process_phydb_get_used_lef (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb_lef == 0) {
+    fprintf (stderr, "%s: no lef file in phydb!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  ActPass *ap = F.act_design->pass_find ("apply");
+  ActApplyPass *app;
+  if (!ap) {
+    app = new ActApplyPass (F.act_design);
+  }
+  else {
+    app = dynamic_cast<ActApplyPass *> (ap);
+  }
+  Assert (app, "Hmm");
+
+  LispSetReturnListStart ();
+
+  app->setCookie (NULL);
+  app->setProcFn (_find_macro);
+  app->setChannelFn (NULL);
+  app->setDataFn (NULL);
+  app->run_per_type (F.act_toplevel);
+  app->setProcFn (NULL);
+
+  save_to_log (argc, argv, "s");
+
+  LispSetReturnListEnd ();
+
+  return LISP_RET_LIST;
+}
+
 
 static int process_phydb_read_def (int argc, char **argv)
 {
@@ -888,6 +965,8 @@ static struct LispCliCommand phydb_cmds[] = {
   { "init", "- initialize physical database", process_phydb_init },
   { "read-lef", "<file> - read LEF and populate database",
     process_phydb_read_lef },
+  { "get-used-lef", "- return list of macros used by the design",
+    process_phydb_get_used_lef },
   { "read-def", "<file> - read DEF and populate database",
     process_phydb_read_def },
   { "read-cell", "<file> - read CELL file and populate database", 

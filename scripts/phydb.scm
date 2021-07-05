@@ -38,6 +38,21 @@
 	 )
        )
      )
+
+   (define phydb:create-stdcell		; populate phydb
+     (lambda (lef_list area ratio)
+       (begin
+	 (phydb:init)
+	 (act:layout:create)
+	 (mapcar phydb:read-lef lef_list) ; read in external LEF
+	 (mapcar act:layout:set-lef-bbox-helper (phydb:get-used-lef))
+	 (act:layout:def "_out.def" #t area ratio)
+	 (phydb:read-def "_out.def")
+	 (system "rm _out.def")
+	 )
+       )
+     )
+
    (define pydb-loaded #t)
    )
  )

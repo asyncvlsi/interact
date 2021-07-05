@@ -45,6 +45,18 @@
 	  )
 	)
 
+      (define act:layout:set-lef-bbox
+	(lambda (cellname width height)
+	  (begin
+	    (act:pass:set_string "stk2layout" "cell_name" cellname)
+	    (act:pass:set_int "stk2layout" "cell_width" width)
+	    (act:pass:set_int "stk2layout" "cell_height" height)
+	    (act:pass:runcmd "stk2layout")
+	    )
+	  )
+	)
+      (define act:layout:set-lef-bbox-helper (lambda (l) (apply act:layout:set-lef-bbox l)))
+
       (define act:layout:rect (lambda () (act:layout:run 4)))
 
       (define act:layout:def
