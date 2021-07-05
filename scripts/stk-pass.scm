@@ -51,7 +51,7 @@
 	    (act:pass:set_string "stk2layout" "cell_name" cellname)
 	    (act:pass:set_int "stk2layout" "cell_width" width)
 	    (act:pass:set_int "stk2layout" "cell_height" height)
-	    (act:pass:runcmd "stk2layout")
+	    (act:pass:runcmd "stk2layout" "setbbox")
 	    )
 	  )
 	)

@@ -388,14 +388,14 @@ static int process_pass_runcmd (int argc, char **argv)
   ActDynamicPass *dp;
   int v;
 
-  if (!std_argcheck (argc, argv, 2, "<pass-name>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 3, "<pass-name> <cmd>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
 
   dp = getDynamicPass (argv[0], argv[1]);
   if (!dp) { return LISP_RET_ERROR; }
-  v = dp->runcmd ();
+  v = dp->runcmd (argv[2]);
   if (v == 1) {
     return LISP_RET_TRUE;
   }
@@ -740,7 +740,7 @@ static struct LispCliCommand act_cmds[] = {
   { "pass:run", "<pass-name> <mode> - run pass, with mode=0,...",
     process_pass_run },
 
-  { "pass:runcmd", "<pass-name> - run pass command",
+  { "pass:runcmd", "<pass-name> <cmd> - run pass command",
     process_pass_runcmd }
 };
 
