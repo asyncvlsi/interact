@@ -585,7 +585,7 @@ void timing_info::populate (ActPin *p,
   
   for (int i=0; i < TS.M; i++) {
     arr[i] = TS.engine->getPinArrv (p, mode, TS.lib, maxmode, i);
-    req[i] = TS.engine->getPinReq (p, mode, TS.lib, maxmode, i);
+    req[i] = TS.engine->getPinPerfReq (p, mode, TS.lib, maxmode, i);
   }
 
   if (mode == galois::eda::utility::TransitionMode::TRANS_RISE) {

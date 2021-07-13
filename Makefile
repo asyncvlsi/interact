@@ -34,7 +34,7 @@ include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
 ifdef galois_INCLUDE
-GALOIS_PIECES=-lgalois_shmem -lnuma
+GALOIS_PIECES=-lgalois_shmem 
 endif
 
 ifdef galois_eda_INCLUDE 
