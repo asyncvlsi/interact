@@ -33,12 +33,16 @@ SRCS=$(OBJS:.o=.cc)
 include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
-ifdef galois_eda_INCLUDE
+ifdef galois_INCLUDE
+GALOIS_PIECES=-lgalois_shmem -lnuma
+endif
 
-GALOIS_PIECES=-lacttpass -lcyclone -lgalois_eda -lgalois_shmem 
+ifdef galois_eda_INCLUDE 
+
+GALOIS_EDA_PIECES=-lacttpass -lcyclone -lgalois_eda -lgalois_shmem 
 
 ifeq ($(BASEOS),linux)
-GALOIS_PIECES+=-lnuma
+GALOIS_EDA_PIECES+=-lnuma
 endif
 
 endif
@@ -62,10 +66,14 @@ ifdef pwroute_INCLUDE
 PWROUTE_PIECES=-lpwroute 
 endif
 
-ALL_INCLUDE=$(boost_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE)
+ifdef sproute_INCLUDE
+SPROUTE_PIECES=-lsproute 
+endif
+
+ALL_INCLUDE=$(boost_INCLUDE) $(galois_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE) 
 
 ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
-	$(GALOIS_PIECES) $(DALI_PIECES) $(PHYDB_PIECES) $(PWROUTE_PIECES)
+	 $(GALOIS_EDA_PIECES) $(DALI_PIECES) $(PHYDB_PIECES) $(PWROUTE_PIECES) $(SPROUTE_PIECES) $(GALOIS_PIECES)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)

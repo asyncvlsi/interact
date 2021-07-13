@@ -179,6 +179,14 @@ void flow_init (void)
   F.dali = NULL;
 #endif
 
+#ifdef FOUND_pwroute
+  F.pwroute = NULL;
+#endif
+
+#ifdef FOUND_sproute
+  F.sproute = NULL;
+#endif
+
 #ifdef FOUND_phydb
   F.phydb = NULL;
   F.phydb_cell = 0;

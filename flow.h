@@ -38,6 +38,10 @@
 #include <pwroute/pwroute.h>
 #endif
 
+#ifdef FOUND_sproute
+#include <sproute/sproute.h>
+#endif
+
 enum design_state {
 		   STATE_EMPTY,    /* no act file/design has been
 				      specified */
@@ -77,6 +81,10 @@ struct flow_state {
 
 #ifdef FOUND_pwroute
   pwroute::PWRoute *pwroute;
+#endif
+
+#ifdef FOUND_sproute
+  sproute::SPRoute *sproute;
 #endif
 
 #ifdef FOUND_phydb

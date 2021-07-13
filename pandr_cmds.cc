@@ -959,6 +959,23 @@ static int process_phydb_write_def (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_write_guide (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  F.phydb->WriteGuide (argv[1]);
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
@@ -975,6 +992,8 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_cluster },
   { "write-def", "<file> - write DEF from database",
     process_phydb_write_def},
+  { "write-guide", "<file> - write GUIDE from database",
+    process_phydb_write_guide},
   { "close", "- tear down physical database", process_phydb_close }
 
 };
@@ -1158,6 +1177,10 @@ static struct LispCliCommand dali_cmds[] = {
   #include "pwroute_cmds.h"
 #endif
 
+#if defined(FOUND_sproute) 
+  #include "sproute_cmds.h"
+#endif
+
 void pandr_cmds_init (void)
 {
 #ifdef FOUND_galois_eda
@@ -1178,6 +1201,11 @@ void pandr_cmds_init (void)
 #if defined(FOUND_pwroute) 
   LispCliAddCommands ("pwroute", pwroute_cmds,
             sizeof (pwroute_cmds)/sizeof (pwroute_cmds[0]));
+#endif
+
+#if defined(FOUND_sproute) 
+  LispCliAddCommands ("sproute", sproute_cmds,
+            sizeof (sproute_cmds)/sizeof (sproute_cmds[0]));
 #endif
   
 }
