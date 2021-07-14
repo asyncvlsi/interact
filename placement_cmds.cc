@@ -230,6 +230,9 @@ static int process_bipart_partition (int argc, char **argv)
     Cdepth = atoi(argv[2]);
   }
 
+  /*-- make sure Galois runtime is initialized --*/
+  init_galois_shmemsys ();
+
   bipart::MetisGraph *mG = bipart::biparting (*F.phydb, Cdepth, K);
 
   delete mG;
@@ -250,14 +253,14 @@ static struct LispCliCommand bipart_cmds[] = {
 void placement_cmds_init (void)
 {
 
-#if defined(FOUND_dali) 
-  LispCliAddCommands ("dali", dali_cmds,
-            sizeof (dali_cmds)/sizeof (dali_cmds[0]));
-#endif
-
 #if defined(FOUND_bipart) 
   LispCliAddCommands ("bipart", bipart_cmds,
 		      sizeof (bipart_cmds)/sizeof (bipart_cmds[0]));
+#endif
+
+#if defined(FOUND_dali) 
+  LispCliAddCommands ("dali", dali_cmds,
+            sizeof (dali_cmds)/sizeof (dali_cmds[0]));
 #endif
 
 }

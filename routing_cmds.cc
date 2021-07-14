@@ -112,7 +112,7 @@ static int process_pwroute_close (int argc, char **argv) {
 }
 
 static struct LispCliCommand pwroute_cmds[] = {
-  { NULL, "pwroute", NULL },
+  { NULL, "Power Routing for Gridded Cells", NULL },
   
   { "init", "-initialize pwroute engine", process_pwroute_init },
   { "set_parameters", "<reinforcement_width, reinforcement_step, cluster_mesh_width> - run pw route with mesh configuration. Default is <8, 16, 2>", 
@@ -222,7 +222,7 @@ static int process_sproute_close (int argc, char **argv) {
 }
 
 static struct LispCliCommand sproute_cmds[] = {
-  { NULL, "sproute", NULL },
+  { NULL, "Global Routing", NULL },
   
   { "init", "initialize sproute engine", process_sproute_init },
   { "set-num-threads", "set num threads, default = 1", process_sproute_set_num_threads},
