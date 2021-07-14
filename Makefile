@@ -25,7 +25,8 @@ SUBDIRS=scripts
 
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 	act_simfile.o act_vfile.o ptr_manager.o ckt_cmds.o flow.o \
-	pandr_cmds.o galois_cmds.o actpin.o routing_cmds.o
+	pandr_cmds.o galois_cmds.o actpin.o routing_cmds.o \
+	placement_cmds.o
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
@@ -33,13 +34,16 @@ SRCS=$(OBJS:.o=.cc)
 include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
-ifdef galois_INCLUDE
-GALOIS_PIECES=-lgalois_shmem 
-endif
+GALOIS_EDA_PIECES=-lgalois_shmem
 
 ifdef galois_eda_INCLUDE 
 
-GALOIS_EDA_PIECES=-lacttpass -lcyclone -lgalois_eda -lgalois_shmem 
+GALOIS_EDA_PIECES+=-lacttpass -lcyclone -lgalois_eda
+
+endif
+
+ifdef galois_INCLUDE
+GALOIS_EDA_PIECES+=-lgalois_shmem
 
 ifeq ($(BASEOS),linux)
 GALOIS_EDA_PIECES+=-lnuma
@@ -58,22 +62,29 @@ endif
 
 endif
 
+PANDR_PIECES=$(DALI_PIECES)
+
 ifdef phydb_INCLUDE
-PHYDB_PIECES=-lphydb -llef -ldef
+PANDR_PIECES+=-lphydb -llef -ldef
 endif
 
 ifdef pwroute_INCLUDE
-PWROUTE_PIECES=-lpwroute 
+PANDR_PIECES+=-lpwroute 
 endif
 
 ifdef sproute_INCLUDE
-SPROUTE_PIECES=-lsproute 
+PANDR_PIECES+=-lsproute 
 endif
+
+ifdef bipart_INCLUDE
+PANDR_PIECES+=-lbipart
+endif
+
 
 ALL_INCLUDE=$(boost_INCLUDE) $(galois_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE) 
 
 ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
-	 $(GALOIS_EDA_PIECES) $(DALI_PIECES) $(PHYDB_PIECES) $(PWROUTE_PIECES) $(SPROUTE_PIECES) $(GALOIS_PIECES)
+	 $(PANDR_PIECES) $(GALOIS_EDA_PIECES)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)

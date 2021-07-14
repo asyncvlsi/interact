@@ -28,6 +28,7 @@ void act_cmds_init (void);
 void ckt_cmds_init (void);
 void timer_cmds_init (void);
 void pandr_cmds_init (void);
+void placement_cmds_init (void);
 void routing_cmds_init (void);
 void conf_cmds_init (void);
 void misc_cmds_init (void);

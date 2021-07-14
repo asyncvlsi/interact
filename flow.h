@@ -42,6 +42,10 @@
 #include <sproute/sproute.h>
 #endif
 
+#ifdef FOUND_bipart
+#include <bipart/Bipart.h>
+#endif
+
 enum design_state {
 		   STATE_EMPTY,    /* no act file/design has been
 				      specified */
