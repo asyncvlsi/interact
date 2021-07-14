@@ -1013,6 +1013,7 @@ void pandr_cmds_init (void)
             sizeof (phydb_cmds)/sizeof (phydb_cmds[0]));
 #endif
 
+  placement_cmds_init ();
   routing_cmds_init ();
 }
 
