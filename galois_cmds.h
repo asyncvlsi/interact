@@ -30,6 +30,7 @@ const char *timing_graph_init (Act *a, Process *p, int *lib_id, int nlibs);
 const char *timer_run (void);
 void timer_get_period (double *p, int *M);
 const char *timer_create_graph (Act *a, Process *p);
+void init_galois_shmemsys(int mode = 0);
 
 #ifdef FOUND_galois_eda
 

@@ -79,24 +79,37 @@ static void clear_timer()
   TS.tg = NULL;
 }
 
-static void init (int mode = 0)
-{
+void init_galois_shmemsys(int mode) {
   static galois::SharedMemSys *g = NULL;
 
   if (mode == 0) {
     if (!g) {
       g = new galois::SharedMemSys;
-      TS.anl = NULL;
-      TS.engine = NULL;
     }
   }
   else {
-    clear_timer ();
     if (g) {
       delete g;
       g = NULL;
     }
   }
+}
+
+static void init (int mode = 0)
+{
+  static int first = 1;
+
+  if (first) {
+      TS.anl = NULL;
+      TS.engine = NULL;
+  }
+  first = 0;
+  
+  if (mode == 1) {
+    clear_timer ();
+    first = 1;
+  }
+  init_galois_shmemsys (mode);
 }
 
 /*------------------------------------------------------------------------

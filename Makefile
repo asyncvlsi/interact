@@ -25,7 +25,7 @@ SUBDIRS=scripts
 
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 	act_simfile.o act_vfile.o ptr_manager.o ckt_cmds.o flow.o \
-	pandr_cmds.o galois_cmds.o actpin.o
+	pandr_cmds.o galois_cmds.o actpin.o routing_cmds.o
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)

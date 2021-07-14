@@ -19,24 +19,113 @@
  *
  **************************************************************************
  */
-#ifndef SPROUTE_CMDS_H
-#define SPROUTE_CMDS_H
+#include <stdio.h>
+#include <act/passes.h>
+#include <common/list.h>
+#include <common/pp.h>
+#include <lispCli.h>
+#include "all_cmds.h"
+#include "galois_cmds.h"
+#include "ptr_manager.h"
+#include "flow.h"
+#include "actpin.h"
+#include <act/tech.h>
 
-static void init_galois_shmemsys(int mode = 0) {
-  static galois::SharedMemSys *g = NULL;
+#if defined(FOUND_pwroute) 
 
-  if (mode == 0) {
-    if (!g) {
-      g = new galois::SharedMemSys;
-    }
+static int process_pwroute_init (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
   }
-  else {
-    if (g) {
-      delete g;
-      g = NULL;
-    }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
   }
+
+  F.pwroute = new pwroute::PWRoute(F.phydb);
+  save_to_log (argc, argv, "i");
+
+  return LISP_RET_TRUE;
 }
+
+static int process_pwroute_set_parameters (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 4, "<reinforcement_width, reinforcement_step, cluster_mesh_width>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.pwroute == NULL) {
+    fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  F.pwroute->SetMeshWidthStep(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
+  save_to_log (argc, argv, "");
+
+  return LISP_RET_TRUE;
+}
+
+static int process_pwroute_run (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.pwroute == NULL) {
+    fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  F.pwroute->RunPWRoute();
+  save_to_log (argc, argv, "f");
+
+  return LISP_RET_TRUE;
+}
+
+
+static int process_pwroute_export_phydb (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.pwroute == NULL) {
+    fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  F.pwroute->ExportToPhyDB();
+  save_to_log (argc, argv, "");
+
+  return LISP_RET_TRUE;
+}
+
+static int process_pwroute_close (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.pwroute != NULL) {
+    delete F.pwroute;
+    F.pwroute = NULL;
+  }
+  save_to_log (argc, argv, "");
+  return LISP_RET_TRUE;
+}
+
+static struct LispCliCommand pwroute_cmds[] = {
+  { NULL, "pwroute", NULL },
+  
+  { "init", "-initialize pwroute engine", process_pwroute_init },
+  { "set_parameters", "<reinforcement_width, reinforcement_step, cluster_mesh_width> - run pw route with mesh configuration. Default is <8, 16, 2>", 
+    process_pwroute_set_parameters},
+  { "run", "run pwroute", process_pwroute_run },
+  { "export-phydb", "-export power and ground wires to phydb", process_pwroute_export_phydb },
+  { "close", "-close pwroute", process_pwroute_close }
+};
+
+#endif
+
+#if defined(FOUND_sproute) 
+
 
 static int process_sproute_init (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
@@ -102,8 +191,6 @@ static int process_sproute_set_max_iteration (int argc, char **argv) {
   return LISP_RET_TRUE;
 }
 
-
-
 static int process_sproute_run (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
@@ -146,3 +233,18 @@ static struct LispCliCommand sproute_cmds[] = {
 };
 
 #endif
+
+
+
+void routing_cmds_init (void)
+{
+#if defined(FOUND_pwroute) 
+  LispCliAddCommands ("pwroute", pwroute_cmds,
+            sizeof (pwroute_cmds)/sizeof (pwroute_cmds[0]));
+#endif
+
+#if defined(FOUND_sproute) 
+  LispCliAddCommands ("sproute", sproute_cmds,
+            sizeof (sproute_cmds)/sizeof (sproute_cmds[0]));
+#endif
+}

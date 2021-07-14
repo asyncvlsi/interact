@@ -1173,14 +1173,6 @@ static struct LispCliCommand dali_cmds[] = {
 
 #endif  
 
-#if defined(FOUND_pwroute) 
-  #include "pwroute_cmds.h"
-#endif
-
-#if defined(FOUND_sproute) 
-  #include "sproute_cmds.h"
-#endif
-
 void pandr_cmds_init (void)
 {
 #ifdef FOUND_galois_eda
@@ -1198,14 +1190,5 @@ void pandr_cmds_init (void)
             sizeof (dali_cmds)/sizeof (dali_cmds[0]));
 #endif
 
-#if defined(FOUND_pwroute) 
-  LispCliAddCommands ("pwroute", pwroute_cmds,
-            sizeof (pwroute_cmds)/sizeof (pwroute_cmds[0]));
-#endif
-
-#if defined(FOUND_sproute) 
-  LispCliAddCommands ("sproute", sproute_cmds,
-            sizeof (sproute_cmds)/sizeof (sproute_cmds[0]));
-#endif
-  
+  routing_cmds_init ();
 }
