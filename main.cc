@@ -236,6 +236,25 @@ int process_window (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_read (int argc, char **argv)
+{
+  if (argc > 2) {
+    fprintf (stderr, "Usage: %s [prompt]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (argc == 2) {
+    printf ("%s", argv[1]);
+    fflush (stdout);
+  }
+  char buf[1024];
+  buf[0] = '\0';
+  fgets (buf, 1024, stdin);
+  buf[1023] = '\0';
+  save_to_log (argc, argv, "s");
+  LispSetReturnString (buf);
+  return LISP_RET_STRING;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
   { "getopt", "<string> - run getopt", process_getopt },
@@ -244,6 +263,7 @@ struct LispCliCommand Cmds[] = {
   { "getenv", "<string> - return environment variable", process_getenv },
   { "putenv", "<name> <value> - set environment variable", process_putenv },
   { "echo", "[-n] args - display to screen", process_echo },
+  { "read", "[prompt] - read input, return string", process_read },
   { "prompt", "<str> - change prompt to the specified string", process_prompt },
   { "error", "<str> - report error and abort execution", process_error },
   { "window-width", "<width> - set output window width in characters (min 40)", process_window }
