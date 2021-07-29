@@ -142,6 +142,127 @@ static int process_set_top (int argc, char **argv)
   save_to_log (argc, argv, "s");
 
   F.act_toplevel = F.act_design->findProcess (argv[1]);
+
+  if (!F.act_toplevel) {
+    int j, i = 0;
+    while (argv[1][i] && argv[1][i] != '<') {
+      i++;
+    }
+    if (argv[1][i]) {
+      Process *unexp;
+
+      Assert (argv[1][i] == '<', "Hmm?");
+      argv[1][i] = '\0';
+      unexp = F.act_design->findProcess (argv[1]);
+      if (!unexp) {
+	fprintf (stderr, "%s: could not find process `%s'\n", argv[0],
+		 argv[1]);
+	return LISP_RET_ERROR;
+      }
+      argv[1][i] = '<';
+
+      int nargs = 0;
+      i++;
+      j = i;
+      if (argv[1][j] != '>') {
+	nargs = 1;
+	while (argv[1][j] && argv[1][j] != '>') {
+	  if (argv[1][j] == ',') {
+	    nargs++;
+	  }
+	  j++;
+	}
+      }
+      if (argv[1][j] == '>' && argv[1][j+1] == '\0') {
+	/* try and construct template arguments */
+	inst_param *u;
+	if (nargs > 0) {
+	  MALLOC (u, inst_param, nargs);
+	  for (int k=0; k < nargs; k++) {
+	    u[k].isatype = 0;
+	    u[k].u.tp = NULL;
+	  }
+	}
+	else {
+	  u = NULL;
+	}
+	int pos, k = 0;
+	while (nargs > 0) {
+	  pos = i;
+	  if (strncmp (&argv[1][i], "true", 4) == 0) {
+	    u[k].u.tp = new AExpr (const_expr_bool (1));
+	  }
+	  else if (strncmp (&argv[1][i], "false", 5) == 0) {
+	    u[k].u.tp = new AExpr (const_expr_bool (0));
+	  }
+	  else {
+	    while (i < j && argv[1][i] != ',') {
+	      if (isdigit (argv[1][i])) {
+		i++;
+	      }
+	      else {
+		fprintf (stderr, "%s: could not parse template parameters in `%s'\n",
+			 argv[0], argv[1]);
+		for (int l=0; l < nargs; l++) {
+		  if (u[l].u.tp) {
+		    delete u[l].u.tp;
+		  }
+		}
+		FREE (u);
+		return LISP_RET_ERROR;
+	      }
+	    }
+	    int val;
+	    if (sscanf (&argv[1][pos], "%d", &val) != 1) {
+		fprintf (stderr, "%s: could not parse template parameters in `%s'\n",
+			 argv[0], argv[1]);
+		for (int l=0; l < nargs; l++) {
+		  if (u[l].u.tp) {
+		    delete u[l].u.tp;
+		  }
+		}
+		FREE (u);
+		return LISP_RET_ERROR;
+	    }
+	    u[k].u.tp = new AExpr (const_expr (val));
+	    i++;
+	  }
+	  k++;
+	  nargs--;
+	}
+	/* -- here -- */
+
+	F.act_toplevel = unexp->Expand (F.act_design->Global(),
+					F.act_design->Global()->CurScope(),
+					nargs,
+					u);
+
+	if (F.cell_map || F.ckt_gen) {
+	  if (F.cell_map) {
+	    ActCellPass *cp =
+	      dynamic_cast<ActCellPass *>(F.act_design->pass_find ("prs2cells"));
+	    delete cp;
+	    cp = new ActCellPass (F.act_design);
+	    cp->run (F.act_toplevel);
+	  }
+	  if (!F.cell_map && F.ckt_gen) {
+	    ActNetlistPass *np =
+	      dynamic_cast<ActNetlistPass *>(F.act_design->pass_find ("prs2net"));
+	    delete np;
+	    np = new ActNetlistPass (F.act_design);
+	    np->run (F.act_toplevel);
+	  }
+	}
+
+	for (int l=0; l < nargs; l++) {
+	  if (u[l].u.tp) {
+	    delete u[l].u.tp;
+	  }
+	}
+	FREE (u);
+      }
+    }
+  }
   
   if (!F.act_toplevel) {
     fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);

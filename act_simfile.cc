@@ -171,14 +171,13 @@ void act_flatten_sim (Act *a,  FILE *fps, FILE *fpal, Process *p)
 
   app->setCookie (fps);
   app->setInstFn (g);
-  app->run ();
+  app->run (p);
   g(fps, NULL, NULL);
 
   app->setCookie (fpal);
   app->setInstFn (NULL);
   app->setConnPairFn (f);
-  app->run ();
+  app->run (p);
   fprintf (fpal, "= Vdd Vdd!\n");
   fprintf (fpal, "= GND GND!\n");
-
 }

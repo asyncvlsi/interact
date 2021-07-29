@@ -228,7 +228,7 @@ static int process_cell_map (int argc, char **argv)
   
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
-    cp->run ();
+    cp->run (F.act_toplevel);
   }
   else {
     printf ("%s: cell pass already executed; skipped\n", argv[0]);
@@ -249,7 +249,7 @@ static int process_cell_save (int argc, char **argv)
   
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
-    cp->run ();
+    cp->run (F.act_toplevel);
   }
 
   fp = std_open_output (argv[0], argv[1]);
