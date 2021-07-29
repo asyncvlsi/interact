@@ -24,6 +24,7 @@
 #include <common/list.h>
 #include <common/pp.h>
 #include <lispCli.h>
+#include <string.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
 #include "flow.h"
@@ -312,6 +313,90 @@ static int process_phydb_write_guide (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_place_cell (int argc, char **argv)
+{
+  static int ncomp = 0;
+  if (!std_argcheck (argc, argv, 5, "<cell-type> <llx> <lly> <orient>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  phydb::Macro *cell = F.phydb->GetMacroPtr (argv[1]);
+  if (!cell) {
+    fprintf (stderr, "%s: cell type `%s' not found.\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  int llx = atoi (argv[2]);
+  int lly = atoi (argv[3]);
+  phydb::CompOrient orient;
+  if (strcmp (argv[4], "N") == 0) {
+    orient = phydb::N;
+  }
+  else if (strcmp (argv[4], "FS") == 0) {
+    orient = phydb::FS;
+  }
+  else {
+    fprintf (stderr, "%s: unknown orientation `%s'\n", argv[0], argv[4]);
+  }
+
+  std::string tmp;
+  do {
+    tmp = "_xn" + std::to_string (ncomp++);
+  } while (F.phydb->IsComponentExisting (tmp));
+
+  std::string compname = cell->GetName();
+   
+  F.phydb->AddComponent (tmp, compname, phydb::FIXED, llx, lly, orient);
+
+  save_to_log (argc, argv, "siis");
+
+  return LISP_RET_TRUE;
+}
+
+static int process_phydb_place_inst (int argc, char **argv)
+{
+  static int ncomp = 0;
+  if (!std_argcheck (argc, argv, 5, "<inst> <llx> <lly> <orient>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::string tmpnm (argv[1]);
+  phydb::Component *comp = F.phydb->GetComponentPtr (tmpnm);
+  if (!comp) {
+    fprintf (stderr, "%s: instance `%s' not found.\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  int llx = atoi (argv[2]);
+  int lly = atoi (argv[3]);
+  phydb::CompOrient orient;
+  if (strcmp (argv[4], "N") == 0) {
+    orient = phydb::N;
+  }
+  else if (strcmp (argv[4], "FS") == 0) {
+    orient = phydb::FS;
+  }
+  else {
+    fprintf (stderr, "%s: unknown orientation `%s'\n", argv[0], argv[4]);
+  }
+
+  comp->SetPlacementStatus (phydb::FIXED);
+  comp->SetLocation (llx, lly);
+  comp->SetOrientation (orient);
+
+  save_to_log (argc, argv, "siis");
+
+  return LISP_RET_TRUE;
+}
+
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
@@ -326,6 +411,11 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_cell },
   { "read-cluster", "<file> - read Cluster file and populate database", 
     process_phydb_read_cluster },
+
+  { "place-cell", "<cell-type> <llx> <lly> <N|FS> - add a new cell to a fixed location", process_phydb_place_cell },
+
+  { "place-inst", "<inst> <llx> <lly> <N|FS> - place an instance at a fixed location", process_phydb_place_inst },
+  
   { "write-def", "<file> - write DEF from database",
     process_phydb_write_def},
   { "write-guide", "<file> - write GUIDE from database",
