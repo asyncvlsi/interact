@@ -25,7 +25,7 @@
  (begin
    (load-scm "stk-pass.scm")
    (define phydb:create			; populate phydb
-     (lambda (area ratio)
+     (lambda (area ratio lefout)
        (begin
 	 (phydb:init)
 	 (act:layout:create)
@@ -34,13 +34,14 @@
 	 (phydb:read-lef "_out.lef")
 	 (phydb:read-cell "_out.cell")
 	 (phydb:read-def "_out.def")
-	 (system "rm _out.lef _out.def _out.cell")
-	 )
+	 (system "rm _out.def _out.cell")
+	 (system (string-append "mv _out.lef " lefout))
        )
      )
+   )
 
    (define phydb:create-stdcell		; populate phydb
-     (lambda (lef_list area ratio)
+     (lambda (area ratio lef_list)
        (begin
 	 (phydb:init)
 	 (act:layout:create)
