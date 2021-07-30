@@ -325,7 +325,19 @@ static int process_phydb_place_cell (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  phydb::Macro *cell = F.phydb->GetMacroPtr (argv[1]);
+  /* -- mangle string: LEF/DEF has mangled strings -- */
+  char *buf;
+  if (strlen (argv[1]) == 0) {
+    fprintf (stderr, "%s: empty cell type?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  MALLOC (buf, char, strlen(argv[1])*2 + 1);
+  F.act_design->mangle_string (argv[1], buf, strlen (argv[1])*2+1);
+  std::string macnm(buf);
+  FREE (buf);
+
+  phydb::Macro *cell = F.phydb->GetMacroPtr (macnm);
+  
   if (!cell) {
     fprintf (stderr, "%s: cell type `%s' not found.\n", argv[0], argv[1]);
     return LISP_RET_ERROR;
@@ -345,7 +357,7 @@ static int process_phydb_place_cell (int argc, char **argv)
 
   std::string tmp;
   do {
-    tmp = "_xn" + std::to_string (ncomp++);
+    tmp = "__xn" + std::to_string (ncomp++);
   } while (F.phydb->IsComponentExisting (tmp));
 
   std::string compname = cell->GetName();
@@ -369,7 +381,18 @@ static int process_phydb_place_inst (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  std::string tmpnm (argv[1]);
+  char *buf;
+  if (strlen (argv[1]) == 0) {
+    fprintf (stderr, "%s: empty instance name?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  MALLOC (buf, char, strlen(argv[1])*2 + 1);
+  F.act_design->mangle_string (argv[1], buf, strlen (argv[1])*2+1);
+
+  std::string tmpnm (buf);
+  
+  FREE (buf);
+  
   phydb::Component *comp = F.phydb->GetComponentPtr (tmpnm);
   if (!comp) {
     fprintf (stderr, "%s: instance `%s' not found.\n", argv[0], argv[1]);
