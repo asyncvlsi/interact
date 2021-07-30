@@ -32,6 +32,7 @@ void timer_get_period (double *p, int *M);
 const char *timer_create_graph (Act *a, Process *p);
 void init_galois_shmemsys(int mode = 0);
 
+
 #ifdef FOUND_galois_eda
 
 #include "actpin.h"
@@ -40,7 +41,7 @@ void init_galois_shmemsys(int mode = 0);
 using TransMode = galois::eda::utility::TransitionMode;
 
 cyclone::TimingPath timer_get_crit (void);
-
+void timer_display_path (pp_t *pp, cyclone::TimingPath path);
 
 class timing_info {
  public:

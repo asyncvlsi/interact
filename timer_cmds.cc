@@ -373,8 +373,6 @@ int process_timer_info (int argc, char **argv)
 
 int process_timer_cycle (int argc, char **argv)
 {
-  char buf[1024];
-  
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
@@ -390,23 +388,8 @@ int process_timer_cycle (int argc, char **argv)
     printf ("%s: No critical cycle.\n", argv[0]);
   }
   else {
-    int first = 1;
     pp_t *pp = pp_init (stdout, output_window_width);
-    pp_puts (pp, "   ");
-    pp_setb (pp);
-    for (auto x : cyc) {
-      pp_lazy (pp, 0);
-      if (!first) {
-	pp_printf (pp, " .. ");
-      }
-      first = 0;
-      ActPin *p = (ActPin *) x.first;
-      TransMode t = x.second;
-      p->sPrintFullName (buf, 1024);
-      pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
-    }
-    pp_endb (pp);
-    pp_forced (pp, 0);
+    timer_display_path (pp, cyc);
     pp_stop (pp);
   }
   save_to_log (argc, argv, "s*");

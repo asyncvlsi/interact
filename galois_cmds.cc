@@ -57,6 +57,9 @@ static struct timing_state {
   
 } TS;
 
+static ActPin *tgraph_vertex_to_pin (int vid);
+
+
 static void clear_timer()
 {
   if (F.tp) {
@@ -122,7 +125,6 @@ void *read_lib_file (const char *file)
 {
   init();
   
-  using CellLib = galois::eda::liberty::CellLib;
   FILE *fp = fopen (file, "r");
   if (!fp) {
     return NULL;
@@ -144,6 +146,29 @@ getPortCap(void* const,                          // external pin pointer
           )
 {
   return 0.0;
+}
+
+
+void timer_display_path (pp_t *pp, cyclone::TimingPath path)
+{
+  int first = 1;
+  char  buf[1024];
+  
+  pp_puts (pp, "   ");
+  pp_setb (pp);
+  for (auto x : path) {
+    pp_lazy (pp, 0);
+    if (!first) {
+      pp_printf (pp, " .. ");
+    }
+    first = 0;
+    ActPin *p = (ActPin *) x.first;
+    TransMode t = x.second;
+    p->sPrintFullName (buf, 1024);
+    pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+  }
+  pp_endb (pp);
+  pp_forced (pp, 0);
 }
 
 /*------------------------------------------------------------------------
@@ -455,9 +480,119 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   }
   A_FREE (cur_gate_pins);
 
+  /* -- check for cycle of unticked edges -- */
+
+  auto unticked = engine->findUntickedDelayEdgeCycles ();
+  if (!unticked.empty()) {
+    pp_t *pp = pp_init (stdout, output_window_width);
+    fprintf (stderr, "ERROR: timing graph construction error; the following cycle has zero ticks!\n");
+    fprintf (stderr, "Total unticked cycles: %lu\n", (unsigned long) unticked.size());
+    for (size_t i = 0; i < unticked.size() && i < 10; i++) {
+      pp_printf (pp, "Unticked cycle #%d:", i);
+      pp_forced (pp, 0);
+      timer_display_path (pp, unticked[i]);
+    }
+    if (engine) {
+      delete engine;
+    }
+    return NULL;
+  }
+
+  /* -- add all timing forks -- */
+
+  double delay_units;
+  double timer_units;
+
+  if (config_exists ("net.delay")) {
+    delay_units = config_get_real ("net.delay");
+  }
+  else {
+    /* rule of thumb: FO4 is roughly F/2 ps where F is in nm units */
+    delay_units = config_get_real ("net.lambda")*1e-3;
+  }
+
+  if (config_exists ("xcell.units.time_conv")) {
+    timer_units = config_get_real ("xcell.units.time_conv");
+  }
+  else {
+    /* default: ps */
+    timer_units = 1e-12;
+  }
+
+  delay_units = delay_units/timer_units;
+
+  for (int i=0; i < TS.tg->numConstraints(); i++) {
+    /* add this fork! */
+    TaggedTG::constraint *c = TS.tg->getConstraint (i);
+
+    /* + = 0, - = 1 */
+    using TransMode = galois::eda::utility::TransitionMode;
+
+    TransMode tmap[3];
+    TransMode from_dirs[2], to_dirs[2], root_dir;
+    int nfrom, nto;
+
+    tmap[0] = TransMode::TRANS_RISE;
+    tmap[1] = TransMode::TRANS_RISE;
+    tmap[2] = TransMode::TRANS_FALL;
+
+    if (c->root_dir == 0) {
+      warning ("Current limitation: timing fork must include a direction for the root; assuming +");
+    }
+    root_dir = tmap[c->root_dir];
+
+    if (c->from_dir == 0) {
+      nfrom = 2;
+      from_dirs[0] = tmap[1];
+      from_dirs[1] = tmap[2];
+    }
+    else {
+      nfrom = 1;
+      from_dirs[0] = tmap[c->from_dir];
+    }
+    if (c->to_dir == 0) {
+      nto = 2;
+      to_dirs[0] = tmap[1];
+      to_dirs[1] = tmap[2];
+    }
+    else {
+      nto = 1;
+      to_dirs[0] = tmap[c->to_dir];
+    }
+    ActPin *rpin, *apin, *bpin;
+    rpin = tgraph_vertex_to_pin (c->root);
+    apin = tgraph_vertex_to_pin (c->from);
+    bpin = tgraph_vertex_to_pin (c->to);
+
+    if (!rpin || !apin || !bpin) {
+      warning ("Unexpected error in constraint #%d; skipped.\n", i);
+      continue;
+    }
+    
+    for (int l=0; l < nfrom; l++) {
+      for (int m=0; m < nto; m++) {
+	/* a unique fork */
+	engine->addTimingFork (rpin, root_dir,
+			       apin, from_dirs[l], c->from_tick ? true : false,
+			       bpin, to_dirs[m], c->to_tick ? true : false);
+	if (c->margin != 0) {
+	  engine->setTimingForkMargin (rpin, root_dir,
+				       apin, from_dirs[l],
+				       c->from_tick ? true : false,
+				       bpin, to_dirs[m],
+				       c->to_tick ? true : false,
+				       c->margin*delay_units);
+	}
+      }
+    }
+  }
+
   engine->checkAndPadParasitics ();
 
   if (gr_create_error) {
+    if (engine) {
+      delete engine;
+    }
     return NULL;
   }
   return engine;
@@ -716,16 +851,13 @@ list_t *timer_query (int vid)
   return l;
 }
 
-/*
- *  Vertex for driver (which is the net)
- *  Returns a list of (arrival time, required time)
- */
-list_t *timer_query_driver (int vid)
+static ActPin *tgraph_vertex_to_pin (int vid)
 {
-  list_t *l;
   AGvertex *v = TS.tg->getVertex (vid);
+  if (!v) {
+    return NULL;
+  }
   TimingVertexInfo *di = (TimingVertexInfo *) v->getInfo();
-  timing_info *ti;
   if (!di) {
     /* no driver, external signal, no info */
     return NULL;
@@ -734,6 +866,21 @@ list_t *timer_query_driver (int vid)
   ActPin *p = (ActPin *) di->getSpace ();
   if (!p) {
     /* ok this is weird */
+    return NULL;
+  }
+  return p;
+}
+
+/*
+ *  Vertex for driver (which is the net)
+ *  Returns a list of (arrival time, required time)
+ */
+list_t *timer_query_driver (int vid)
+{
+  list_t *l;
+  timing_info *ti;
+  ActPin *p = tgraph_vertex_to_pin (vid);
+  if (!p) {
     return NULL;
   }
 
