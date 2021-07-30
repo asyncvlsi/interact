@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <act/act.h>
+#include <act/tech.h>
 #include <act/passes.h>
 #include <act/iter.h>
 #include <common/config.h>
@@ -866,8 +867,67 @@ static struct LispCliCommand act_cmds[] = {
 };
 
 
+static int process_tech_uscale (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (!Technology::T) {
+    fprintf (stderr, "%s: technology information not initialized!", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  LispSetReturnFloat (Technology::T->scale/1000.0);
+  return LISP_RET_FLOAT;
+}
+
+static int process_tech_scale (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (!Technology::T) {
+    fprintf (stderr, "%s: technology information not initialized!", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  LispSetReturnFloat (Technology::T->scale);
+  return LISP_RET_FLOAT;
+}
+
+static int process_tech_getpitch (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <layer>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (!Technology::T) {
+    fprintf (stderr, "%s: technology information not initialized!", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  int layer = atoi (argv[1]);
+  if (layer < 1) {
+    fprintf (stderr, "%s: layer number has to be >= 1.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (layer > Technology::T->nmetals) {
+    fprintf (stderr, "%s: specified layer %d is too large (max=%d).\n",
+	     argv[0], layer, Technology::T->nmetals);
+    return LISP_RET_ERROR;
+  }
+  LispSetReturnInt (Technology::T->metal[layer-1]->getPitch());
+  return LISP_RET_INT;
+}
+
+static struct LispCliCommand tech_cmds[] = {
+  { NULL, "Technology parameters (rules specified in units of scale)", NULL },
+  { "uscale", "- returns scale factor in microns", process_tech_uscale },
+  { "scale", "- returns scale factor in nanometers", process_tech_scale },
+  { "getpitch", "<layer> - returns pitch of metal layer <layer>", process_tech_getpitch }
+};
 
 void act_cmds_init (void)
 {
   LispCliAddCommands ("act", act_cmds, sizeof (act_cmds)/sizeof (act_cmds[0]));
+  LispCliAddCommands ("tech", tech_cmds, sizeof (tech_cmds)/sizeof (tech_cmds[0]));
 }
