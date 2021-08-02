@@ -53,6 +53,7 @@ class timing_info {
   
   double *arr;
   double *req;
+  double slew;
   ActPin *pin;
   int dir;
 };

@@ -32,7 +32,7 @@ void ActPin::Print (FILE *fp)
   char buf[1024];
 
   if (_driver_vtx) {
-    char *tmp = _driver_vtx->getFullInstPath();
+    char *tmp = getNet()->getFullInstPath();
     fprintf (fp, "%s", tmp);
     FREE (tmp);
   }
@@ -50,12 +50,12 @@ void ActPin::sPrintPin (char *buf, int sz)
 
 void ActPin::sPrintCellType (char *buf, int sz)
 {
-  ActNamespace::Global()->Act()->msnprintfproc (buf, sz, _pin_vtx->getCell());
+  ActNamespace::Global()->Act()->msnprintfproc (buf, sz, getInst()->getCell());
 }
 
 void ActPin::sPrintFullName (char *buf, int sz)
 {
-  char *tmp = _pin_vtx->getFullInstPath ();
+  char *tmp = getInst()->getFullInstPath ();
   snprintf (buf, 10240, "%s:", tmp);
   FREE (tmp);
   sPrintPin (buf + strlen (buf), 10240 - strlen (buf));

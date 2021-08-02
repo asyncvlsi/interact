@@ -85,8 +85,8 @@ public:
 
 class ActPin {
 public:
-  ActPin (TimingVertexInfo *net, // this is the timing vertex for the driver
-	  TimingVertexInfo *pinvtx,  // this is the timing vertex for the pin
+  ActPin (AGvertex *net, // this is the timing vertex for the driver
+	  AGvertex *pinvtx,  // this is the timing vertex for the pin
 	  act_connection *pinname) { // the pin name for "ac"
 
     _driver_vtx = net;
@@ -96,12 +96,20 @@ public:
 	  
   void Print (FILE *fp);
 
-  TimingVertexInfo *getNet() { return _driver_vtx; }
-  TimingVertexInfo *getInst() { return _pin_vtx; }
+  AGvertex *getNetVertex() { return _driver_vtx; }
+  AGvertex *getInstVertex() { return _pin_vtx; }
+  
+
+  TimingVertexInfo *getNet() {
+    return (TimingVertexInfo *) (_driver_vtx->getInfo());
+  }
+  TimingVertexInfo *getInst() {
+    return (TimingVertexInfo *) (_pin_vtx->getInfo());
+  }
   act_connection *getPin() { return _pin; }
 
   act_boolean_netlist_t *cellBNL(ActBooleanizePass *p) {
-    return p->getBNL (_pin_vtx->getCell());
+    return p->getBNL (getInst()->getCell());
   }
 
   /* checks if two pins are connected, i.e. they belong to the same net */
@@ -114,10 +122,12 @@ public:
   void sPrintFullName (char *buf, int sz);
   
 private:
-  TimingVertexInfo *_driver_vtx; // net name
+  AGvertex *_driver_vtx;
+  //TimingVertexInfo *_driver_vtx; // net name
 
   /* pin */
-  TimingVertexInfo *_pin_vtx;
+  //TimingVertexInfo *_pin_vtx;
+  AGvertex *_pin_vtx;
   act_connection *_pin;
 };
 

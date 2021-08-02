@@ -153,7 +153,11 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
 {
   int first = 1;
   char  buf[1024];
-  
+  ActPin *prev;
+  TransMode prevt;
+
+  prev = NULL;
+  prevt = TransMode::TRANS_FALL;
   pp_puts (pp, "   ");
   pp_setb (pp);
   for (auto x : path) {
@@ -166,6 +170,19 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
     TransMode t = x.second;
     p->sPrintFullName (buf, 1024);
     pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+
+    if (prev) {
+      /* check edge */
+      AGvertex *pv, *cv;
+      pv = prev->getInstVertex();
+      cv = p->getInstVertex();
+      if (pv != cv) {
+	//pp_printf (pp, "[edge]");
+      }
+    }
+    
+    prev = p;
+    prevt = t;
   }
   pp_endb (pp);
   pp_forced (pp, 0);
@@ -258,7 +275,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     if (!pinname) {
       fatal_error ("Gate %s has no output pin?", cellname->getName());
     }
-    ap = new ActPin (vdn_i, vdn_i, pinname);
+    ap = new ActPin (vdn, vdn, pinname);
     /* driver is the same as the cell with the pin */
     
     vup_i->setSpace (ap);
@@ -330,7 +347,8 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       /* create a new pin for this net, hooked up to pin "pinname" of
 	 the "gate_out" vertex */
 
-      ap = new ActPin (drv_pin->getNet(), gate_out->getInst(), pinname);
+      ap = new ActPin (drv_pin->getNetVertex(),
+		       gate_out->getInstVertex(), pinname);
 
       phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
       act_pin->v = ap;
@@ -424,7 +442,9 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	  pinid--;
 	}
 	Assert (pinname, "Can't find pin?");
-	ap = new ActPin (drv_pin->getNet(), gate_out->getInst(), pinname);
+	ap = new ActPin (drv_pin->getNetVertex(),
+			 gate_out->getInstVertex(),
+			 pinname);
 
 	phash_bucket_t *act_pin = phash_add (TS.edgeMap, ei);
 	act_pin->v = ap;
@@ -521,26 +541,28 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
   delay_units = delay_units/timer_units;
 
+  /* + = 1, - = 2 */
+  using TransMode = galois::eda::utility::TransitionMode;
+  TransMode tmap[3];
+  tmap[0] = TransMode::TRANS_RISE;
+  tmap[1] = TransMode::TRANS_RISE;
+  tmap[2] = TransMode::TRANS_FALL;
+
   for (int i=0; i < TS.tg->numConstraints(); i++) {
     /* add this fork! */
+    TransMode from_dirs[2], to_dirs[2], root_dir[2];
+    int nroot, nfrom, nto;
     TaggedTG::constraint *c = TS.tg->getConstraint (i);
 
-    /* + = 0, - = 1 */
-    using TransMode = galois::eda::utility::TransitionMode;
-
-    TransMode tmap[3];
-    TransMode from_dirs[2], to_dirs[2], root_dir;
-    int nfrom, nto;
-
-    tmap[0] = TransMode::TRANS_RISE;
-    tmap[1] = TransMode::TRANS_RISE;
-    tmap[2] = TransMode::TRANS_FALL;
-
     if (c->root_dir == 0) {
-      warning ("Current limitation: timing fork must include a direction for the root; assuming +");
+      nroot = 2;
+      root_dir[0] = tmap[1];
+      root_dir[1] = tmap[2];
     }
-    root_dir = tmap[c->root_dir];
-
+    else {
+      nroot = 1;
+      root_dir[0] = tmap[c->root_dir];
+    }
     if (c->from_dir == 0) {
       nfrom = 2;
       from_dirs[0] = tmap[1];
@@ -569,19 +591,23 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       continue;
     }
     
-    for (int l=0; l < nfrom; l++) {
-      for (int m=0; m < nto; m++) {
+    for (int n=0; n < nroot; n++) {
+      for (int l=0; l < nfrom; l++) {
+	for (int m=0; m < nto; m++) {
 	/* a unique fork */
-	engine->addTimingFork (rpin, root_dir,
-			       apin, from_dirs[l], c->from_tick ? true : false,
-			       bpin, to_dirs[m], c->to_tick ? true : false);
-	if (c->margin != 0) {
-	  engine->setTimingForkMargin (rpin, root_dir,
-				       apin, from_dirs[l],
-				       c->from_tick ? true : false,
-				       bpin, to_dirs[m],
-				       c->to_tick ? true : false,
-				       c->margin*delay_units);
+	  engine->addTimingFork (rpin, root_dir[n],
+				 apin, from_dirs[l],
+				 c->from_tick ? true : false,
+				 bpin, to_dirs[m],
+				 c->to_tick ? true : false);
+	  if (c->margin != 0) {
+	    engine->setTimingForkMargin (rpin, root_dir[n],
+					 apin, from_dirs[l],
+					 c->from_tick ? true : false,
+					 bpin, to_dirs[m],
+					 c->to_tick ? true : false,
+					 c->margin*delay_units);
+	  }
 	}
       }
     }
@@ -715,6 +741,7 @@ timing_info::timing_info ()
     arr[i] = 0;
     req[i] = 0;
   }
+  slew = 0.0;
   dir = -1;
 }
 
@@ -735,6 +762,7 @@ void timing_info::populate (ActPin *p,
     arr[i] = TS.engine->getPinArrv (p, mode, TS.lib, maxmode, i);
     req[i] = TS.engine->getPinPerfReq (p, mode, TS.lib, maxmode, i);
   }
+  slew = TS.engine->getPinSlew (p, mode, TS.lib, maxmode);
 
   if (mode == galois::eda::utility::TransitionMode::TRANS_RISE) {
     dir = 1;
@@ -763,6 +791,10 @@ void timer_get_period (double *p, int *M)
 /*
  *  Vertex for driver (which is the net)
  *  Returns a list of (arrival time, required time)
+ *
+ *  This is a net query, so it returns information for the driving pin 
+ *  as well as driven pins.
+ *
  */
 list_t *timer_query (int vid)
 {

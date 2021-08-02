@@ -377,9 +377,7 @@ static int process_phydb_place_cell (int argc, char **argv)
     tmp = "__xn" + std::to_string (ncomp++);
   } while (F.phydb->IsComponentExisting (tmp));
 
-  std::string compname = cell->GetName();
-   
-  F.phydb->AddComponent (tmp, compname, phydb::FIXED, llx, lly, orient);
+  F.phydb->AddComponent (tmp, cell, phydb::FIXED, llx, lly, orient);
 
   save_to_log (argc, argv, "siis");
 
