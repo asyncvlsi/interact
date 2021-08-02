@@ -53,6 +53,11 @@ static struct timing_state {
   int M;
   double p;
 
+  const char *time_units;
+  double time_mult;
+  
+  const char *lib_units;
+
   TaggedTG *tg;
   
 } TS;
@@ -79,6 +84,9 @@ static void clear_timer()
     TS.edgeMap = NULL;
   }    
   TS.lib = NULL;
+  TS.time_units = NULL;
+  TS.lib_units = NULL;
+  TS.time_mult = 1.0;
   TS.tg = NULL;
 }
 
@@ -195,15 +203,30 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
   path_time = 0;
   path_ticks = 0;
 
-  pp_printf (pp, "%10s  %10s  %10s  %5s %s", "Path delay", "Incr delay",
+  int sz = (int)path.size();
+  int sz10;
+
+  sz10 = 1;
+  while (sz > 10) {
+    sz10++;
+    sz = sz/10;
+  }
+
+  pp_printf (pp, "%*s %10s  %10s  %10s  %5s %s",
+	     sz10+1, " ", 
+	     "Path delay", "Incr delay",
 	     "Slew time", "Tick?", "Transition");
   pp_forced (pp, 0);
-  pp_printf (pp, "%10s  %10s  %10s  %5s %10s", "----------", "----------",
+  pp_printf (pp, "%*s %10s  %10s  %10s  %5s %10s",
+	     sz10+1, " ",
+	     "----------", "----------",
 	     "---------", "-----", "----------");
   pp_forced (pp, 0);
 
   double adjust = 0;
   int first = 1;
+
+  int count = 0;
 
   for (auto x : path) {
     ActPin *p = (ActPin *) x.first;
@@ -291,8 +314,8 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
       }
     }
 
-    pp_printf (pp, "%10.6g  %10.6g  %10.6g    %c   ", path_time, tm,
-	       ti->slew, tflag ? 'Y' : '_');
+    pp_printf (pp, "#%*d %10.6g  %10.6g  %10.6g    %c   ",
+	       sz10, ++count, path_time, tm, ti->slew, tflag ? 'Y' : '_');
     pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
     pp_forced (pp, 0);
 
@@ -653,14 +676,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     delay_units = config_get_real ("net.lambda")*1e-3;
   }
 
-  if (config_exists ("xcell.units.time_conv")) {
-    timer_units = config_get_real ("xcell.units.time_conv");
-  }
-  else {
-    /* default: ps */
-    timer_units = 1e-12;
-  }
-
+  timer_units = TS.lib[0].timeUnit;
   delay_units = delay_units/timer_units;
 
   /* + = 1, - = 2 */
@@ -767,6 +783,15 @@ const char *timer_create_graph (Act *a, Process *p)
   return NULL;
 }
 
+static int is_roughly_equal (double a, double b)
+{
+  if (fabs ((a-b)/b) < 1e-6) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
 
 /*------------------------------------------------------------------------
  *
@@ -806,6 +831,31 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
     if (i == 0) {
       TS.lib = libs[i];
     }
+  }
+
+  if (is_roughly_equal (libs[0]->timeUnit,1e-12)) {
+    TS.lib_units = "1ps";
+    TS.time_units = "ps";
+    TS.time_mult = 1.0;
+  }
+  else if (is_roughly_equal (libs[0]->timeUnit, 1e-11)) {
+    TS.lib_units = "10ps";
+    TS.time_units = "ps";
+    TS.time_mult = 10.0;
+  }
+  else if (is_roughly_equal (libs[0]->timeUnit, 1e-10)) {
+    TS.lib_units = "100ps";
+    TS.time_mult = 0.10;
+  }
+  else if (is_roughly_equal (libs[0]->timeUnit, 1e-9)) {
+    TS.lib_units = "1ns";
+    TS.time_units = "ns";
+    TS.time_mult = 1.0;
+  }
+  else {
+    TS.lib_units = "???";
+    TS.time_units = "ns";
+    TS.time_mult = libs[0]->timeUnit/1e-9;
   }
 
   /* -- initialize engine -- */
@@ -1165,6 +1215,12 @@ static void timer_validate_constraints (void)
 cyclone::TimingPath timer_get_crit (void)
 {
   return TS.engine->getCriticalCycle ();
+}
+
+
+const char *timer_get_time_string (void)
+{
+  return TS.lib_units;
 }
 
 #endif

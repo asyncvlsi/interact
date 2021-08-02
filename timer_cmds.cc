@@ -653,13 +653,31 @@ int process_timer_constraint (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_lib_timeunits (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
 
+  if (F.timer == TIMER_NONE) {
+    fprintf (stderr, "%s: timer needs to be initialized.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  save_to_log (argc, argv, "s");
+  LispSetReturnString (timer_get_time_string());
+  
+  return LISP_RET_STRING;
+}
 
 static struct LispCliCommand timer_cmds[] = {
 
   { NULL, "Timing and power analysis", NULL },
   { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
+
+  { "time-units", "- returns string for time units", process_lib_timeunits },
+  
   { "build-graph", "- build timing graph", process_timer_build },
   { "tick", "<net1>+/- <net2-dir>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
   { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
