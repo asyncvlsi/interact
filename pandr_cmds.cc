@@ -313,6 +313,23 @@ static int process_phydb_write_guide (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_write_cluster (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  F.phydb->WriteCluster (argv[1]);
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
 static int process_phydb_place_cell (int argc, char **argv)
 {
   static int ncomp = 0;
@@ -443,6 +460,8 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_write_def},
   { "write-guide", "<file> - write GUIDE from database",
     process_phydb_write_guide},
+  { "write-cluster", "<file> - write CLUSTER from database",
+    process_phydb_write_cluster},
   { "close", "- tear down physical database", process_phydb_close }
 
 };
