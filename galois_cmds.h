@@ -47,15 +47,19 @@ class timing_info {
  public:
   /* array of arrival times and required times */
   timing_info ();
+  timing_info (ActPin *p, galois::eda::utility::TransitionMode m);
   ~timing_info();
 
-  void populate (ActPin *p, galois::eda::utility::TransitionMode m);
   
   double *arr;
   double *req;
   double slew;
   ActPin *pin;
   int dir;
+
+private:
+  void _populate (ActPin *p, galois::eda::utility::TransitionMode m);
+  void _init ();
 };
 
 list_t *timer_query (int vid);

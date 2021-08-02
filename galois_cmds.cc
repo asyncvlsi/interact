@@ -149,42 +149,164 @@ getPortCap(void* const,                          // external pin pointer
 }
 
 
+static
+AGedge *find_edge (AGvertex *from, AGvertex *to)
+{
+  AGvertexFwdIter fw(TS.tg, from->vid);
+  AGvertexBwdIter bw(TS.tg, to->vid);
+
+  fw = fw.begin();
+  bw = bw.begin();
+
+  while ((fw != fw.end()) && (bw != bw.end())) {
+    AGedge *e1 = (*fw);
+    AGedge *e2 = (*bw);
+    if (e1->dst == to->vid) {
+      return e1;
+    }
+    if (e2->src == from->vid) {
+      return e2;
+    }
+    fw++;
+    bw++;
+  }
+  return NULL;
+}
+
 void timer_display_path (pp_t *pp, cyclone::TimingPath path)
 {
-  int first = 1;
-  char  buf[1024];
-  ActPin *prev;
-  TransMode prevt;
+  char buf[1024];
 
-  prev = NULL;
-  prevt = TransMode::TRANS_FALL;
-  pp_puts (pp, "   ");
-  pp_setb (pp);
+  AGvertex *start_inst;
+  AGvertex *cur_inst;
+  AGvertex *tmp;
+  
+  start_inst = NULL; 
+  TransMode start_t;
+  
+  cur_inst = NULL;
+  TransMode cur_t;
+  
+  tmp = NULL;
+
+  double path_time;
+  int path_ticks;
+
+  path_time = 0;
+  path_ticks = 0;
+
+  pp_printf (pp, "%10s  %10s  %10s  %5s %s", "Path delay", "Incr delay",
+	     "Slew time", "Tick?", "Transition");
+  pp_forced (pp, 0);
+  pp_printf (pp, "%10s  %10s  %10s  %5s %10s", "----------", "----------",
+	     "---------", "-----", "----------");
+  pp_forced (pp, 0);
+
+  double adjust = 0;
+  int first = 1;
+
   for (auto x : path) {
-    pp_lazy (pp, 0);
-    if (!first) {
-      pp_printf (pp, " .. ");
-    }
-    first = 0;
     ActPin *p = (ActPin *) x.first;
     TransMode t = x.second;
     p->sPrintFullName (buf, 1024);
-    pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+    double tm;
+    timing_info *ti = new timing_info (p, t);
 
-    if (prev) {
-      /* check edge */
-      AGvertex *pv, *cv;
-      pv = prev->getInstVertex();
-      cv = p->getInstVertex();
-      if (pv != cv) {
-	//pp_printf (pp, "[edge]");
-      }
+    if (first) {
+      adjust = ti->arr[0];
+    }
+
+    Assert (path_ticks < TS.M, "What?");
+
+    tm = ti->arr[path_ticks] - adjust - path_time;
+
+    if (tm < 0) {
+      tm = tm + TS.M*TS.p;
     }
     
-    prev = p;
-    prevt = t;
+    path_time = ti->arr[path_ticks] - adjust;
+
+    if (fabs (path_time) < 1.0e-6 && !first) {
+      path_time = TS.p*TS.M;
+      first = 2;
+    }
+
+    tmp = p->getInstVertex();
+
+    int tflag = 0;
+    if (!start_inst) {
+      start_inst = tmp;
+      cur_inst = tmp;
+    }
+
+    if (tmp == start_inst) {
+      start_t = t;
+    }
+    else {
+      if (cur_inst == start_inst) {
+	cur_inst = tmp;
+	cur_t = t;
+      }
+      else if (tmp == cur_inst) {
+	cur_t = t;
+      }
+      else {
+	AGvertex *old;
+	/* here's the edge! */
+	if (start_t == TransMode::TRANS_RISE) {
+	  Assert ((start_inst->vid & 1) == 0, "Hmm");
+	  start_inst = TS.tg->getVertex (start_inst->vid | 1);
+	}
+	old = cur_inst;
+	if (cur_t == TransMode::TRANS_RISE) {
+	  Assert ((cur_inst->vid & 1) == 0, "Hmm");
+	  cur_inst = TS.tg->getVertex (cur_inst->vid | 1);
+	}
+	AGedge *e = find_edge (start_inst, cur_inst);
+#if 0	
+	pp_printf (pp, "[e%s]", e ? "*" : "");
+	printf ("edge from: ");
+#endif	
+	TimingVertexInfo *si, *di;
+	TimingEdgeInfo *ei;
+
+	ei = (TimingEdgeInfo *)e->getInfo();
+
+	if (ei->isTicked()) {
+	  path_ticks++;
+	  tflag = 1;
+	}
+	si = (TimingVertexInfo *)start_inst->getInfo();
+	di = (TimingVertexInfo *)cur_inst->getInfo();
+#if 0	
+	printf ("%s ->[%d] %s\n", si->info(),
+		ei->isTicked() ? 1 : 0,
+		di->info());
+#endif
+	start_inst = old;
+	start_t = cur_t;
+
+	cur_inst = tmp;
+	cur_t = t;
+      }
+    }
+
+    pp_printf (pp, "%10.6g  %10.6g  %10.6g    %c   ", path_time, tm,
+	       ti->slew, tflag ? 'Y' : '_');
+    pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+    pp_forced (pp, 0);
+
+    delete ti;
+
+    if (first == 2) {
+      path_time = 0;
+      first = 0;
+    }
+
+    if (first) {
+      first = 0;
+    }
   }
-  pp_endb (pp);
   pp_forced (pp, 0);
 }
 
@@ -732,7 +854,7 @@ const char *timer_run (void)
   return NULL;
 }
 
-timing_info::timing_info ()
+void timing_info::_init ()
 {
   pin = NULL;
   MALLOC (arr, double, TS.M);
@@ -745,14 +867,19 @@ timing_info::timing_info ()
   dir = -1;
 }
 
+timing_info::timing_info ()
+{
+  _init();
+}
+
 timing_info::~timing_info ()
 {
   FREE (arr);
   FREE (req);
 }
 
-void timing_info::populate (ActPin *p,
-			    galois::eda::utility::TransitionMode mode)
+void timing_info::_populate (ActPin *p,
+			     galois::eda::utility::TransitionMode mode)
 {
   pin = p;
 
@@ -773,6 +900,12 @@ void timing_info::populate (ActPin *p,
 }
 
 
+timing_info::timing_info (ActPin *p,
+			  galois::eda::utility::TransitionMode mode)
+{
+  _init ();
+  _populate (p, mode);
+}
 
 void timer_get_period (double *p, int *M)
 {
@@ -817,12 +950,10 @@ list_t *timer_query (int vid)
 
   using TransMode = galois::eda::utility::TransitionMode;
 
-  ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_FALL);
+  ti = new timing_info (p, TransMode::TRANS_FALL);
   list_append (l, ti);
 
-  ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_RISE);
+  ti = new timing_info (p, TransMode::TRANS_RISE);
   list_append (l, ti);
 
   int vid2;
@@ -847,12 +978,10 @@ list_t *timer_query (int vid)
 
     p = (ActPin *)b->v;
 
-    ti = new timing_info ();
-    ti->populate (p, TransMode::TRANS_FALL);
+    ti = new timing_info (p, TransMode::TRANS_FALL);
     list_append (l, ti);
 
-    ti = new timing_info ();
-    ti->populate (p, TransMode::TRANS_RISE);
+    ti = new timing_info (p, TransMode::TRANS_RISE);
     list_append (l, ti);
   }
 
@@ -870,15 +999,12 @@ list_t *timer_query (int vid)
       
     p = (ActPin *)b->v;
 
-    ti = new timing_info ();
-    ti->populate (p, TransMode::TRANS_FALL);
+    ti = new timing_info (p, TransMode::TRANS_FALL);
     list_append (l, ti);
 
-    ti = new timing_info ();
-    ti->populate (p, TransMode::TRANS_RISE);
+    ti = new timing_info (p, TransMode::TRANS_RISE);
     list_append (l, ti);
   }
-  
 
   return l;
 }
@@ -920,12 +1046,10 @@ list_t *timer_query_driver (int vid)
 
   using TransMode = galois::eda::utility::TransitionMode;
 
-  ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_FALL);
+  ti = new timing_info (p, TransMode::TRANS_FALL);
   list_append (l, ti);
 
-  ti = new timing_info ();
-  ti->populate (p, TransMode::TRANS_RISE);
+  ti = new timing_info (p, TransMode::TRANS_RISE);
   list_append (l, ti);
 
   return l;
