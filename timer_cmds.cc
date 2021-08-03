@@ -35,6 +35,8 @@
 
 #include "galois_cmds.h"
 
+static double act_delay_units = -1.0;
+
 /*------------------------------------------------------------------------
  *
  *  Read in a .lib file for timing/power analysis
@@ -389,7 +391,7 @@ int process_timer_cycle (int argc, char **argv)
   }
   else {
     pp_t *pp = pp_init (stdout, output_window_width);
-    timer_display_path (pp, cyc);
+    timer_display_path (pp, cyc, 1);
     pp_stop (pp);
   }
   save_to_log (argc, argv, "s*");
@@ -401,7 +403,7 @@ int process_timer_cycle (int argc, char **argv)
 
 int process_timer_addconstraint (int argc, char **argv)
 {
-  if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- <fast>+/- <slow>+/- [margin]", STATE_EXPANDED)) {
+  if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- [*]<fast>+/- [*]<slow>+/- [margin]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   if (!F.tp) {
@@ -416,6 +418,11 @@ int process_timer_addconstraint (int argc, char **argv)
   int dir[3];
   int len[3];
   int vid[3];
+
+  int tick[3];
+
+  tick[0] = 0;
+
   for (int i=0; i < 3; i++) {
     len[i] = strlen (argv[i+1]);
     if (argv[i+1][len[i]-1] == '+') {
@@ -430,7 +437,17 @@ int process_timer_addconstraint (int argc, char **argv)
       return LISP_RET_ERROR;
     }
     argv[i+1][len[i]-1] = '\0';
-    if (!get_net_to_timing_vertex (argv[0], argv[i+1], &vid[i])) {
+
+    if (i > 0) {
+      if (argv[i+1][0] == '*') {
+	tick[i] = 1;
+      }
+      else {
+	tick[i] = 0;
+      }
+    }
+    
+    if (!get_net_to_timing_vertex (argv[0], tick[i] + argv[i+1], &vid[i])) {
       for (int j=0; j <= i; j++) {
 	argv[j+1][len[j]-1] = dir[j] ? '+' : '-';
       }
@@ -450,11 +467,71 @@ int process_timer_addconstraint (int argc, char **argv)
   }
       
   /* add constraint! */
-  tg->addConstraint (vid[0], vid[1], vid[2], margin);
+  int cid = tg->addConstraint (vid[0], vid[1], vid[2], margin);
+
+  TaggedTG::constraint *c = tg->getConstraint (cid);
+  Assert (c, "Hmm");
+  c->from_tick = tick[1];
+  c->to_tick = tick[2];
 
   save_to_log (argc, argv, "sssi");
   
   return LISP_RET_TRUE;
+}
+
+static void _set_delay_units (void)
+{
+  if (act_delay_units == -1.0) {
+    if (config_exists ("net.delay")) {
+      act_delay_units = config_get_real ("net.delay");
+    }
+    else {
+      /* rule of thumb: FO4 is roughly F/2 ps where F is in nm units */
+      act_delay_units = config_get_real ("net.lambda")*1e-3;
+    }
+  }
+}
+
+/*
+  Return slack of a timing constraint in timer units
+
+  margin : c->margin, but in timer units
+
+  p, M : cycle period and ticks on critical cycle
+
+  iteration : 0 <= iteration < M : the iteration to check
+*/
+
+
+static double get_slack (TaggedTG::constraint *c,
+			 timing_info *from, timing_info *to,
+			 int iteration,
+			 double margin,
+			 double p,
+			 int M)
+{
+  int j;
+  double adj = 0;
+    
+  if (c->from_tick == c->to_tick) {
+    j = iteration;
+  }
+  else if (c->from_tick) {
+    j = (iteration+M-1) % M;
+    if (j >= iteration) {
+      adj = -M*p;
+    }
+  }
+  else {
+    j = (iteration+1) % M;
+    if (j <= iteration) {
+      adj = M*p;
+    }
+  }
+
+  double x = (to->arr[j] - from->arr[iteration] + adj);
+
+  return (x - margin);
 }
 
 int process_timer_constraint (int argc, char **argv)
@@ -502,24 +579,8 @@ int process_timer_constraint (int argc, char **argv)
     tmp /= 10;
   }
 
-  double delay_units;
-  double timer_units;
-
-  if (config_exists ("net.delay")) {
-    delay_units = config_get_real ("net.delay");
-  }
-  else {
-    /* rule of thumb: FO4 is roughly F/2 ps where F is in nm units */
-    delay_units = config_get_real ("net.lambda")*1e-3;
-  }
-
-  if (config_exists ("xcell.units.time_conv")) {
-    timer_units = config_get_real ("xcell.units.time_conv");
-  }
-  else {
-    /* default: ps */
-    timer_units = 1e-12;
-  }
+  _set_delay_units ();
+  double timer_units = timer_get_time_units ();
 
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
@@ -565,7 +626,7 @@ int process_timer_constraint (int argc, char **argv)
 	  ti[i][1] = timer_query_extract_rise (l[i]);
 	}
 	
-	double margin = c->margin*delay_units;
+	double margin = c->margin*act_delay_units;
 	char buf1[1024],  buf2[1024];
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
@@ -574,10 +635,10 @@ int process_timer_constraint (int argc, char **argv)
 		tg->numConstraints(), buf1, buf2,
 		c->error ? " *root-err*" : "");
 	if (c->margin != 0) {
-	  if (margin < 1e-9) {
+	  if (margin*timer_units < 1e-9) {
 	    printf (" [%g ps]", margin*1e12);
 	  }
-	  else if (margin < 1e-6) {
+	  else if (margin*timer_units < 1e-6) {
 	    printf (" [%g ns]", margin*1e9);
 	  }
 	  else {
@@ -586,58 +647,38 @@ int process_timer_constraint (int argc, char **argv)
 	}
 	printf ("\n");
 
-
 	for (int i=0; i < M; i++) {
-	  int j;
-	  double adj;
-
-	  adj = 0;
-	  if (c->from_tick == c->to_tick) {
-	    j = i;
-	  }
-	  else if (c->from_tick) {
-	    j = (i+M-1) % M;
-	    if (j >= i) {
-	      adj = -M*p;
-	    }
-	  }
-	  else {
-	    j = (i+1) % M;
-	    if (j <= i) {
-	      adj = M*p;
-	    }
-	  }
 	  printf ("\titer %2d: ", i);
-	  
 	  for (int ii=0; ii < nfrom; ii++) {
 	    for (int jj=0; jj < nto; jj++) {
-	      double tsrc, tdst;
 
-	      tsrc = ti[0][from_dirs[ii]]->arr[i];
-	      tdst = ti[1][to_dirs[jj]]->arr[j];
+	      double slack = get_slack (c,
+					ti[0][from_dirs[ii]],
+					ti[1][to_dirs[jj]],
+					i,
+					margin/timer_units,
+					p,
+					M);
 
-	      double x = (tdst - tsrc + adj)*timer_units;
-	      char c;
-	      double amt;
-
-	      amt = x-margin;
+	      double amt = slack*timer_units;
+	      char unit;
 
 	      if (fabs(amt) < 1e-9) {
 		amt *= 1e12;
-		c = 'p';
+		unit = 'p';
 	      }
 	      else if (fabs(amt) < 1e-6) {
-		c = 'n';
+		unit = 'n';
 		amt *= 1e9;
 	      }
 	      else {
-		c = 'u';
+		unit = 'u';
 		amt *= 1e6;
 	      }
-	      printf ("[%g %cs]%c%c%s", my_round_2 (amt), c,
+	      printf ("[%g %cs]%c%c%s", my_round_2 (amt), unit,
 		      from_dirs[ii] ? '+' : '-',
 		      to_dirs[jj] ? '+' : '-',
-		      (x < margin ? "*ER" : ""));
+		      (slack < 0) ? "*ER" : "");
 	    }
 	  }
 	  printf ("\n");
@@ -694,6 +735,85 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_constraint }
   
 };
+
+
+/*
+  PhyDB callbacks
+*/
+
+static int num_constraint_callback (void)
+{
+  return timer_get_num_cyclone_constraints ();
+}
+
+static void incremental_update_timer (void)
+{
+  // fixme
+}
+
+static double get_slack_callback (int constraint_id)
+{
+  double timer_units;
+  TaggedTG *tg;
+  cyclone_constraint *cyc;
+
+  _set_delay_units ();
+  timer_units = timer_get_time_units ();
+  tg = timer_get_tagged_tg ();
+
+  cyc = timer_get_cyclone_constraint (constraint_id);
+  if (!cyc) {
+    return 0.0;
+  }
+
+  timing_info *t_from, *t_to;
+  TaggedTG::constraint *c;
+
+  c = tg->getConstraint (cyc->tg_id);
+
+  if (c->error) {
+    /* error in constraint */
+    return 0.0;
+  }
+
+  t_from = timer_query_transition (c->from, cyc->from_dir);
+  t_to = timer_query_transition (c->to, cyc->to_dir);
+
+  double p;
+  int M;
+  timer_get_period (&p, &M);
+
+  int slack_set = 0;
+  double slack = 0;
+  double margin = c->margin*act_delay_units/timer_units;
+  
+  for (int i=0; i < M; i++) {
+    double amt = get_slack (c, t_from, t_to, i, margin, p, M);
+
+    if (!slack_set) {
+      slack = amt;
+      slack_set = 1;
+    }
+    else if (amt < slack) {
+      slack = amt;
+    }
+  }
+
+  /* return slack in timer units */
+  return slack;
+}
+
+static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
+				  std::vector<ActEdge> &pathb)
+{
+  return;
+}
+
+static void get_violated_constraints (std::vector<int> &violations)
+{
+  return;
+}
+
 
 #endif
 

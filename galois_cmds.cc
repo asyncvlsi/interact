@@ -59,6 +59,8 @@ static struct timing_state {
   const char *lib_units;
 
   TaggedTG *tg;
+
+  A_DECL (cyclone_constraint, constraints);
   
 } TS;
 
@@ -82,12 +84,16 @@ static void clear_timer()
   if (TS.edgeMap) {
     phash_free (TS.edgeMap);
     TS.edgeMap = NULL;
-  }    
+  }
+  if (TS.tg) {
+    A_FREE (TS.constraints);
+  }
   TS.lib = NULL;
   TS.time_units = NULL;
   TS.lib_units = NULL;
   TS.time_mult = 1.0;
   TS.tg = NULL;
+  A_INIT (TS.constraints);
 }
 
 void init_galois_shmemsys(int mode) {
@@ -181,7 +187,7 @@ AGedge *find_edge (AGvertex *from, AGvertex *to)
   return NULL;
 }
 
-void timer_display_path (pp_t *pp, cyclone::TimingPath path)
+void timer_display_path (pp_t *pp, cyclone::TimingPath path, int show_delays)
 {
   char buf[1024];
 
@@ -212,16 +218,26 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
     sz = sz/10;
   }
 
-  pp_printf (pp, "%*s %10s  %10s  %10s  %5s %s",
-	     sz10+1, " ", 
-	     "Path delay", "Incr delay",
-	     "Slew time", "Tick?", "Transition");
-  pp_forced (pp, 0);
-  pp_printf (pp, "%*s %10s  %10s  %10s  %5s %10s",
-	     sz10+1, " ",
-	     "----------", "----------",
-	     "---------", "-----", "----------");
-  pp_forced (pp, 0);
+  if (show_delays) {
+    pp_printf (pp, "%*s %10s  %10s  %10s  %5s %s",
+	       sz10+1, " ", 
+	       "Path delay", "Incr delay",
+	       "Slew time", "Tick?", "Transition");
+    pp_forced (pp, 0);
+    pp_printf (pp, "%*s %10s  %10s  %10s  %5s %10s",
+	       sz10+1, " ",
+	       "----------", "----------",
+	       "---------", "-----", "----------");
+    pp_forced (pp, 0);
+  }
+  else {
+    pp_printf (pp, "%*s %5s %s",
+	       sz10+1, " ", "Tick?", "Transition");
+    pp_forced (pp, 0);
+    pp_printf (pp, "%*s %5s %10s",
+	       sz10+1, " ", "-----", "----------");
+    pp_forced (pp, 0);
+  }
 
   double adjust = 0;
   int first = 1;
@@ -233,25 +249,36 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
     TransMode t = x.second;
     p->sPrintFullName (buf, 1024);
     double tm;
-    timing_info *ti = new timing_info (p, t);
+    timing_info *ti;
 
-    if (first) {
-      adjust = ti->arr[0];
+    if (show_delays) {
+      ti = new timing_info (p, t);
+    }
+    else {
+      ti = NULL;
+    }
+
+    if (ti) {
+      if (first) {
+	adjust = ti->arr[0];
+      }
     }
 
     Assert (path_ticks < TS.M, "What?");
 
-    tm = ti->arr[path_ticks] - adjust - path_time;
+    if (ti) {
+      tm = ti->arr[path_ticks] - adjust - path_time;
 
-    if (tm < 0) {
-      tm = tm + TS.M*TS.p;
-    }
+      if (tm < 0) {
+	tm = tm + TS.M*TS.p;
+      }
     
-    path_time = ti->arr[path_ticks] - adjust;
+      path_time = ti->arr[path_ticks] - adjust;
 
-    if (fabs (path_time) < 1.0e-6 && !first) {
-      path_time = TS.p*TS.M;
-      first = 2;
+      if (fabs (path_time) < 1.0e-6 && !first) {
+	path_time = TS.p*TS.M;
+	first = 2;
+      }
     }
 
     tmp = p->getInstVertex();
@@ -314,12 +341,22 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path)
       }
     }
 
-    pp_printf (pp, "#%*d %10.6g  %10.6g  %10.6g    %c   ",
-	       sz10, ++count, path_time, tm, ti->slew, tflag ? 'Y' : '_');
-    pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
-    pp_forced (pp, 0);
+    if (show_delays) {
+      pp_printf (pp, "#%*d %10.6g  %10.6g  %10.6g    %c   ",
+		 sz10, ++count, path_time, tm, ti->slew, tflag ? 'Y' : '_');
+      pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+      pp_forced (pp, 0);
+    }
+    else {
+      pp_printf (pp, "#%*d   %c   ",
+		 sz10, ++count, tflag ? 'Y' : '_');
+      pp_printf (pp, "%s%c", buf, (t == TransMode::TRANS_FALL ? '-' : '+'));
+      pp_forced (pp, 0);
+    }
 
-    delete ti;
+    if (ti) {
+      delete ti;
+    }
 
     if (first == 2) {
       path_time = 0;
@@ -655,7 +692,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     for (size_t i = 0; i < unticked.size() && i < 10; i++) {
       pp_printf (pp, "Unticked cycle #%d:", i);
       pp_forced (pp, 0);
-      timer_display_path (pp, unticked[i]);
+      timer_display_path (pp, unticked[i], 0);
     }
     if (engine) {
       delete engine;
@@ -667,6 +704,8 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
   double delay_units;
   double timer_units;
+
+  A_INIT (TS.constraints);
 
   if (config_exists ("net.delay")) {
     delay_units = config_get_real ("net.delay");
@@ -732,7 +771,18 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     for (int n=0; n < nroot; n++) {
       for (int l=0; l < nfrom; l++) {
 	for (int m=0; m < nto; m++) {
-	/* a unique fork */
+	  /* a unique fork */
+
+	  A_NEW (TS.constraints, cyclone_constraint);
+	  A_NEXT (TS.constraints).tg_id = i;
+	  A_NEXT (TS.constraints).root_dir =
+	    (root_dir[n] == TransMode::TRANS_FALL ? 0 : 1);
+	  A_NEXT (TS.constraints).from_dir =
+	    (from_dirs[l] == TransMode::TRANS_FALL ? 0 : 1);
+	  A_NEXT (TS.constraints).to_dir =
+	    (to_dirs[m] == TransMode::TRANS_FALL ? 0 : 1);
+	  A_INC (TS.constraints);
+
 	  engine->addTimingFork (rpin, root_dir[n],
 				 apin, from_dirs[l],
 				 c->from_tick ? true : false,
@@ -970,6 +1020,31 @@ void timer_get_period (double *p, int *M)
   }
 }
 
+timing_info *timer_query_transition (int vid, int dir)
+{
+  AGvertex *v;
+  ActPin *p;
+  TimingVertexInfo *vi;
+
+  v = TS.tg->getVertex (vid & ~1);
+  if (!v) {
+    return NULL;
+  }
+
+  vi = (TimingVertexInfo *) v->getInfo();
+  if (!vi) {
+    return NULL;
+  }
+
+  p = (ActPin *) vi->getSpace();
+  if (!p) {
+    return NULL;
+  }
+
+  return new timing_info (p, dir ?
+			  TransMode::TRANS_RISE :
+			  TransMode::TRANS_FALL);
+}
 
 /*
  *  Vertex for driver (which is the net)
@@ -1153,6 +1228,7 @@ static void check_one_constraint (TaggedTG::constraint *c)
     from_id = c->from_tick ? from_id+1 : from_id;
     if (from_id == TS.M) {
       from_adj = TS.M*TS.p;
+      from_id = 0;
     }
     else {
       from_adj = 0;
@@ -1161,6 +1237,7 @@ static void check_one_constraint (TaggedTG::constraint *c)
     to_id = c->to_tick ? to_id+1 : to_id;
     if (to_id == TS.M) {
       to_adj = TS.M*TS.p;
+      to_id = 0;
     }
     else {
       to_adj = 0;
@@ -1221,6 +1298,29 @@ cyclone::TimingPath timer_get_crit (void)
 const char *timer_get_time_string (void)
 {
   return TS.lib_units;
+}
+
+double timer_get_time_units (void)
+{
+  return TS.lib[0].timeUnit;
+}
+
+TaggedTG *timer_get_tagged_tg (void)
+{
+  return TS.tg;
+}
+
+int timer_get_num_cyclone_constraints (void)
+{
+  return A_LEN (TS.constraints);
+}
+
+cyclone_constraint *timer_get_cyclone_constraint (int id)
+{
+  if (id < 0 || id >= A_LEN (TS.constraints)) {
+    return NULL;
+  }
+  return &TS.constraints[id];
 }
 
 #endif
