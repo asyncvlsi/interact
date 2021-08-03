@@ -1268,7 +1268,7 @@ static void check_one_constraint (TaggedTG::constraint *c)
     from_tm += from_adj;
     to_tm += to_adj;
 
-    if (root_tm > (from_tm+1e-5) || root_tm > (to_tm+1e-5)) {
+    if (root_tm > (from_tm*(1+1e-5)) || root_tm > (to_tm*(1+1e-5))) {
       c->error = 1;
       break;
     }

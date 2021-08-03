@@ -631,8 +631,10 @@ int process_timer_constraint (int argc, char **argv)
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
 
-	printf ("[%*d/%*d] %s -> %s%s", nzeros, i+1, nzeros,
-		tg->numConstraints(), buf1, buf2,
+	printf ("[%*d/%*d] %s%s -> %s%s%s", nzeros, i+1, nzeros,
+		tg->numConstraints(),
+		c->from_tick ? "*" : "", buf1,
+		c->to_tick ? "*" : "", buf2,
 		c->error ? " *root-err*" : "");
 	if (c->margin != 0) {
 	  if (margin*timer_units < 1e-9) {
