@@ -42,6 +42,7 @@ class timing_info {
   /* array of arrival times and required times */
   timing_info ();
   timing_info (ActPin *p, galois::eda::utility::TransitionMode m);
+  timing_info (ActPin *p, int dir);
   ~timing_info();
 
   
@@ -58,7 +59,8 @@ private:
 
 struct cyclone_constraint {
   int tg_id; // timing graph constraint #
-  unsigned int root_dir:1, from_dir:1, to_dir:1; // 0 = -, 1 = + 
+  unsigned int root_dir:1, from_dir:1, to_dir:1; // 0 = -, 1 = +
+  unsigned int witness_ready:1;
 };
 
 void *read_lib_file (const char *file);
@@ -82,7 +84,8 @@ list_t *timer_query_driver (int vid);
 void timer_query_free (list_t *l);
 cyclone_constraint *timer_get_cyclone_constraint (int id);
 timing_info *timer_query_transition (int vid, int dir);
-
+ActPin *tgraph_vertex_to_pin (int vid);
+ActPin *timer_get_dst_pin (AGedge *e);
 
 #endif
 

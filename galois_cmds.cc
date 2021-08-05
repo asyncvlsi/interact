@@ -64,7 +64,7 @@ static struct timing_state {
   
 } TS;
 
-static ActPin *tgraph_vertex_to_pin (int vid);
+ActPin *tgraph_vertex_to_pin (int vid);
 
 
 static void clear_timer()
@@ -731,6 +731,11 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     int nroot, nfrom, nto;
     TaggedTG::constraint *c = TS.tg->getConstraint (i);
 
+    if (c->iso) {
+      /* -- isochronic forks checked differently -- */
+      continue;
+    }
+
     if (c->root_dir == 0) {
       nroot = 2;
       root_dir[0] = tmap[1];
@@ -781,6 +786,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	    (from_dirs[l] == TransMode::TRANS_FALL ? 0 : 1);
 	  A_NEXT (TS.constraints).to_dir =
 	    (to_dirs[m] == TransMode::TRANS_FALL ? 0 : 1);
+	  A_NEXT (TS.constraints).witness_ready = 0;
 	  A_INC (TS.constraints);
 
 	  engine->addTimingFork (rpin, root_dir[n],
@@ -999,13 +1005,20 @@ void timing_info::_populate (ActPin *p,
   }
 }
 
-
 timing_info::timing_info (ActPin *p,
 			  galois::eda::utility::TransitionMode mode)
 {
   _init ();
   _populate (p, mode);
 }
+
+timing_info::timing_info (ActPin *p, int dir)
+{
+  _init ();
+  _populate (p, dir ? galois::eda::utility::TransitionMode::TRANS_RISE :
+	     galois::eda::utility::TransitionMode::TRANS_FALL);
+}
+
 
 void timer_get_period (double *p, int *M)
 {
@@ -1134,7 +1147,7 @@ list_t *timer_query (int vid)
   return l;
 }
 
-static ActPin *tgraph_vertex_to_pin (int vid)
+ActPin *tgraph_vertex_to_pin (int vid)
 {
   AGvertex *v = TS.tg->getVertex (vid);
   if (!v) {
@@ -1322,5 +1335,53 @@ cyclone_constraint *timer_get_cyclone_constraint (int id)
   }
   return &TS.constraints[id];
 }
+
+#if 0
+cyclone::TimingPath timer_get_fastpaths (int constraint)
+{
+  auto fastPaths =
+    TS.engine->getCrctCriticalPaths(
+		  p3A, TransMode::TRANS_FALL,
+  		  p2ZN, TransMode::TRANS_RISE, false,
+		  p2ZN, TransMode::TRANS_FALL, false,
+		  libs[0], maxMode, 0, true);
+  std::cout << "Critical paths on the fast end:\n";
+  for (size_t i = 0; i < fastPaths.size(); i++) {
+    std::cout << "Fast path #" << i << "\n";
+    printTimingPathWithSlack(vAdaptor, fastPaths[i], "  ");
+  }
+  std::cout << "\n";
+}
+
+cyclone::TimingPath timer_get_slowpaths (int constraint)
+{
+  auto slowPaths =
+      engine->getCrctCriticalPaths(
+		  p3A, TransMode::TRANS_FALL,
+  		  p2ZN, TransMode::TRANS_RISE, false,
+		  p2ZN, TransMode::TRANS_FALL, false,
+		  libs[0], maxMode, 0, false);
+  std::cout << "Critical paths on the slow end:\n";
+  for (size_t i = 0; i < slowPaths.size(); i++) {
+    std::cout << "Slow path #" << i << "\n";
+    printTimingPathWithSlack(vAdaptor, slowPaths[i], "  ");
+  }
+  std::cout << "\n";
+}
+#endif
+
+
+ActPin *timer_get_dst_pin (AGedge *e)
+{
+  phash_bucket_t *b;
+  b = phash_lookup (TS.edgeMap, e->getInfo());
+  if (!b) {
+    return NULL;
+  }
+  else {
+    return (ActPin *)b->v;
+  }
+}
+
 
 #endif

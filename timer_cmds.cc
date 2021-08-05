@@ -410,8 +410,8 @@ int process_timer_addconstraint (int argc, char **argv)
     fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  if (F.timer == TIMER_RUN) {
-    fprintf (stderr, "%s: need to add constraints before running the timer.\n", argv[0]);
+  if (F.timer == TIMER_INIT || F.timer == TIMER_RUN) {
+    fprintf (stderr, "%s: need to add constraints before initializing the timer.\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
@@ -591,6 +591,150 @@ int process_timer_constraint (int argc, char **argv)
       int to_dirs[2];
       int nfrom, nto;
       char from_char, to_char;
+      double margin = c->margin*act_delay_units/timer_units;
+
+      if (c->iso) {
+	/* XXX: isochronic fork. check this differently */
+	if (c->root_dir == 0) {
+	  AGvertex *v;
+	  warning ("isochronic fork needs a direction on the root of the fork");
+	  v = tg->getVertex (c->root);
+	  if (!v) {
+	    warning ("root vertex not found!");
+	  }
+	  else {
+	    TimingVertexInfo *inf = (TimingVertexInfo *)v->getInfo();
+	    char *s = inf->getFullInstPath ();
+	    fprintf (stderr, "   root: %s\n", s);
+	    FREE (s);
+	  }
+	}
+	else {
+	  int myvid = c->root + (c->root_dir == 1 ? 1 : 0);
+	  AGvertexFwdIter fw(tg, myvid);
+	  timing_info *root_ti =
+	    timer_query_transition (c->root, c->root_dir == 1 ? 1 : 0);
+
+	  if (!root_ti) {
+	    continue;
+	  }
+
+	  int min_set = 0;
+	  int iso_set = 0;
+	  double *min_delay;
+	  double *isofork_delay;
+
+	  MALLOC (min_delay, double, M);
+	  MALLOC (isofork_delay, double, M);
+
+	  for (fw = fw.begin(); fw != fw.end(); fw++) {
+	    AGedge *e = (*fw);
+	    timing_info *pi;
+
+	    if ((e->dst & ~1) == c->from) {
+	      /* isochronic fork leg */
+	      ActPin *dp = timer_get_dst_pin (e);
+	      if (dp) {
+		pi = new timing_info (dp, c->root_dir == 1 ? 1 : 0);
+		if (pi) {
+		  iso_set = 1;
+		  for (int i=0; i < M; i++) {
+		    isofork_delay[i] = pi->arr[i];
+		  }
+		  delete pi;
+		}
+	      }
+	    }
+	    else {
+	      ActPin *gate_drive = tgraph_vertex_to_pin (e->dst);
+	      if (gate_drive) {
+		pi = new timing_info (gate_drive, (e->dst & 1) ? 1 : 0);
+		if (pi) {
+		  if (!min_set) {
+		    for (int i=0; i < M; i++) {
+		      min_delay[i] = pi->arr[i];
+		    }
+		  }
+		  else {
+		    for (int i=0; i < M; i++) {
+		      if (pi->arr[i] < min_delay[i]) {
+			min_delay[i] = pi->arr[i];
+		      }
+		    }
+		  }
+		  min_set = 1;
+		}
+		delete pi;
+	      }
+	    }
+	  }
+
+	  AGvertex *v;
+	  TimingVertexInfo *vi;
+	  char *buf1, *buf2;
+	  v = tg->getVertex (c->root);
+	  Assert (v, "What?");
+	  vi = (TimingVertexInfo *) v->getInfo();
+	  Assert (vi, "Hmm");
+	  buf1 = vi->getFullInstPath ();
+
+	  v = tg->getVertex (c->from);
+	  Assert (v, "What?");
+	  vi = (TimingVertexInfo *) v->getInfo();
+	  Assert (vi, "Hmm");
+	  buf2 = vi->getFullInstPath ();
+	  
+	  printf ("[%*d/%*d] iso %s%c -> %s", nzeros, i+1, nzeros,
+		  tg->numConstraints(), buf1,
+		  c->root_dir == 1 ? '+' : '-', buf2);
+	  FREE (buf1);
+	  FREE (buf2);
+	  if (c->margin != 0) {
+	    if (margin*timer_units < 1e-9) {
+	      printf (" [%g ps]", margin*timer_units*1e12);
+	    }
+	    else if (margin*timer_units < 1e-6) {
+	      printf (" [%g ns]", margin*timer_units*1e9);
+	    }
+	    else {
+	      printf (" [%g us]", margin*timer_units*1e6);
+	    }
+	  }
+	  printf ("\n");
+	  
+	  if (iso_set && min_set) {
+	    /* check! */
+	    for (int i=0; i < M; i++) {
+	      double slack;
+	      char unit;
+	      printf ("\titer %2d: ", i);
+
+	      slack = min_delay[i] - isofork_delay[i] - margin;
+	      slack *= timer_units;
+	      if (fabs (slack) < 1e-9) {
+		slack *= 1e12;
+		unit = 'p';
+	      }
+	      else if (fabs (slack) < 1e-6) {
+		slack *= 1e9;
+		unit = 'n';
+	      }
+	      else {
+		unit = 'u';
+		slack *= 1e6;
+	      }
+	      printf ("[%g %cs]%s\n", my_round_2 (slack), unit,
+		      slack < 0 ? "*ER" : "");
+	    }
+	  }
+	  else {
+	    printf (" ** no fork information\n");
+	  }
+	  FREE (isofork_delay);
+	  FREE (min_delay);
+	}
+	continue;
+      }
 	  
       if (c->from_dir == 0) {
 	from_dirs[0] = 0;
@@ -626,7 +770,6 @@ int process_timer_constraint (int argc, char **argv)
 	  ti[i][1] = timer_query_extract_rise (l[i]);
 	}
 	
-	double margin = c->margin*act_delay_units;
 	char buf1[1024],  buf2[1024];
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
@@ -638,13 +781,13 @@ int process_timer_constraint (int argc, char **argv)
 		c->error ? " *root-err*" : "");
 	if (c->margin != 0) {
 	  if (margin*timer_units < 1e-9) {
-	    printf (" [%g ps]", margin*1e12);
+	    printf (" [%g ps]", margin*timer_units*1e12);
 	  }
 	  else if (margin*timer_units < 1e-6) {
-	    printf (" [%g ns]", margin*1e9);
+	    printf (" [%g ns]", margin*timer_units*1e9);
 	  }
 	  else {
-	    printf (" [%g us]", margin*1e6);
+	    printf (" [%g us]", margin*timer_units*1e6);
 	  }
 	}
 	printf ("\n");
@@ -658,7 +801,7 @@ int process_timer_constraint (int argc, char **argv)
 					ti[0][from_dirs[ii]],
 					ti[1][to_dirs[jj]],
 					i,
-					margin/timer_units,
+					margin,
 					p,
 					M);
 
@@ -716,6 +859,7 @@ int process_lib_timeunits (int argc, char **argv)
 static struct LispCliCommand timer_cmds[] = {
 
   { NULL, "Timing and power analysis", NULL },
+  
   { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
 
@@ -724,6 +868,8 @@ static struct LispCliCommand timer_cmds[] = {
   { "build-graph", "- build timing graph", process_timer_build },
   { "tick", "<net1>+/- <net2-dir>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
   { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
+  
+
   { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
   { "run", "- run timing analysis, and returns list (p M)",
@@ -738,6 +884,8 @@ static struct LispCliCommand timer_cmds[] = {
   
 };
 
+
+#if defined(FOUND_phydb)
 
 /*
   PhyDB callbacks
@@ -808,13 +956,46 @@ static double get_slack_callback (int constraint_id)
 static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
 				  std::vector<ActEdge> &pathb)
 {
-  return;
+  TaggedTG *tg = timer_get_tagged_tg ();
+  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  if (!cyc) {
+    return;
+  }
+  if (cyc->witness_ready) {
+
+  }
+  else {
+    /* -- API error -- */
+  }
 }
 
 static void get_violated_constraints (std::vector<int> &violations)
 {
+  int nc = timer_get_num_cyclone_constraints ();
+  TaggedTG *tg = timer_get_tagged_tg ();
+
+  violations.clear();
+  
+  for (int i=0; i < nc; i++) {
+    double slack = get_slack_callback (i);
+    if (slack < 0) {
+      violations.push_back (i);
+    }
+  }
   return;
 }
+
+
+void timer_phydb_link (PhyDB *phydb)
+{
+  phydb->SetGetNumConstraintsCB (num_constraint_callback);
+  phydb->SetUpdateTimingIncremental (incremental_update_timer);
+  phydb->SetGetSlackCB (get_slack_callback);
+  phydb->SetGetWitnessCB (get_witness_callback);
+  phydb->SetGetViolatedTimingConstraintsCB (get_violated_constraints);
+}
+
+#endif
 
 
 #endif
