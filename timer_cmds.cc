@@ -681,6 +681,9 @@ int process_timer_constraint (int argc, char **argv)
 	  if (buf1) {
 	    buf1[strlen(buf1)-1] = '\0';
 	  }
+          else {
+            buf1 = Strdup ("-unknown-");
+          }
 
 	  v = tg->getVertex (c->from);
 	  Assert (v, "What?");
@@ -690,6 +693,9 @@ int process_timer_constraint (int argc, char **argv)
 	  if (buf2) {
 	    buf2[strlen(buf2)-1] = '\0';
 	  }
+          else {
+            buf2 = Strdup ("-unknown-");
+          }
 	  
 	  printf ("[%*d/%*d] iso %s%c -> %s", nzeros, i+1, nzeros,
 		  tg->numConstraints(), buf1,
