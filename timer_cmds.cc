@@ -672,17 +672,24 @@ int process_timer_constraint (int argc, char **argv)
 	  AGvertex *v;
 	  TimingVertexInfo *vi;
 	  char *buf1, *buf2;
+	  char *net1, *net2;
 	  v = tg->getVertex (c->root);
 	  Assert (v, "What?");
 	  vi = (TimingVertexInfo *) v->getInfo();
 	  Assert (vi, "Hmm");
-	  buf1 = vi->getFullInstPath ();
+	  buf1 = (char *)vi->info();
+	  if (buf1) {
+	    buf1[strlen(buf1)-1] = '\0';
+	  }
 
 	  v = tg->getVertex (c->from);
 	  Assert (v, "What?");
 	  vi = (TimingVertexInfo *) v->getInfo();
 	  Assert (vi, "Hmm");
-	  buf2 = vi->getFullInstPath ();
+	  buf2 = (char *)vi->info();
+	  if (buf2) {
+	    buf2[strlen(buf2)-1] = '\0';
+	  }
 	  
 	  printf ("[%*d/%*d] iso %s%c -> %s", nzeros, i+1, nzeros,
 		  tg->numConstraints(), buf1,
