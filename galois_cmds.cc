@@ -1453,19 +1453,19 @@ void timer_get_fork_paths (int constraint, bool which,
     galois::eda::utility::Float,
     galois::eda::utility::TimingPath> tPath = Paths[0];
 
-  timer_convert_path (tPath, actp);
+  timer_convert_path (tPath.second, actp);
 }
 
 void timer_get_fastpaths (int constraint,
 			  std::vector<ActEdge> &actp)
 {
-  timer_get_fork_paths (constraint, true, actp);
+  timer_get_fork_paths (constraint, false, actp);
 }
 
 void timer_get_slowpaths (int constraint,
 			  std::vector<ActEdge> &actp)
 {
-  timer_get_fork_paths (constraint, false, actp);
+  timer_get_fork_paths (constraint, true, actp);
 }
 
 ActPin *timer_get_dst_pin (AGedge *e)

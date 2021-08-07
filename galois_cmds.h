@@ -90,14 +90,14 @@ ActPin *timer_get_dst_pin (AGedge *e);
 #ifdef FOUND_phydb
 #include <phydb/phydb.h>
 
-void timer_convert_path (cyclone::TimingPath path,
+void timer_convert_path (cyclone::TimingPath &path,
 			 std::vector<phydb::ActEdge> &actp);
 
 void timer_get_fastpaths (int constraint,
-			  std::vector<ActEdge> &actp);
+			  std::vector<phydb::ActEdge> &actp);
 
 void timer_get_slowpaths (int constraint,
-			  std::vector<ActEdge> &actp);
+			  std::vector<phydb::ActEdge> &actp);
 
 #endif
 
