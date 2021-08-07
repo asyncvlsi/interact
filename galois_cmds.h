@@ -87,6 +87,23 @@ timing_info *timer_query_transition (int vid, int dir);
 ActPin *tgraph_vertex_to_pin (int vid);
 ActPin *timer_get_dst_pin (AGedge *e);
 
+#ifdef FOUND_phydb
+#include <phydb/phydb.h>
+
+void timer_convert_path (cyclone::TimingPath path,
+			 std::vector<phydb::ActEdge> &actp);
+
+void timer_get_fastpaths (int constraint,
+			  std::vector<ActEdge> &actp);
+
+void timer_get_slowpaths (int constraint,
+			  std::vector<ActEdge> &actp);
+
+#endif
+
+void timer_compute_witnesses (void);
+void timer_add_check (int constraint);
+
 #endif
 
 #endif /* __GALOIS_CMDS_H__ */

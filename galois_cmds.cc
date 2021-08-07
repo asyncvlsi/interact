@@ -187,6 +187,87 @@ AGedge *find_edge (AGvertex *from, AGvertex *to)
   return NULL;
 }
 
+#ifdef FOUND_phydb
+
+void timer_convert_path (cyclone::TimingPath &path,
+			 std::vector<phydb::ActEdge> &actp)
+{
+  double adjust = 0;
+  int first = 1;
+  
+  if (actp.size() != 0) {
+    actp.clear ();
+  }
+
+  ActPin *prev_p;
+  int path_ticks = 0;
+  double path_time = 0.0;
+
+  prev_p = NULL;
+
+  for (auto x : path) {
+    ActPin *p = (ActPin *) x.first;
+    TransMode t = x.second;
+    timing_info *ti;
+    double tm;
+
+    ti = new timing_info (p, t);
+
+    if (ti) {
+      if (first) {
+	adjust = ti->arr[0];
+      }
+    }
+
+    Assert (path_ticks < TS.M, "What?");
+
+    if (ti) {
+      tm = ti->arr[path_ticks] - adjust - path_time;
+
+      if (tm < 0) {
+	tm = tm + TS.M*TS.p;
+      }
+    
+      path_time = ti->arr[path_ticks] - adjust;
+
+      if (fabs (path_time) < 1.0e-6 && !first) {
+	path_time = TS.p*TS.M;
+	first = 2;
+      }
+    }
+
+    if (prev_p) {
+      phydb::ActEdge ae;
+      ae.source = prev_p;
+      ae.target = p;
+      ae.delay = tm;
+      if (p->getNet() == prev_p->getNet()) {
+	ae.net_ptr = p->getNet();
+      }
+      else {
+	ae.net_ptr = NULL;
+      }
+      actp.push_back (ae);
+    }
+
+    if (ti) {
+      delete ti;
+    }
+
+    prev_p = p;
+
+    if (first == 2) {
+      path_time = 0;
+      first = 0;
+    }
+
+    if (first) {
+      first = 0;
+    }
+  }
+}
+#endif
+
 void timer_display_path (pp_t *pp, cyclone::TimingPath path, int show_delays)
 {
   char buf[1024];
@@ -1336,40 +1417,56 @@ cyclone_constraint *timer_get_cyclone_constraint (int id)
   return &TS.constraints[id];
 }
 
-#if 0
-cyclone::TimingPath timer_get_fastpaths (int constraint)
+void timer_get_fork_paths (int constraint, bool which,
+			   std::vector<ActEdge> &actp)
 {
-  auto fastPaths =
-    TS.engine->getCrctCriticalPaths(
-		  p3A, TransMode::TRANS_FALL,
-  		  p2ZN, TransMode::TRANS_RISE, false,
-		  p2ZN, TransMode::TRANS_FALL, false,
-		  libs[0], maxMode, 0, true);
-  std::cout << "Critical paths on the fast end:\n";
-  for (size_t i = 0; i < fastPaths.size(); i++) {
-    std::cout << "Fast path #" << i << "\n";
-    printTimingPathWithSlack(vAdaptor, fastPaths[i], "  ");
-  }
-  std::cout << "\n";
+  TaggedTG *tg;
+  TaggedTG::constraint *c;
+  ActPin *rpin, *apin, *bpin;
+  TransMode rt, at, bt;
+
+  tg = timer_get_tagged_tg ();
+
+  c = tg->getConstraint (TS.constraints[constraint].tg_id);
+
+  rpin = tgraph_vertex_to_pin (c->root);
+  rt = TS.constraints[constraint].root_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  apin = tgraph_vertex_to_pin (c->from);
+  at = TS.constraints[constraint].from_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  bpin = tgraph_vertex_to_pin (c->to);
+  bt = TS.constraints[constraint].to_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  auto maxMode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
+
+  auto Paths =
+    TS.engine->getCrctCriticalPaths(rpin, rt,
+				    apin, at, c->from_tick ? true : false,
+				    bpin, bt,  c->to_tick ? true : false,
+				    &TS.lib[0], maxMode, 0, which);
+
+  std::pair<
+    galois::eda::utility::Float,
+    galois::eda::utility::TimingPath> tPath = Paths[0];
+
+  timer_convert_path (tPath, actp);
 }
 
-cyclone::TimingPath timer_get_slowpaths (int constraint)
+void timer_get_fastpaths (int constraint,
+			  std::vector<ActEdge> &actp)
 {
-  auto slowPaths =
-      engine->getCrctCriticalPaths(
-		  p3A, TransMode::TRANS_FALL,
-  		  p2ZN, TransMode::TRANS_RISE, false,
-		  p2ZN, TransMode::TRANS_FALL, false,
-		  libs[0], maxMode, 0, false);
-  std::cout << "Critical paths on the slow end:\n";
-  for (size_t i = 0; i < slowPaths.size(); i++) {
-    std::cout << "Slow path #" << i << "\n";
-    printTimingPathWithSlack(vAdaptor, slowPaths[i], "  ");
-  }
-  std::cout << "\n";
+  timer_get_fork_paths (constraint, true, actp);
 }
-#endif
 
+void timer_get_slowpaths (int constraint,
+			  std::vector<ActEdge> &actp)
+{
+  timer_get_fork_paths (constraint, false, actp);
+}
 
 ActPin *timer_get_dst_pin (AGedge *e)
 {
@@ -1383,5 +1480,42 @@ ActPin *timer_get_dst_pin (AGedge *e)
   }
 }
 
+
+void timer_add_check (int constraint)
+{
+  TaggedTG *tg;
+  TaggedTG::constraint *c;
+  ActPin *rpin, *apin, *bpin;
+  TransMode rt, at, bt;
+
+  tg = timer_get_tagged_tg ();
+
+  c = tg->getConstraint (TS.constraints[constraint].tg_id);
+
+  rpin = tgraph_vertex_to_pin (c->root);
+  rt = TS.constraints[constraint].root_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  apin = tgraph_vertex_to_pin (c->from);
+  at = TS.constraints[constraint].from_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  bpin = tgraph_vertex_to_pin (c->to);
+  bt = TS.constraints[constraint].to_dir ? TransMode::TRANS_RISE :
+    TransMode::TRANS_FALL;
+  
+  auto maxMode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
+
+  TS.engine->addTimingCheck (rpin, rt,
+			     apin, at, c->from_tick ? true : false,
+			     bpin, bt,  c->to_tick ? true : false,
+			     &TS.lib[0], maxMode, 0);
+}
+
+
+void timer_compute_witnesses (void)
+{
+  TS.engine->computeTimingChecks ();
+}
 
 #endif

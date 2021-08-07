@@ -34,7 +34,7 @@ SRCS=$(OBJS:.o=.cc)
 include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
-GALOIS_EDA_PIECES=-lgalois_shmem
+GALOIS_EDA_PIECES=
 
 ifdef galois_eda_INCLUDE 
 

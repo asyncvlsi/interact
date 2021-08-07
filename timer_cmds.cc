@@ -974,12 +974,16 @@ static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
   if (!cyc) {
     return;
   }
-  if (cyc->witness_ready) {
+  if (!cyc->witness_ready) {
+    /*-- run the constraint --*/
+    timer_add_check (constraint);
+    timer_compute_witnesses ();
+    cyc->witness_ready = 1;
+  }
 
-  }
-  else {
-    /* -- API error -- */
-  }
+  /* a < b : b is too fast, a is too slow */
+  timer_get_fastpaths (constraint, pathb);
+  timer_get_slowpaths (constraint, patha);
 }
 
 static void get_violated_constraints (std::vector<int> &violations)
