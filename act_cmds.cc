@@ -35,6 +35,52 @@
 flow_state F;
 
 
+/*------------------------------------------------------------------------
+ * 
+ *  Set ACT pint
+ *
+ *------------------------------------------------------------------------
+ */
+static int process_defpint (int argc, char **argv)
+{
+  FILE *fp;
+  if (!std_argcheck (argc, argv, 3, "<name> <int>", STATE_EMPTY)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "si");
+
+  act_add_global_pint (argv[1], atoi (argv[2]));
+  
+  return LISP_RET_TRUE;
+}
+
+/*------------------------------------------------------------------------
+ * 
+ *  Set ACT pbool
+ *
+ *------------------------------------------------------------------------
+ */
+static int process_defpbool (int argc, char **argv)
+{
+  FILE *fp;
+  if (!std_argcheck (argc, argv, 3, "<name> #t|#f", STATE_EMPTY)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (strcmp (argv[2], "#t") == 0) {
+    act_add_global_pbool (argv[1], 1);
+  }
+  else if (strcmp (argv[2], "#f") == 0) {
+    act_add_global_pbool (argv[1], 0);
+  }
+  else {
+    fprintf (stderr, "%s: pbool value must be #t or #f\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "sb");
+  return LISP_RET_TRUE;
+}
+
 
 /*------------------------------------------------------------------------
  *
@@ -816,6 +862,10 @@ static int process_show_type (int argc, char **argv)
 
 static struct LispCliCommand act_cmds[] = {
   { NULL, "ACT core functions", NULL },
+  { "defpint", "<name> <int> - create and set a global pint prior to reading",
+    process_defpint },
+  { "defpbool", "<name> #t|#f - create and set a global pbool prior to reading",
+    process_defpbool },
   { "read", "<file> - read in the ACT design", process_read },
   { "merge", "<file> - merge in additional ACT file", process_merge },
   { "expand", "- expand/elaborate ACT design", process_expand },
