@@ -869,6 +869,30 @@ int process_lib_timeunits (int argc, char **argv)
   return LISP_RET_STRING;
 }
 
+#if defined(FOUND_phydb)
+
+void timer_phydb_link (PhyDB *phydb);
+
+static int process_timer_phydb (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (F.timer == TIMER_NONE) {
+    fprintf (stderr, "%s: timer not initialized.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb not initialized.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  timer_phydb_link (F.phydb);
+
+  return LISP_RET_TRUE;
+}
+
+#endif
+
 static struct LispCliCommand timer_cmds[] = {
 
   { NULL, "Timing and power analysis", NULL },
@@ -885,6 +909,14 @@ static struct LispCliCommand timer_cmds[] = {
 
   { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
+
+#if defined(FOUND_phydb)
+  { "phydb-link",
+    "- link timer to phydb for timing-driven physical design flow",
+    process_timer_phydb 
+  },
+#endif
+  
   { "run", "- run timing analysis, and returns list (p M)",
     process_timer_run },
 
@@ -894,7 +926,7 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_info },
   { "constraint", "[<net>] - display information about all timing forks that involve <net>",
     process_timer_constraint }
-  
+
 };
 
 
@@ -974,6 +1006,7 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
   
   for (int i=0; i < ids.size(); i++) {
     slk.push_back (get_worst_slack (ids[i]));
+    timer_add_check (ids[i]);
   }
   return slk;
 }
@@ -986,13 +1019,13 @@ static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
   if (!cyc) {
     return;
   }
-  if (!cyc->witness_ready) {
-    /*-- run the constraint --*/
-    timer_add_check (constraint);
-    timer_compute_witnesses ();
-    cyc->witness_ready = 1;
+  if (cyc->witness_ready == 0) {
+    /* error */
+    return;
   }
-
+  if (cyc->witness_ready == 1) {
+    timer_compute_witnesses ();
+  }
   /* a < b : b is too fast, a is too slow */
   timer_get_fastpaths (constraint, pathb);
   timer_get_slowpaths (constraint, patha);
@@ -1022,6 +1055,8 @@ void timer_phydb_link (PhyDB *phydb)
   phydb->SetGetSlackCB (get_slack_callback);
   phydb->SetGetWitnessCB (get_witness_callback);
   phydb->SetGetViolatedTimingConstraintsCB (get_violated_constraints);
+
+  timer_link_engine (phydb);
 }
 
 #endif

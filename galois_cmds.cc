@@ -266,6 +266,15 @@ void timer_convert_path (cyclone::TimingPath &path,
     }
   }
 }
+
+
+void timer_link_engine (PhyDB *phydb)
+{
+  phydb->SetParaManager (TS.engine->getParasiticsManager());
+  phydb->AddCellLib (TS.lib);
+  phydb->SetNetlistAdaptor (TS.anl);
+}
+
 #endif
 
 void timer_display_path (pp_t *pp, cyclone::TimingPath path, int show_delays)
@@ -1510,12 +1519,21 @@ void timer_add_check (int constraint)
 			     apin, at, c->from_tick ? true : false,
 			     bpin, bt,  c->to_tick ? true : false,
 			     &TS.lib[0], maxMode, 0);
+
+  TS.constraints[constraint].witness_ready = 1;
 }
 
 
 void timer_compute_witnesses (void)
 {
   TS.engine->computeTimingChecks ();
+  for (int i=0; i < A_LEN (TS.constraints); i++) {
+    if (TS.constraints[i].witness_ready == 1) {
+      TS.constraints[i].witness_ready = 2;
+    }
+  }
 }
+
+
 
 #endif
