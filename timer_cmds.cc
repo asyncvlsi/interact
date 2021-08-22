@@ -914,7 +914,7 @@ static void incremental_update_timer (void)
   // fixme
 }
 
-static double get_slack_callback (int constraint_id)
+static double get_worst_slack (int constraint_id)
 {
   double timer_units;
   TaggedTG *tg;
@@ -966,6 +966,18 @@ static double get_slack_callback (int constraint_id)
   return slack;
 }
 
+static std::vector<double> get_slack_callback (const std::vector<int> &ids)
+{
+  std::vector<double> slk;
+
+  slk.clear();
+  
+  for (int i=0; i < ids.size(); i++) {
+    slk.push_back (get_worst_slack (ids[i]));
+  }
+  return slk;
+}
+
 static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
 				  std::vector<ActEdge> &pathb)
 {
@@ -994,7 +1006,7 @@ static void get_violated_constraints (std::vector<int> &violations)
   violations.clear();
   
   for (int i=0; i < nc; i++) {
-    double slack = get_slack_callback (i);
+    double slack = get_worst_slack (i);
     if (slack < 0) {
       violations.push_back (i);
     }
@@ -1006,7 +1018,7 @@ static void get_violated_constraints (std::vector<int> &violations)
 void timer_phydb_link (PhyDB *phydb)
 {
   phydb->SetGetNumConstraintsCB (num_constraint_callback);
-  phydb->SetUpdateTimingIncremental (incremental_update_timer);
+  phydb->SetUpdateTimingIncrementalCB (incremental_update_timer);
   phydb->SetGetSlackCB (get_slack_callback);
   phydb->SetGetWitnessCB (get_witness_callback);
   phydb->SetGetViolatedTimingConstraintsCB (get_violated_constraints);
