@@ -214,7 +214,6 @@ static int process_sproute_close (int argc, char **argv) {
 
   if (F.sproute != NULL) {
     delete F.sproute;
-    init_galois_shmemsys(1);
     F.sproute = NULL;
   }
   save_to_log (argc, argv, "");
