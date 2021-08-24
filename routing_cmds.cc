@@ -34,7 +34,7 @@
 #if defined(FOUND_pwroute) 
 
 static int process_pwroute_init (int argc, char **argv) {
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "<verbose>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -43,7 +43,7 @@ static int process_pwroute_init (int argc, char **argv) {
     return LISP_RET_ERROR;
   }
 
-  F.pwroute = new pwroute::PWRoute(F.phydb);
+  F.pwroute = new pwroute::PWRoute(F.phydb, atoi(argv[1]));
   save_to_log (argc, argv, "i");
 
   return LISP_RET_TRUE;
@@ -114,7 +114,7 @@ static int process_pwroute_close (int argc, char **argv) {
 static struct LispCliCommand pwroute_cmds[] = {
   { NULL, "Power Routing for Gridded Cells", NULL },
   
-  { "init", "-initialize pwroute engine", process_pwroute_init },
+  { "init", "-initialize pwroute engine <verbose> ", process_pwroute_init },
   { "set_parameters", "<reinforcement_width, reinforcement_step, cluster_mesh_width> - run pw route with mesh configuration. Default is <8, 16, 2>", 
     process_pwroute_set_parameters},
   { "run", "run pwroute", process_pwroute_run },
@@ -128,7 +128,7 @@ static struct LispCliCommand pwroute_cmds[] = {
 
 
 static int process_sproute_init (int argc, char **argv) {
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "<verbose>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -137,7 +137,7 @@ static int process_sproute_init (int argc, char **argv) {
     return LISP_RET_ERROR;
   }
   init_galois_shmemsys(0);
-  F.sproute = new sproute::SPRoute(F.phydb);
+  F.sproute = new sproute::SPRoute(F.phydb, atoi(argv[1]));
   save_to_log (argc, argv, "i");
 
   return LISP_RET_TRUE;
