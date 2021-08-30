@@ -1,3 +1,4 @@
 #!/bin/sh
 
+export FINDPKG_EXTRA_DIRS=$BOOST_ROOT
 $ACT_HOME/scripts/tconfig
