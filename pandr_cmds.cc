@@ -130,7 +130,7 @@ static void _find_macro (void *cookie, Process *p)
 
   F.act_design->msnprintfproc (buf, 10240, p);
 
-  Macro *m = F.phydb->GetMacroPtr (std::string (buf));
+  phydb::Macro *m = F.phydb->GetMacroPtr (std::string (buf));
   if (!m) {
     return;
   }

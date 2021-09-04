@@ -107,7 +107,7 @@ static int process_dali_place_io (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  F.dali->SimpleIoPinPlacement(argv[1]);
+  F.dali->IoPinPlacement(argc, argv);
   save_to_log (argc, argv, "s");
 
   return LISP_RET_TRUE;
