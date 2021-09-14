@@ -564,15 +564,15 @@ static void aflat_ns (FILE *fp, ActNamespace *ns)
   aflat_dump (fp, ns->CurScope(), ns->getprs(), ns->getspec());
 }
 
-static void aflat_body (void *cookie, ActId *prefix, Process *p)
+static void aflat_body (void *cookie, ActId *prefix, UserDef *u)
 {
   FILE *fp = (FILE *)cookie;
-  Assert (p->isExpanded(), "What?");
+  Assert (u->isExpanded(), "What?");
   _flat_current_prefix = prefix;
   if (labels) {
     hash_clear (labels);
   }
-  aflat_dump (fp, p->CurScope(), p->getprs(), p->getspec());
+  aflat_dump (fp, u->CurScope(), u->getprs(), u->getspec());
   _flat_current_prefix = NULL;
 }
 

@@ -95,10 +95,16 @@ static void _print_node (netlist_t *N, FILE *fp, ActId *prefix, node_t *n)
   }
 }
 
-static void g (void *x, ActId *prefix, Process *p)
+static void g (void *x, ActId *prefix, UserDef *u)
 {
   FILE *fp;
   netlist_t *N;
+  Process *p;
+
+  p = dynamic_cast<Process *> (u);
+  if (!p) {
+    return;
+  }
 
   N = netinfo->getNL (p);
   
