@@ -854,6 +854,12 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       to_dirs[0] = tmap[c->to_dir];
     }
     ActPin *rpin, *apin, *bpin;
+
+    if (c->root < 0 || c->from < 0 || c->to < 0) {
+      warning ("Unexpected error in constraint #%d; skipped.\n", i);
+      continue;
+    }
+    
     rpin = tgraph_vertex_to_pin (c->root);
     apin = tgraph_vertex_to_pin (c->from);
     bpin = tgraph_vertex_to_pin (c->to);
