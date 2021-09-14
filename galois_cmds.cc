@@ -919,7 +919,7 @@ const char *timer_create_graph (Act *a, Process *p)
   ActPass *ap = a->pass_find ("taggedTG");
 
   if (!ap) {
-    return "no timing graph found";
+    return "no timing graph construction pass found";
   }
 
   if (!F.tp) {
