@@ -71,14 +71,14 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
 
   if (!F.tp) {
     fprintf (stderr, "%s: cannot run without creating a timing graph!", cmd);
-    return LISP_RET_ERROR;
+    return 0;
   }
 
   if (!F.sp) {
     ActPass *ap = F.act_design->pass_find ("collect_state");
     if (!ap) {
       fprintf (stderr, "Internal error: state pass missing but timer present?\n");
-      return LISP_RET_ERROR;
+      return 0;
     }
     F.sp = dynamic_cast<ActStatePass *> (ap);
     Assert (F.sp, "What?");
@@ -93,6 +93,7 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
   InstType *itx;
 
   /* -- validate the type of this identifier -- */
+
   itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
   if (itx == NULL) {
     fprintf (stderr, "%s: could not find identifier `%s'\n", cmd, name);
@@ -116,7 +117,13 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
   }
 
   Assert (F.sp && F.tp, "Hmm");
-  
+
+  if (!F.sp->checkIdExists (id)) {
+    id->Print (stderr);
+    fprintf (stderr, ": identifier not found in the timing graph!\n");
+    return 0;
+  }
+
   goff = F.sp->globalBoolOffset (id);
   
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
