@@ -354,20 +354,22 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path, int show_delays)
       }
     }
 
-    Assert (path_ticks < TS.M, "What?");
+    if (show_delays) {
+      Assert (path_ticks < TS.M, "What?");
 
-    if (ti) {
-      tm = ti->arr[path_ticks] - adjust - path_time;
+      if (ti) {
+	tm = ti->arr[path_ticks] - adjust - path_time;
 
-      if (tm < 0) {
-	tm = tm + TS.M*TS.p;
-      }
-    
-      path_time = ti->arr[path_ticks] - adjust;
-
-      if (fabs (path_time) < 1.0e-6 && !first) {
-	path_time = TS.p*TS.M;
-	first = 2;
+	if (tm < 0) {
+	  tm = tm + TS.M*TS.p;
+	}
+	
+	path_time = ti->arr[path_ticks] - adjust;
+	
+	if (fabs (path_time) < 1.0e-6 && !first) {
+	  path_time = TS.p*TS.M;
+	  first = 2;
+	}
       }
     }
 

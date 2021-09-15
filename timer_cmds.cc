@@ -910,7 +910,7 @@ static struct LispCliCommand timer_cmds[] = {
   { "time-units", "- returns string for time units", process_lib_timeunits },
   
   { "build-graph", "- build timing graph", process_timer_build },
-  { "tick", "<net1>+/- <net2-dir>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+  { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
   { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
   
 
