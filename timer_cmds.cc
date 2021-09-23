@@ -200,19 +200,24 @@ static int process_timer_tick (int argc, char **argv)
   argv[1][len1-1] = '\0';
   argv[2][len2-1] = '\0';
 
-  int vid1, vid2;
-
-  if (!get_net_to_timing_vertex (argv[0], argv[1], &vid1) ||
-      !get_net_to_timing_vertex (argv[0], argv[2], &vid2)) {
-    argv[1][len1-1] = dir1 ? '+' : '-';
-    argv[2][len2-1] = dir2 ? '+' : '-';
-    return LISP_RET_ERROR;
-  }
-  vid1 += dir1;
-  vid2 += dir2;
+  char *tmp1 = Strdup (argv[1]);
+  char *tmp2 = Strdup (argv[2]);
 
   argv[1][len1-1] = dir1 ? '+' : '-';
   argv[2][len2-1] = dir2 ? '+' : '-';
+
+  int vid1, vid2;
+
+  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1) ||
+      !get_net_to_timing_vertex (argv[0], tmp2, &vid2)) {
+    FREE (tmp1);
+    FREE (tmp2);
+    return LISP_RET_ERROR;
+  }
+  FREE (tmp1);
+  FREE (tmp2);
+  vid1 += dir1;
+  vid2 += dir2;
 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
 
@@ -445,6 +450,10 @@ int process_timer_addconstraint (int argc, char **argv)
     }
     argv[i+1][len[i]-1] = '\0';
 
+    char *tmpname = Strdup (argv[i+1]);
+
+    argv[i+1][len[i]-1] = dir[i] ? '+' : '-';
+
     if (i > 0) {
       if (argv[i+1][0] == '*') {
 	tick[i] = 1;
@@ -454,12 +463,11 @@ int process_timer_addconstraint (int argc, char **argv)
       }
     }
     
-    if (!get_net_to_timing_vertex (argv[0], tick[i] + argv[i+1], &vid[i])) {
-      for (int j=0; j <= i; j++) {
-	argv[j+1][len[j]-1] = dir[j] ? '+' : '-';
-      }
+    if (!get_net_to_timing_vertex (argv[0], tick[i] + tmpname, &vid[i])) {
+      FREE (tmpname);
       return LISP_RET_ERROR;
     }
+    FREE (tmpname);
     vid[i] += dir[i];
   }
 
