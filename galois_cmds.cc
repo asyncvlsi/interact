@@ -770,7 +770,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	engine->setDelayEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
       }
     }
-    A_LEN (cur_gate_pins) = 0;
+    A_LEN_RAW (cur_gate_pins) = 0;
   }
   A_FREE (cur_gate_pins);
 
