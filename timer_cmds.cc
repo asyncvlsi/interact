@@ -886,7 +886,7 @@ int process_lib_timeunits (int argc, char **argv)
 
 #if defined(FOUND_phydb)
 
-void timer_phydb_link (PhyDB *phydb);
+void timer_phydb_link (phydb::PhyDB *phydb);
 
 static int process_timer_phydb (int argc, char **argv)
 {
@@ -1026,8 +1026,8 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
   return slk;
 }
 
-static void get_witness_callback (int constraint, std::vector<ActEdge> &patha,
-				  std::vector<ActEdge> &pathb)
+static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &patha,
+				  std::vector<phydb::ActEdge> &pathb)
 {
   TaggedTG *tg = timer_get_tagged_tg ();
   cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
@@ -1063,7 +1063,7 @@ static void get_violated_constraints (std::vector<int> &violations)
 }
 
 
-void timer_phydb_link (PhyDB *phydb)
+void timer_phydb_link (phydb::PhyDB *phydb)
 {
   phydb->SetGetNumConstraintsCB (num_constraint_callback);
   phydb->SetUpdateTimingIncrementalCB (incremental_update_timer);

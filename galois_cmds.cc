@@ -268,7 +268,7 @@ void timer_convert_path (cyclone::TimingPath &path,
 }
 
 
-void timer_link_engine (PhyDB *phydb)
+void timer_link_engine (phydb::PhyDB *phydb)
 {
   phydb->SetParaManager (TS.engine->getParasiticsManager());
   phydb->AddCellLib (TS.lib);
@@ -1435,7 +1435,7 @@ cyclone_constraint *timer_get_cyclone_constraint (int id)
 }
 
 void timer_get_fork_paths (int constraint, bool which,
-			   std::vector<ActEdge> &actp)
+			   std::vector<phydb::ActEdge> &actp)
 {
   TaggedTG *tg;
   TaggedTG::constraint *c;
@@ -1474,13 +1474,13 @@ void timer_get_fork_paths (int constraint, bool which,
 }
 
 void timer_get_fastpaths (int constraint,
-			  std::vector<ActEdge> &actp)
+			  std::vector<phydb::ActEdge> &actp)
 {
   timer_get_fork_paths (constraint, false, actp);
 }
 
 void timer_get_slowpaths (int constraint,
-			  std::vector<ActEdge> &actp)
+			  std::vector<phydb::ActEdge> &actp)
 {
   timer_get_fork_paths (constraint, true, actp);
 }
