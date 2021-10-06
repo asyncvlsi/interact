@@ -37,6 +37,10 @@ private:
   Act *_a;
   Process *_top;
   TaggedTG *_tg;
+  ActDynamicPass *_tp;
+  ActStatePass *_sp;
+
+  int _idToTimingVertex (ActId *) const;
   
 public:
   ActNetlistAdaptor (Act *a, Process *p);

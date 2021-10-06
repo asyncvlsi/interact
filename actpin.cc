@@ -69,15 +69,70 @@ ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
   _a = a;
   _top = p;
 
+  
   pass = a->pass_find ("taggedTG");
-  if (!pass) {
+  if (pass) {
+    _tp = dynamic_cast<ActDynamicPass *>(pass);
+  }
+  if (!pass  || !_tp) {
     fatal_error ("Need to have timing analysis!");
   }
-  _tg = (TaggedTG *) pass->getMap (_top);
+  _tg = (TaggedTG *) _tp->getMap (_top);
   if (!_tg) {
     fatal_error ("No timing graph!");
   }
+  pass = a->pass_find ("collect_state");
+  if (pass) {
+    _sp = dynamic_cast<ActStatePass *> (pass);
+  }
+  if (!_sp || !pass) {
+    fatal_error ("No state pass!");
+  }
 }
+
+int ActNetlistAdaptor::_idToTimingVertex (ActId *id) const
+{
+  int goff;
+  Array *x;
+  InstType *itx;
+
+  /* -- validate the type of this identifier -- */
+
+  itx = _top->CurScope()->FullLookup (id, &x);
+  if (itx == NULL) {
+    id->Print (stderr);
+    fprintf (stderr, ": ID not found\n");
+    return -1;
+  }
+  if (!TypeFactory::isBoolType (itx)) {
+    id->Print (stderr);
+    fprintf (stderr, ": ID is not a signal\n");
+    return -1;
+  }
+  if (itx->arrayInfo() && (!x || !x->isDeref())) {
+    id->Print (stderr);
+    fprintf (stderr, ": ID is not an array\n");
+    return -1;
+  }
+
+  /* -- check all the de-references are valid -- */
+  if (!id->validateDeref (_top->CurScope())) {
+    id->Print (stderr);
+    fprintf (stderr, ": invalid array reference\n");
+    return -1;
+  }
+
+  if (!_sp->checkIdExists (id)) {
+    id->Print (stderr);
+    fprintf (stderr, ": identifier not found in the timing graph!\n");
+    return -1;
+  }
+
+  goff = _sp->globalBoolOffset (id);
+  
+  return 2*(_tg->globOffset() + goff);
+}
+
 
 void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 					     const char divider,
@@ -85,8 +140,10 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 					     const char busDelimR,
 					     const char delimiter) const
 {
+  int vid;
   ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
-			     busDelimR, delimiter);
+			     busDelimR, divider);
+  
   return NULL;
 }
 
@@ -95,9 +152,7 @@ void *ActNetlistAdaptor::getInstFromFullName (const std::string& name,
 					      const char busDelimL,
 					      const char busDelimR) const
 {
-  ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
-			     busDelimR, divider);
-  return NULL;
+  return getNetFromFullName (name, divider, busDelimL, busDelimR);
 }
 
 void *ActNetlistAdaptor::getNetFromFullName (const std::string& name,
@@ -105,9 +160,21 @@ void *ActNetlistAdaptor::getNetFromFullName (const std::string& name,
 					     const char busDelimL,
 					     const char busDelimR) const
 {
+  int vid;
   ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
 			     busDelimR, divider);
-  return NULL;
+  if (x) {
+    vid = _idToTimingVertex (x);
+  }
+  else {
+    vid = -1;
+  }
+  if (vid == -1) {
+    return NULL;
+  }
+  else {
+    return _tg->getVertex (vid)->getInfo();
+  }
 }
 
 /*-- file I/O and debugging --*/
