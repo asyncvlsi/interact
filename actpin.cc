@@ -167,10 +167,10 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
      FREE (buf);
      return NULL;
   }
-  buf[pos] = '\0';
+  buf[pos] = '.';
 
   ActId *x = ActId::parseId (buf, divider, busDelimL,
-			     busDelimR, divider);
+			     busDelimR, '.');
   if (x) {
     vid = _idToTimingVertex (x);
   }
