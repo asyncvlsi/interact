@@ -1549,6 +1549,10 @@ void timer_incremental_update (void)
 
   TS.p = stats.first;
   TS.M = stats.second;
+
+  for (int i=0; i < A_LEN (TS.constraints); i++) {
+    TS.constraints[i].witness_ready = 0;
+  }
 }
 
 
