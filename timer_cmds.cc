@@ -958,7 +958,7 @@ static int num_constraint_callback (void)
 
 static void incremental_update_timer (void)
 {
-  // fixme
+  timer_incremental_update ();
 }
 
 static double get_worst_slack (int constraint_id)

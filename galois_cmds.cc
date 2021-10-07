@@ -1467,11 +1467,9 @@ void timer_get_fork_paths (int constraint, bool which,
 				    bpin, bt,  c->to_tick ? true : false,
 				    &TS.lib[0], maxMode, 0, which);
 
-  std::pair<
-    galois::eda::utility::Float,
-    galois::eda::utility::TimingPath> tPath = Paths[0];
+  galois::eda::utility::TimingPath tpath = Paths[0]->untar();
 
-  timer_convert_path (tPath.second, actp);
+  timer_convert_path (tpath, actp);
 }
 
 void timer_get_fastpaths (int constraint,
@@ -1543,6 +1541,15 @@ void timer_compute_witnesses (void)
   }
 }
 
+
+void timer_incremental_update (void)
+{
+  TS.engine->computeCriticalCycle (TS.lib, true);
+  auto stats = TS.engine->getCriticalCycleRatioAndTicks ();
+
+  TS.p = stats.first;
+  TS.M = stats.second;
+}
 
 
 #endif

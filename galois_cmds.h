@@ -73,6 +73,7 @@ void init_galois_shmemsys(int mode = 0);
 const char *timer_get_time_string (void);
 double timer_get_time_units (void);
 int timer_get_num_cyclone_constraints (void);
+void timer_incremental_update (void);
 
 list_t *timer_query (int vid);
 
