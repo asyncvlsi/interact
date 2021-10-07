@@ -1046,19 +1046,56 @@ static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &p
   timer_get_slowpaths (constraint, patha);
 }
 
+struct _violation_pair {
+  int idx;
+  double slack;
+};
+
+static int _sortviolationsfn (char *a, char *b)
+{
+  _violation_pair *p1 = (_violation_pair *)a;
+  _violation_pair *p2 = (_violation_pair *)b;
+  if (p1->slack < p2->slack) {
+    return -1;
+  }
+  else if (p1->slack == p2->slack) {
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
 static void get_violated_constraints (std::vector<int> &violations)
 {
   int nc = timer_get_num_cyclone_constraints ();
   TaggedTG *tg = timer_get_tagged_tg ();
 
   violations.clear();
+
+  A_DECL (_violation_pair, v);
+  A_INIT (v);
   
   for (int i=0; i < nc; i++) {
     double slack = get_worst_slack (i);
     if (slack < 0) {
-      violations.push_back (i);
+      A_NEW (v, _violation_pair);
+      A_NEXT (v).idx = i;
+      A_NEXT (v).slack = slack;
+      A_INC (v);
     }
   }
+
+  if (A_LEN (v) > 0) {
+    mygenmergesort ((char *)v, sizeof (_violation_pair), A_LEN (v),
+		    _sortviolationsfn);
+    for (int i=0; i < A_LEN (v); i++) {
+      violations.push_back (v[i].idx);
+    }
+  }
+
+  A_FREE (v);
+
   return;
 }
 
