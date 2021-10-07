@@ -253,6 +253,24 @@ static int process_phydb_read_cell (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_read_techconfig (int argc, char **argv)
+{
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  // input file will be checked by the following function
+  bool ret = F.phydb->ReadTechConfigFile (argc, argv);
+  if (!ret) {
+    fprintf (stderr, "%s: failed to read technology configuration file!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
 static int process_phydb_read_cluster (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
@@ -447,6 +465,8 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_def },
   { "read-cell", "<file> - read CELL file and populate database", 
     process_phydb_read_cell },
+  { "read-techconfig", "<file> - read technology configuration file", 
+    process_phydb_read_techconfig },
   { "read-cluster", "<file> - read Cluster file and populate database", 
     process_phydb_read_cluster },
 
