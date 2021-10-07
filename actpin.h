@@ -39,11 +39,15 @@ private:
   TaggedTG *_tg;
   ActDynamicPass *_tp;
   ActStatePass *_sp;
+  ActBooleanizePass *_bp;
+  struct pHashtable *_map;
 
   int _idToTimingVertex (ActId *) const;
   
 public:
   ActNetlistAdaptor (Act *a, Process *p);
+
+  void setEdgeMap (struct pHashtable *map) { _map = map; }
   
   void *getPinFromFullName (const std::string& name,
 			    const char divider = '/',

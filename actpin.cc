@@ -68,7 +68,7 @@ ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
   ActPass *pass;
   _a = a;
   _top = p;
-
+  _map = NULL;
   
   pass = a->pass_find ("taggedTG");
   if (pass) {
@@ -87,6 +87,13 @@ ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
   }
   if (!_sp || !pass) {
     fatal_error ("No state pass!");
+  }
+  pass = a->pass_find ("booleanize");
+  if (pass) {
+    _bp = dynamic_cast<ActBooleanizePass *> (pass);
+  }
+  if (!pass || !_bp) {
+    fatal_error ("No Booleanize pass!");
   }
 }
 
@@ -141,8 +148,127 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 					     const char delimiter) const
 {
   int vid;
-  ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
+  char *buf;
+  int sz;
+
+  sz = 1 + strlen (name.c_str());
+  MALLOC (buf, char, sz);
+  if (_a->unmangle_string (name.c_str(), buf, sz) == -1) {
+     printf ("WARNING: unmangle of `%s' failed!\n", name.c_str());
+     FREE (buf);
+     return NULL; 
+  }
+  int pos = strlen (buf)-1;
+  while (pos > 0 && buf[pos] != delimiter) {
+     pos--;
+  }
+  if (pos == 0) {
+     printf ("WARNING: `%s' couldn't find the pin separator `%c'\n", buf, delimiter);
+     FREE (buf);
+     return NULL;
+  }
+  buf[pos] = '\0';
+
+  ActId *x = ActId::parseId (buf, divider, busDelimL,
 			     busDelimR, divider);
+  if (x) {
+    vid = _idToTimingVertex (x);
+  }
+  else {
+    vid = -1;
+  }
+  if (vid == -1) {
+    FREE (buf);
+    return NULL;
+  }
+  AGvertex *vtx = _tg->getVertex (vid);
+  TimingVertexInfo *tv = (TimingVertexInfo *) vtx->getInfo();
+  ActPin *me;
+
+  /* driver */
+  me = (ActPin *) tv->getSpace();
+  act_boolean_netlist_t *bnl = me->cellBNL (_bp);
+  
+  /* pin must be here */
+  ActId *pin_act_id = ActId::parseId (buf+pos+1);
+  if (!pin_act_id) {
+    printf ("WARNING: `%s' is an invalid pin name\n", buf+pos+1);
+    FREE (buf);
+    return NULL;
+  }
+  FREE (buf);
+
+  if (!bnl->cur->localLookup (pin_act_id, NULL)) {
+    printf ("WARNING: pin `");
+    pin_act_id->Print (stdout);
+    printf ("' not found in `%s'\n", bnl->p->getName());
+    return NULL;
+  }
+  if (!pin_act_id->validateDeref (bnl->cur)) {
+    printf ("WARNING: pin `");
+    pin_act_id->Print (stdout);
+    printf ("' has an invalid array reference in `%s'\n", bnl->p->getName());
+    return NULL;
+  }
+
+  act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
+  Assert (pin_req, "What?");
+
+  if (pin_req == me->getPin()) {
+    return me;
+  }
+
+  AGvertexBwdIter bw(_tg, vid);
+  for (bw = bw.begin(); bw != bw.end(); bw++) {
+    AGedge *be = (*bw);
+    TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
+    if (!ei) continue;
+    int epin = ei->getIPin();
+    act_connection *edgepin = NULL;
+
+    for (int i=0; i < A_LEN (bnl->ports); i++) {
+      if (bnl->ports[i].omit) continue;
+      if (epin == 0) {
+	edgepin = bnl->ports[i].c;
+	break;
+      }
+      epin--;
+    }
+    Assert (edgepin, "Pin not found for backward edge in timing graph?");
+    if (edgepin == pin_req) {
+      phash_bucket_t *b = phash_lookup (_map, ei);
+      if (b) {
+	return (ActPin *) b->v;
+      }
+    }
+  }
+
+  AGvertexBwdIter bw2(_tg, vid+1);
+  for (bw2 = bw2.begin(); bw2 != bw2.end(); bw2++) {
+    AGedge *be = (*bw2);
+    TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
+    if (!ei) continue;
+    int epin = ei->getIPin();
+    act_connection *edgepin = NULL;
+
+    for (int i=0; i < A_LEN (bnl->ports); i++) {
+      if (bnl->ports[i].omit) continue;
+      if (epin == 0) {
+	edgepin = bnl->ports[i].c;
+	break;
+      }
+      epin--;
+    }
+    Assert (edgepin, "Pin not found for backward edge in timing graph?");
+    if (edgepin == pin_req) {
+      phash_bucket_t *b = phash_lookup (_map, ei);
+      if (b) {
+	return (ActPin *) b->v;
+      }
+    }
+  }
+
+  printf ("WARNING: pin for `%s' not found?\n", name.c_str());
   
   return NULL;
 }
@@ -152,7 +278,19 @@ void *ActNetlistAdaptor::getInstFromFullName (const std::string& name,
 					      const char busDelimL,
 					      const char busDelimR) const
 {
-  return getNetFromFullName (name, divider, busDelimL, busDelimR);
+  char *buf;
+  int sz;
+
+  sz = 1 + strlen (name.c_str());
+  MALLOC (buf, char, sz);
+  if (_a->unmangle_string (name.c_str(), buf, sz) == -1) {
+     printf ("WARNING: unmangle of `%s' failed!\n", name.c_str());
+     FREE (buf);
+     return NULL; 
+  }
+  std::string tmp = buf;
+  FREE (buf);
+  return getNetFromFullName (tmp, divider, busDelimL, busDelimR);
 }
 
 void *ActNetlistAdaptor::getNetFromFullName (const std::string& name,
@@ -161,6 +299,7 @@ void *ActNetlistAdaptor::getNetFromFullName (const std::string& name,
 					     const char busDelimR) const
 {
   int vid;
+
   ActId *x = ActId::parseId (name.c_str(), divider, busDelimL,
 			     busDelimR, divider);
   if (x) {

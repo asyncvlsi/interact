@@ -567,6 +567,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   A_INIT (cur_gate_pins);
 
   TS.edgeMap = phash_new (32);
+  (*ret_anl)->setEdgeMap (TS.edgeMap);
     
   for (int i=0; i < gr->numVertices(); i += 2) {
     AGvertex *vdn = gr->getVertex (i);
