@@ -266,6 +266,7 @@ static int process_phydb_read_techconfig (int argc, char **argv)
     fprintf (stderr, "%s: failed to read technology configuration file!\n", argv[0]);
     return LISP_RET_ERROR;
   }
+
   save_to_log (argc, argv, "s");
 
   return LISP_RET_TRUE;
@@ -343,6 +344,34 @@ static int process_phydb_write_cluster (int argc, char **argv)
   }
   
   F.phydb->WriteCluster (argv[1]);
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
+static int process_phydb_write_aux_rect (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::string name;
+
+  name = argv[1];
+  name = name + "_ppnp.rect";
+
+  F.phydb->SavePpNpToRectFile (name);
+
+  name = argv[1];
+  name = name + "_wells.rect";
+
+  F.phydb->SaveWellToRectFile (name);
+
   save_to_log (argc, argv, "s");
 
   return LISP_RET_TRUE;
@@ -480,6 +509,9 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_write_guide},
   { "write-cluster", "<file> - write CLUSTER from database",
     process_phydb_write_cluster},
+  { "write-aux-rect", "<file> - write PP/NP cover and well rect files",
+    process_phydb_write_aux_rect },
+
   { "close", "- tear down physical database", process_phydb_close }
 
 };
