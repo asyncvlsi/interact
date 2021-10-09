@@ -218,9 +218,9 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     return me;
   }
 
-  AGvertexBwdIter bw(_tg, vid);
-  for (bw = bw.begin(); bw != bw.end(); bw++) {
-    AGedge *be = (*bw);
+  AGvertexBwdIter fw(_tg, vid);
+  for (fw = fw.begin(); fw != fw.end(); fw++) {
+    AGedge *be = (*fw);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
     if (!ei) continue;
     int epin = ei->getIPin();
@@ -234,18 +234,22 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
       }
       epin--;
     }
-    Assert (edgepin, "Pin not found for backward edge in timing graph?");
+    Assert (edgepin, "Pin not found for fw edge in timing graph?");
     if (edgepin == pin_req) {
       phash_bucket_t *b = phash_lookup (_map, ei);
       if (b) {
-	return (ActPin *) b->v;
+	ActPin *tp = (ActPin *)b->v;
+	if ((tp->getInstVertex()->vid & ~1) ==
+	    (me->getInstVertex()->vid & ~1)) {
+	  return tp;
+	}
       }
     }
   }
 
-  AGvertexBwdIter bw2(_tg, vid+1);
-  for (bw2 = bw2.begin(); bw2 != bw2.end(); bw2++) {
-    AGedge *be = (*bw2);
+  AGvertexBwdIter fw2(_tg, vid+1);
+  for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
+    AGedge *be = (*fw2);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
     if (!ei) continue;
     int epin = ei->getIPin();
@@ -259,11 +263,15 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
       }
       epin--;
     }
-    Assert (edgepin, "Pin not found for backward edge in timing graph?");
+    Assert (edgepin, "Pin not found for fw edge in timing graph?");
     if (edgepin == pin_req) {
       phash_bucket_t *b = phash_lookup (_map, ei);
       if (b) {
-	return (ActPin *) b->v;
+	ActPin *tp = (ActPin *)b->v;
+	if ((tp->getInstVertex()->vid & ~1) ==
+	    (me->getInstVertex()->vid & ~1)) {
+	  return tp;
+	}
       }
     }
   }
