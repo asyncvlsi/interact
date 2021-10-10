@@ -173,6 +173,8 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 			     busDelimR, '.');
   if (x) {
     vid = _idToTimingVertex (x);
+    x = NULL;
+    delete x;
   }
   else {
     vid = -1;
@@ -196,52 +198,55 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     FREE (buf);
     return NULL;
   }
-  FREE (buf);
 
-  if (!bnl->cur->localLookup (pin_act_id, NULL)) {
-    printf ("WARNING: pin `");
-    pin_act_id->Print (stdout);
-    printf ("' not found in `%s'\n", bnl->p->getName());
-    return NULL;
-  }
-  if (!pin_act_id->validateDeref (bnl->cur)) {
-    printf ("WARNING: pin `");
-    pin_act_id->Print (stdout);
-    printf ("' has an invalid array reference in `%s'\n", bnl->p->getName());
-    return NULL;
-  }
+  /*-- check if this is the driver pin --*/
+  if (bnl->cur->localLookup (pin_act_id, NULL)) {
+    if (!pin_act_id->validateDeref (bnl->cur)) {
+      printf ("WARNING: pin `");
+      pin_act_id->Print (stdout);
+      printf ("' has an invalid array reference in `%s'\n", bnl->p->getName());
+      delete pin_act_id;
+      return NULL;
+    }
+    act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
+    Assert (pin_req, "What?");
+    delete pin_act_id;
 
-  act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
-  Assert (pin_req, "What?");
-
-  if (pin_req == me->getPin()) {
-    return me;
+    if (pin_req == me->getPin()) {
+      return me;
+    }
   }
+  pin_act_id = NULL;
+
+
+  /*-- must be a pin associated with the fanout --*/
+
+  char *buf2;
+  AGvertex *getInstVtx = NULL;
+  MALLOC (buf2, char, sz);
+  buf[pos] = ':';
 
   AGvertexFwdIter fw(_tg, vid);
   for (fw = fw.begin(); fw != fw.end(); fw++) {
     AGedge *be = (*fw);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
     if (!ei) continue;
-    int epin = ei->getIPin();
-    act_connection *edgepin = NULL;
 
-    for (int i=0; i < A_LEN (bnl->ports); i++) {
-      if (bnl->ports[i].omit) continue;
-      if (epin == 0) {
-	edgepin = bnl->ports[i].c;
-	break;
-      }
-      epin--;
+    phash_bucket_t *b = phash_lookup (_map, ei);
+    ActPin *tp;
+    if (b) {
+      tp = (ActPin *)b->v;
     }
-    Assert (edgepin, "Pin not found for fw edge in timing graph?");
-    if (edgepin == pin_req) {
-      phash_bucket_t *b = phash_lookup (_map, ei);
-      if (b) {
-	ActPin *tp = (ActPin *)b->v;
-	if (tp->getNetVertex() == me->getNetVertex()) {
-	  return tp;
-	}
+    else {
+      tp = NULL;
+    }
+
+    if (tp) {
+      tp->sPrintFullName (buf2, sz);
+      if (strcmp (buf,buf2) == 0) {
+	FREE (buf);
+	FREE (buf2);
+	return tp;
       }
     }
   }
@@ -251,28 +256,27 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     AGedge *be = (*fw2);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
     if (!ei) continue;
-    int epin = ei->getIPin();
-    act_connection *edgepin = NULL;
 
-    for (int i=0; i < A_LEN (bnl->ports); i++) {
-      if (bnl->ports[i].omit) continue;
-      if (epin == 0) {
-	edgepin = bnl->ports[i].c;
-	break;
-      }
-      epin--;
+    phash_bucket_t *b = phash_lookup (_map, ei);
+    ActPin *tp;
+    if (b) {
+      tp = (ActPin *)b->v;
     }
-    Assert (edgepin, "Pin not found for fw edge in timing graph?");
-    if (edgepin == pin_req) {
-      phash_bucket_t *b = phash_lookup (_map, ei);
-      if (b) {
-	ActPin *tp = (ActPin *)b->v;
-	if (tp->getNetVertex() == me->getNetVertex()) {
-	  return tp;
-	}
+    else {
+      tp = NULL;
+    }
+
+    if (tp) {
+      tp->sPrintFullName (buf2, sz);
+      if (strcmp (buf,buf2) == 0) {
+	FREE (buf);
+	FREE (buf2);
+	return tp;
       }
     }
   }
+  FREE (buf);
+  FREE (buf2);
 
   printf ("WARNING: pin for `%s' not found?\n", name.c_str());
   
