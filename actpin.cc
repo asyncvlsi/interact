@@ -218,7 +218,7 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     return me;
   }
 
-  AGvertexBwdIter fw(_tg, vid);
+  AGvertexFwdIter fw(_tg, vid);
   for (fw = fw.begin(); fw != fw.end(); fw++) {
     AGedge *be = (*fw);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
@@ -239,15 +239,14 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
       phash_bucket_t *b = phash_lookup (_map, ei);
       if (b) {
 	ActPin *tp = (ActPin *)b->v;
-	if ((tp->getInstVertex()->vid & ~1) ==
-	    (me->getInstVertex()->vid & ~1)) {
+	if (tp->getNetVertex() == me->getNetVertex()) {
 	  return tp;
 	}
       }
     }
   }
 
-  AGvertexBwdIter fw2(_tg, vid+1);
+  AGvertexFwdIter fw2(_tg, vid+1);
   for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
     AGedge *be = (*fw2);
     TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
@@ -268,8 +267,7 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
       phash_bucket_t *b = phash_lookup (_map, ei);
       if (b) {
 	ActPin *tp = (ActPin *)b->v;
-	if ((tp->getInstVertex()->vid & ~1) ==
-	    (me->getInstVertex()->vid & ~1)) {
+	if (tp->getNetVertex() == me->getNetVertex()) {
 	  return tp;
 	}
       }
