@@ -106,6 +106,7 @@ int ActNetlistAdaptor::_idToTimingVertex (ActId *id) const
   /* -- validate the type of this identifier -- */
 
   itx = _top->CurScope()->FullLookup (id, &x);
+
   if (itx == NULL) {
     id->Print (stderr);
     fprintf (stderr, ": ID not found\n");
@@ -171,10 +172,11 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 
   ActId *x = ActId::parseId (buf, divider, busDelimL,
 			     busDelimR, '.');
+
   if (x) {
     vid = _idToTimingVertex (x);
-    x = NULL;
     delete x;
+    x = NULL;
   }
   else {
     vid = -1;
@@ -201,23 +203,17 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 
   /*-- check if this is the driver pin --*/
   if (bnl->cur->localLookup (pin_act_id, NULL)) {
-    if (!pin_act_id->validateDeref (bnl->cur)) {
-      printf ("WARNING: pin `");
-      pin_act_id->Print (stdout);
-      printf ("' has an invalid array reference in `%s'\n", bnl->p->getName());
+    if (pin_act_id->validateDeref (bnl->cur)) {
+      act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
+      Assert (pin_req, "What?");
       delete pin_act_id;
-      return NULL;
-    }
-    act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
-    Assert (pin_req, "What?");
-    delete pin_act_id;
 
-    if (pin_req == me->getPin()) {
-      return me;
+      if (pin_req == me->getPin()) {
+	return me;
+      }
     }
   }
   pin_act_id = NULL;
-
 
   /*-- must be a pin associated with the fanout --*/
 
