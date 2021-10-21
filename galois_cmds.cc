@@ -22,9 +22,14 @@
 #include "config_pkg.h"
 #include "flow.h"
 
-#ifdef FOUND_galois_eda
+#ifdef FOUND_galois
 
 #include "galois/Galois.h"
+
+#endif
+
+#ifdef FOUND_galois_eda
+
 #include "galois/eda/liberty/CellLib.h"
 #include "galois/eda/liberty/Cell.h"
 #include "galois/eda/liberty/CellPin.h"
@@ -94,22 +99,6 @@ static void clear_timer()
   TS.time_mult = 1.0;
   TS.tg = NULL;
   A_INIT (TS.constraints);
-}
-
-void init_galois_shmemsys(int mode) {
-  static galois::SharedMemSys *g = NULL;
-
-  if (mode == 0) {
-    if (!g) {
-      g = new galois::SharedMemSys;
-    }
-  }
-  else {
-    if (g) {
-      delete g;
-      g = NULL;
-    }
-  }
 }
 
 static void init (int mode = 0)
@@ -1555,5 +1544,26 @@ void timer_incremental_update (void)
   }
 }
 
+
+#endif
+
+
+#ifdef FOUND_galois
+
+void init_galois_shmemsys(int mode) {
+  static galois::SharedMemSys *g = NULL;
+
+  if (mode == 0) {
+    if (!g) {
+      g = new galois::SharedMemSys;
+    }
+  }
+  else {
+    if (g) {
+      delete g;
+      g = NULL;
+    }
+  }
+}
 
 #endif

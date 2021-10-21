@@ -69,7 +69,6 @@ const char *timing_graph_init (Act *a, Process *p, int *lib_id, int nlibs);
 const char *timer_run (void);
 void timer_get_period (double *p, int *M);
 const char *timer_create_graph (Act *a, Process *p);
-void init_galois_shmemsys(int mode = 0);
 const char *timer_get_time_string (void);
 double timer_get_time_units (void);
 int timer_get_num_cyclone_constraints (void);
@@ -109,5 +108,7 @@ void timer_compute_witnesses (void);
 void timer_add_check (int constraint);
 
 #endif
+
+void init_galois_shmemsys(int mode = 0);
 
 #endif /* __GALOIS_CMDS_H__ */
