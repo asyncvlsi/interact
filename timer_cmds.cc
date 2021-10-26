@@ -1139,11 +1139,17 @@ int process_timer_get_witness (int argc, char **argv)
     print_act_edge (patha[i]);
     printf ("\n");
   }
+  if (patha.size() == 0) {
+    printf (" *** WARNING: empty path!\n");
+  }
   printf ("-----\n");
   printf ("Slow path that is too fast:\n");
   for (int i=0; i < pathb.size(); i++) {
     print_act_edge (pathb[i]);
     printf ("\n");
+  }
+  if (pathb.size() == 0) {
+    printf (" *** WARNING: empty path!\n");
   }
   printf ("-----\n");
 

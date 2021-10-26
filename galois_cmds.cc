@@ -1474,8 +1474,14 @@ void timer_get_fork_paths (int constraint, bool which,
 				    bpin, bt,  c->to_tick ? true : false,
 				    &TS.lib[0], maxMode, 0, which);
 
-  galois::eda::utility::TimingPath tpath = Paths[0]->untar();
+  galois::eda::utility::TimingPath tpath;
 
+  if (Paths.size() != 0) {
+    tpath = Paths[0]->untar();
+  }
+  else {
+    tpath.clear();
+  }
   timer_convert_path (tpath, actp);
 }
 
@@ -1553,6 +1559,7 @@ void timer_incremental_update (void)
 {
   TS.engine->computeCriticalCycle (TS.lib, true);
   auto stats = TS.engine->getCriticalCycleRatioAndTicks ();
+  TS.engine->computeTiming4Pins ();
 
   TS.p = stats.first;
   TS.M = stats.second;
