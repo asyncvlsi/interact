@@ -884,69 +884,6 @@ int process_lib_timeunits (int argc, char **argv)
   return LISP_RET_STRING;
 }
 
-#if defined(FOUND_phydb)
-
-void timer_phydb_link (phydb::PhyDB *phydb);
-
-static int process_timer_phydb (int argc, char **argv)
-{
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
-    return LISP_RET_ERROR;
-  }
-  if (F.timer == TIMER_NONE) {
-    fprintf (stderr, "%s: timer not initialized.\n", argv[0]);
-    return LISP_RET_ERROR;
-  }
-  if (F.phydb == NULL) {
-    fprintf (stderr, "%s: phydb not initialized.\n", argv[0]);
-    return LISP_RET_ERROR;
-  }
-  timer_phydb_link (F.phydb);
-
-  return LISP_RET_TRUE;
-}
-
-#endif
-
-static struct LispCliCommand timer_cmds[] = {
-
-  { NULL, "Timing and power analysis", NULL },
-  
-  { "lib-read", "<file> - read liberty timing file and return handle",
-    process_read_lib },
-
-  { "time-units", "- returns string for time units", process_lib_timeunits },
-  
-  { "build-graph", "- build timing graph", process_timer_build },
-  { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
-  { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
-  
-
-  { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
-    process_timer_init },
-
-#if defined(FOUND_phydb)
-  { "phydb-link",
-    "- link timer to phydb for timing-driven physical design flow",
-    process_timer_phydb 
-  },
-#endif
-  
-  { "run", "- run timing analysis, and returns list (p M)",
-    process_timer_run },
-
-  { "crit", "- show critical cycle", process_timer_cycle },
-
-  { "info", "<net> - display information about the net",
-    process_timer_info },
-  { "constraint", "[<net>] - display information about all timing forks that involve <net>",
-    process_timer_constraint }
-
-};
-
-
-#if defined(FOUND_phydb)
-
 /*
   PhyDB callbacks
 */
@@ -1026,6 +963,7 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
   return slk;
 }
 
+#if defined (FOUND_phydb)
 static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &patha,
 				  std::vector<phydb::ActEdge> &pathb)
 {
@@ -1045,6 +983,7 @@ static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &p
   timer_get_fastpaths (constraint, pathb);
   timer_get_slowpaths (constraint, patha);
 }
+#endif
 
 struct _violation_pair {
   int idx;
@@ -1098,6 +1037,193 @@ static void get_violated_constraints (std::vector<int> &violations)
 
   return;
 }
+
+int process_timer_num_constraints (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int n = num_constraint_callback ();
+  LispSetReturnInt (n);
+  
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_INT;
+}
+
+int process_timer_get_violations (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::vector<int> res;
+
+  get_violated_constraints (res);
+  
+  LispSetReturnListStart ();
+
+  for (int i=0; i < res.size(); i++) {
+    LispAppendReturnInt (res[i]);
+  }
+
+  LispSetReturnListEnd ();
+  
+  return LISP_RET_LIST;
+}
+
+
+int process_timer_get_slack (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "cid", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::vector<int> inp;
+  std::vector<double> res;
+
+  inp.clear();
+  inp.push_back (atoi (argv[1]));
+
+  res = get_slack_callback (inp);
+
+  LispSetReturnFloat (res[0]);
+
+  return LISP_RET_FLOAT;
+}
+
+#if defined (FOUND_phydb)
+
+static void print_act_edge (phydb::ActEdge &e)
+{
+  ((ActPin *)e.source)->Print (stdout);
+  printf (" -> ");
+  ((ActPin *)e.target)->Print (stdout);
+  printf (" {delay: %g}", e.delay);
+}
+
+int process_timer_get_witness (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "cid", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::vector<phydb::ActEdge> patha, pathb;
+
+  get_witness_callback (atoi (argv[1]), patha, pathb);
+
+  printf ("### Constraint-id: %d ###\n", atoi (argv[1]));
+  printf ("Fast path that is too slow:\n");
+  for (int i=0; i < patha.size(); i++) {
+    print_act_edge (patha[i]);
+    printf ("\n");
+  }
+  printf ("-----\n");
+  printf ("Slow path that is too fast:\n");
+  for (int i=0; i < pathb.size(); i++) {
+    print_act_edge (pathb[i]);
+    printf ("\n");
+  }
+  printf ("-----\n");
+
+  return LISP_RET_TRUE;
+}
+
+void timer_phydb_link (phydb::PhyDB *phydb);
+
+static int process_timer_phydb (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (F.timer == TIMER_NONE) {
+    fprintf (stderr, "%s: timer not initialized.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb not initialized.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  timer_phydb_link (F.phydb);
+
+  return LISP_RET_TRUE;
+}
+
+#endif
+
+static struct LispCliCommand timer_cmds[] = {
+
+  { NULL, "Timing and power analysis", NULL },
+  
+  { "lib-read", "<file> - read liberty timing file and return handle",
+    process_read_lib },
+
+  { "time-units", "- returns string for time units", process_lib_timeunits },
+  
+  { "build-graph", "- build timing graph", process_timer_build },
+  { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+  { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
+  
+
+  { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
+    process_timer_init },
+
+#if defined(FOUND_phydb)
+  { "phydb-link",
+    "- link timer to phydb for timing-driven physical design flow",
+    process_timer_phydb 
+  },
+#endif
+  
+  { "run", "- run timing analysis, and returns list (p M)",
+    process_timer_run },
+
+  { "crit", "- show critical cycle", process_timer_cycle },
+
+  { "info", "<net> - display information about the net",
+    process_timer_info },
+  { "constraint", "[<net>] - display information about all timing forks that involve <net>",
+    process_timer_constraint },
+
+  { "num-constraints", "- returns the number of constraints in the design",
+    process_timer_num_constraints },
+
+  { "get-violations", "- returns a list of constraint ids (cids) that have violations",
+    process_timer_get_violations },
+
+  { "get-slack", "cid - returns the slack of the violating constraint id #cid",
+    process_timer_get_slack }
+
+#if defined(FOUND_phydb)  
+  , { "get-witness", "cid - displays the witness for the violation",
+      process_timer_get_witness }
+#endif  
+
+};
+
+
+#if defined(FOUND_phydb)
 
 
 void timer_phydb_link (phydb::PhyDB *phydb)
