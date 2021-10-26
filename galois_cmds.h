@@ -52,6 +52,8 @@ class timing_info {
   ActPin *pin;
   int dir;
 
+  void Print (FILE *fp);
+
 private:
   void _populate (ActPin *p, galois::eda::utility::TransitionMode m);
   void _init ();

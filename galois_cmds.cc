@@ -1093,6 +1093,17 @@ void timing_info::_populate (ActPin *p,
   }
 }
 
+void timing_info::Print (FILE *fp)
+{
+  char *s;
+  fprintf (fp, "{tinfo ");
+  pin->Print (fp);
+  fprintf (fp, " } ");
+  for (int i=0; i < TS.M; i++) {
+    fprintf (fp, " %d:(arr=%g, req=%g)", i, arr[i], req[i]);
+  }
+}
+
 timing_info::timing_info (ActPin *p,
 			  galois::eda::utility::TransitionMode mode)
 {
@@ -1123,28 +1134,23 @@ void timer_get_period (double *p, int *M)
 
 timing_info *timer_query_transition (int vid, int dir)
 {
-  AGvertex *v;
-  ActPin *p;
-  TimingVertexInfo *vi;
+  ActPin *p = tgraph_vertex_to_pin (vid);
 
-  v = TS.tg->getVertex (vid & ~1);
-  if (!v) {
-    return NULL;
-  }
-
-  vi = (TimingVertexInfo *) v->getInfo();
-  if (!vi) {
-    return NULL;
-  }
-
-  p = (ActPin *) vi->getSpace();
   if (!p) {
     return NULL;
   }
 
-  return new timing_info (p, dir ?
-			  TransMode::TRANS_RISE :
-			  TransMode::TRANS_FALL);
+  timing_info *ti = new timing_info (p, dir ?
+				     TransMode::TRANS_RISE :
+				     TransMode::TRANS_FALL);
+
+#if 0
+  printf (" *** query transition %d *** \n", dir);
+  ti->Print (stdout);
+  printf ("\n");
+#endif
+
+  return ti;
 }
 
 /*
@@ -1275,8 +1281,20 @@ list_t *timer_query_driver (int vid)
   ti = new timing_info (p, TransMode::TRANS_FALL);
   list_append (l, ti);
 
+#if 0
+  printf (" *** query transition + *** \n");
+  ti->Print (stdout);
+  printf ("\n");
+#endif
+
   ti = new timing_info (p, TransMode::TRANS_RISE);
   list_append (l, ti);
+
+#if 0
+  printf (" *** query transition - *** \n");
+  ti->Print (stdout);
+  printf ("\n");
+#endif
 
   return l;
 }
