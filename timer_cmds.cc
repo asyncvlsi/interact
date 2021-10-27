@@ -1108,6 +1108,34 @@ int process_timer_get_slack (int argc, char **argv)
   return LISP_RET_FLOAT;
 }
 
+
+int process_timer_save (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (!F.tp) {
+    fprintf (stderr, "%s: need to build the timing graph!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  FILE *fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s' for writing\n", argv[0],
+	     argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+
+  tg->printDot (fp, NULL);
+
+  fclose (fp);
+
+  return LISP_RET_TRUE;
+}
+
 #if defined (FOUND_phydb)
 
 static void print_act_edge (phydb::ActEdge &e)
@@ -1219,12 +1247,15 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_get_violations },
 
   { "get-slack", "cid - returns the slack of the violating constraint id #cid",
-    process_timer_get_slack }
+    process_timer_get_slack },
 
 #if defined(FOUND_phydb)  
-  , { "get-witness", "cid - displays the witness for the violation",
-      process_timer_get_witness }
+  { "get-witness", "cid - displays the witness for the violation",
+    process_timer_get_witness },
 #endif  
+
+  { "save", "<file> - save abstract timing graph to file in graphviz format",
+    process_timer_save }
 
 };
 
