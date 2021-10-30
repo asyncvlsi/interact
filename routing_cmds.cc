@@ -65,6 +65,22 @@ static int process_pwroute_set_parameters (int argc, char **argv) {
   return LISP_RET_TRUE;
 }
 
+static int process_pwroute_set_reinforcement (int argc, char **argv) {
+  if (!std_argcheck (argc, argv, 2, "<bool>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.pwroute == NULL) {
+    fprintf (stderr, "%s: pwroute needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  F.pwroute->SetReinforcement(atoi(argv[1]));
+  save_to_log (argc, argv, "");
+
+  return LISP_RET_TRUE;
+}
+
 static int process_pwroute_run (int argc, char **argv) {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
@@ -117,6 +133,7 @@ static struct LispCliCommand pwroute_cmds[] = {
   { "init", "-initialize pwroute engine <verbose> ", process_pwroute_init },
   { "set_parameters", "<reinforcement_width, reinforcement_step, cluster_mesh_width> - run pw route with mesh configuration. Default is <8, 16, 2>", 
     process_pwroute_set_parameters},
+  { "set_reinforcement", "<bool>, enable/disable reinforcement connection (default: 1) ", process_pwroute_set_reinforcement },
   { "run", "run pwroute", process_pwroute_run },
   { "export-phydb", "-export power and ground wires to phydb", process_pwroute_export_phydb },
   { "close", "-close pwroute", process_pwroute_close }
