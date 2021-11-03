@@ -410,10 +410,10 @@ static int process_phydb_place_cell (int argc, char **argv)
   int lly = atoi (argv[3]);
   phydb::CompOrient orient;
   if (strcmp (argv[4], "N") == 0) {
-    orient = phydb::N;
+    orient = phydb::CompOrient::N;
   }
   else if (strcmp (argv[4], "FS") == 0) {
-    orient = phydb::FS;
+    orient = phydb::CompOrient::FS;
   }
   else {
     fprintf (stderr, "%s: unknown orientation `%s'\n", argv[0], argv[4]);
@@ -424,7 +424,7 @@ static int process_phydb_place_cell (int argc, char **argv)
     tmp = "__xn" + std::to_string (ncomp++);
   } while (F.phydb->IsComponentExisting (tmp));
 
-  F.phydb->AddComponent (tmp, cell, phydb::FIXED, llx, lly, orient);
+  F.phydb->AddComponent (tmp, cell, phydb::PlaceStatus::FIXED, llx, lly, orient);
 
   save_to_log (argc, argv, "siis");
 
@@ -464,16 +464,16 @@ static int process_phydb_place_inst (int argc, char **argv)
   int lly = atoi (argv[3]);
   phydb::CompOrient orient;
   if (strcmp (argv[4], "N") == 0) {
-    orient = phydb::N;
+    orient = phydb::CompOrient::N;
   }
   else if (strcmp (argv[4], "FS") == 0) {
-    orient = phydb::FS;
+    orient = phydb::CompOrient::FS;
   }
   else {
     fprintf (stderr, "%s: unknown orientation `%s'\n", argv[0], argv[4]);
   }
 
-  comp->SetPlacementStatus (phydb::FIXED);
+  comp->SetPlacementStatus (phydb::PlaceStatus::FIXED);
   comp->SetLocation (llx, lly);
   comp->SetOrientation (orient);
 
