@@ -482,6 +482,74 @@ static int process_phydb_place_inst (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_add_io (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 5, "<iopin_name> <net_name> <direction> <use>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::string iopin_name(argv[1]);
+  std::string net_name(argv[2]);
+  std::string direction_str(argv[3]);
+  std::string use_str(argv[4]);
+  phydb::SignalDirection direction = phydb::StrToSignalDirection(direction_str);
+  phydb::SignalUse use = phydb::StrToSignalUse(use_str);
+
+  phydb::IOPin *io_pin = F.phydb->AddIoPin(iopin_name, direction, use);
+  io_pin->SetNetName(net_name);
+
+  save_to_log (argc, argv, "siis");
+
+  return LISP_RET_TRUE;
+}
+
+static int process_phydb_place_io (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 11, "<iopin_name> <metal_name> <lx> <ly> <ux> <uy> <placement_status> <x> <y> <orientation>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::string iopin_name(argv[1]);
+  phydb::IOPin *io_pin = F.phydb->GetIoPinPtr(iopin_name);
+  try {
+    std::string metal_name(argv[2]);
+    int lx = atoi (argv[3]);
+    int ly = atoi (argv[4]);
+    int ux = atoi (argv[5]);
+    int uy = atoi (argv[6]);
+    io_pin->SetShape(metal_name, lx, ly, ux, uy);
+  } catch (...) {
+    fprintf (stderr, "%s %s %s %s: cannot convert string to int!\n", argv[3], argv[4], argv[5], argv[6]);
+    return LISP_RET_ERROR;
+  }
+  try {
+    std::string place_status_str(argv[7]);
+    int x = atoi (argv[8]);
+    int y = atoi (argv[9]);
+    std::string orient_str(argv[10]);
+    phydb::PlaceStatus place_status = phydb::StrToPlaceStatus(place_status_str);
+    phydb::CompOrient orient = phydb::StrToCompOrient(orient_str);
+    io_pin->SetPlacement(place_status, x, y, orient);
+  } catch (...) {
+    fprintf (stderr, "%s %s: cannot convert string to int!\n", argv[8], argv[9]);
+    return LISP_RET_ERROR;
+  }
+
+  save_to_log (argc, argv, "siis");
+
+  return LISP_RET_TRUE;
+}
+
 static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
@@ -499,9 +567,17 @@ static struct LispCliCommand phydb_cmds[] = {
   { "read-cluster", "<file> - read Cluster file and populate database", 
     process_phydb_read_cluster },
 
-  { "place-cell", "<cell-type> <llx> <lly> <N|FS> - add a new cell to a fixed location", process_phydb_place_cell },
+  { "place-cell", "<cell-type> <llx> <lly> <N|FS> - add a new cell to a fixed location",
+    process_phydb_place_cell },
 
-  { "place-inst", "<inst> <llx> <lly> <N|FS> - place an instance at a fixed location", process_phydb_place_inst },
+  { "place-inst", "<inst> <llx> <lly> <N|FS> - place an instance at a fixed location",
+    process_phydb_place_inst },
+
+  { "add-io", "<iopin_name> <net_name> <direction> <use> - add a new I/O pin",
+    process_phydb_add_io},
+
+  { "place-io", "<iopin_name> <metal_name> <lx> <ly> <ux> <uy> <placement_status> <x> <y> <orientation> - place an I/O pin at a fixed location",
+    process_phydb_place_io},
   
   { "write-def", "<file> - write DEF from database",
     process_phydb_write_def},
