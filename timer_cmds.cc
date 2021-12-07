@@ -64,7 +64,7 @@ int process_read_lib (int argc, char **argv)
 }
 
 
-static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
+static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin = NULL)
 {
   ActId *id = ActId::parseId (name);
   int goff;
@@ -130,6 +130,17 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid)
   
   *vid = 2*(tg->globOffset() + goff);
 
+  if (pin) {
+    char *tmp;
+    int len = 0;
+    *pin = name + strlen (name);
+    while (*pin > name && *((*pin)-1) != '.') {
+      *pin = *pin - 1;
+      len++;
+    }
+    *pin = Strdup (*pin);
+    (*pin)[len] = '\0';
+  }
   return 1;
 }
 
@@ -208,10 +219,21 @@ static int process_timer_tick (int argc, char **argv)
 
   int vid1, vid2;
 
-  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1) ||
-      !get_net_to_timing_vertex (argv[0], tmp2, &vid2)) {
+  char *pin1, *pin2;
+
+  pin1 = NULL;
+  pin2 = NULL;
+
+  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1, &pin1) ||
+      !get_net_to_timing_vertex (argv[0], tmp2, &vid2, &pin2)) {
     FREE (tmp1);
     FREE (tmp2);
+    if (pin1) {
+      FREE (pin1);
+    }
+    if (pin2) {
+      FREE (pin2);
+    }
     return LISP_RET_ERROR;
   }
   FREE (tmp1);
@@ -221,6 +243,12 @@ static int process_timer_tick (int argc, char **argv)
 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
 
+
+  /*
+     pin1 could be an output pin, in which case we are fine; it is the
+     timing vertex
+  */
+
   /* find edge from vid1 to vid2 */
   AGvertexFwdIter fw(tg, vid1);
   for (fw = fw.begin(); fw != fw.end(); fw++) {
@@ -228,11 +256,20 @@ static int process_timer_tick (int argc, char **argv)
     if (e->dst != vid2) {
       continue;
     }
+    /*-- check if the pin name matches --*/
+
+
     TimingEdgeInfo *te = (TimingEdgeInfo *)e->getInfo();
+    if (te->isTicked()) {
+      /* XXX: FIX THIS */
+      continue;
+    }
     te->tickEdge();
-    //printf ("tick %d -> %d\n", vid1, vid2);
+    //printf ("tick %d -> %d [%p]\n", vid1, vid2, te);
     break;
   }
+  FREE (pin1);
+  FREE (pin2);
   if (fw == fw.end()) {
     fprintf (stderr, "%s: could not find timing edge %s -> %s\n", argv[0],
 	     argv[1], argv[2]);

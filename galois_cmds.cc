@@ -657,7 +657,11 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #endif      
       if (ei->isTicked()) {
 #if 0
-	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
+	printf (" ** tick (%d -> %d) ", be->src, be->dst);
+	ap->Print (stdout);
+	printf (" (r) -> ");
+	gate_out->Print (stdout);
+	printf (" (f)\n");
 #endif	
 	engine->setDelayEdgeTick
 	  (ap, TransMode::TRANS_RISE, gate_out, TransMode::TRANS_FALL, true);
@@ -755,7 +759,11 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #endif      
       if (ei->isTicked()) {
 #if 0
-	printf (" ** tick (%d -> %d)\n", be->src, be->dst);
+	printf (" ** tick (%d -> %d) ", be->src, be->dst);
+	ap->Print (stdout);
+	printf (" (f) -> ");
+	gate_out->Print (stdout);
+	printf (" (r)\n");
 #endif	
 	engine->setDelayEdgeTick (ap, TransMode::TRANS_FALL, gate_out, TransMode::TRANS_RISE, true);
       }
