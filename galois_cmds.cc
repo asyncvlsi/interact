@@ -571,6 +571,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
     ActPin *gate_out = (ActPin *)vup_i->getSpace();
     Assert (gate_out, "What?");
+    act_boolean_netlist_t *bnl = gate_out->cellBNL(bp);
 
     /* -- gate_out is the output pin for the timing vertex -- */
 
@@ -594,7 +595,6 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       /* find the pin name */
       act_connection *pinname;
       int pinid = ei->getIPin();
-      act_boolean_netlist_t *bnl = gate_out->cellBNL(bp);
       Assert (bnl, "What?");
 
       pinname = NULL;
@@ -680,10 +680,25 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       TimingEdgeInfo *ei = (TimingEdgeInfo *)be->getInfo();
       if (ei->getIPin() < 0) continue;
 
+      int pinid = ei->getIPin();
+      act_connection *pinname;
+      Assert (bnl, "What?");
+
+      pinname = NULL;
+      for (int i=0; i < A_LEN (bnl->ports); i++) {
+	if (bnl->ports[i].omit) continue;
+	if (pinid == 0) {
+	  pinname = bnl->ports[i].c;
+	  break;
+	}
+	pinid--;
+      }
+      Assert (pinname, "Can't find pin?");
+      
       /* -- see if we have this pin already -- */
       ap = NULL;
       for (int pc=0; pc < A_LEN (cur_gate_pins); pc++) {
-	if (*(cur_gate_pins[pc]) == (*drv_pin)) {
+	if (cur_gate_pins[pc]->getPin() == pinname) {
 	  ap = cur_gate_pins[pc];
 	  break;
 	}
@@ -691,21 +706,6 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
       if (!ap) {
 	/* new pin */
-	int pinid = ei->getIPin();
-	act_boolean_netlist_t *bnl = ap->cellBNL (bp);
-	act_connection *pinname;
-	Assert (bnl, "What?");
-
-	pinname = NULL;
-	for (int i=0; i < A_LEN (bnl->ports); i++) {
-	  if (bnl->ports[i].omit) continue;
-	  if (pinid == 0) {
-	    pinname = bnl->ports[i].c;
-	    break;
-	  }
-	  pinid--;
-	}
-	Assert (pinname, "Can't find pin?");
 	ap = new ActPin (drv_pin->getNetVertex(),
 			 gate_out->getInstVertex(),
 			 pinname);
@@ -1007,7 +1007,7 @@ const char *timing_graph_init (Act *a, Process *p, int *libids, int nlibs)
   FREE (libs);
   if (!TS.engine) {
     clear_timer ();
-    return "timing graph construction failed; arcs missing from .lib";
+    return "timing graph construction failed";
   }
 
   return NULL;
