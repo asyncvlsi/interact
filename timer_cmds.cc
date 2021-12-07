@@ -219,21 +219,10 @@ static int process_timer_tick (int argc, char **argv)
 
   int vid1, vid2;
 
-  char *pin1, *pin2;
-
-  pin1 = NULL;
-  pin2 = NULL;
-
-  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1, &pin1) ||
-      !get_net_to_timing_vertex (argv[0], tmp2, &vid2, &pin2)) {
+  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1) ||
+      !get_net_to_timing_vertex (argv[0], tmp2, &vid2)) {
     FREE (tmp1);
     FREE (tmp2);
-    if (pin1) {
-      FREE (pin1);
-    }
-    if (pin2) {
-      FREE (pin2);
-    }
     return LISP_RET_ERROR;
   }
   FREE (tmp1);
@@ -244,33 +233,19 @@ static int process_timer_tick (int argc, char **argv)
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
 
 
-  /*
-     pin1 could be an output pin, in which case we are fine; it is the
-     timing vertex
-  */
-
-  /* find edge from vid1 to vid2 */
+  /* find *all* edges from vid1 to vid2 */
   AGvertexFwdIter fw(tg, vid1);
+  int found = 0;
   for (fw = fw.begin(); fw != fw.end(); fw++) {
     AGedge *e = (*fw);
     if (e->dst != vid2) {
       continue;
     }
-    /*-- check if the pin name matches --*/
-
-
     TimingEdgeInfo *te = (TimingEdgeInfo *)e->getInfo();
-    if (te->isTicked()) {
-      /* XXX: FIX THIS */
-      continue;
-    }
     te->tickEdge();
-    //printf ("tick %d -> %d [%p]\n", vid1, vid2, te);
-    break;
+    found = 1;
   }
-  FREE (pin1);
-  FREE (pin2);
-  if (fw == fw.end()) {
+  if (found == 0) {
     fprintf (stderr, "%s: could not find timing edge %s -> %s\n", argv[0],
 	     argv[1], argv[2]);
     return LISP_RET_ERROR;
