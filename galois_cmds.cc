@@ -151,6 +151,12 @@ getPortCap(void* const,                          // external pin pointer
   return 0.0;
 }
 
+static
+galois::eda::utility::Float
+getPortVoltage (void * const, galois::eda::liberty::CellLib *const)
+{
+  return 0.0;
+}
 
 static
 AGedge *find_edge (AGvertex *from, AGvertex *to)
@@ -492,6 +498,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
   auto nldm = new galois::eda::delaycalc::NldmDelayCalculator (engine);
   nldm->setFuncPtr4GetPortCap (getPortCap);
+  nldm->setFuncPtr4GetPortVoltage (getPortVoltage);
   engine->setDelayCalculator (nldm);
   
   TaggedTG *gr = (TaggedTG *) tg->getMap (p);
@@ -797,6 +804,30 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       ap_u = new ActPin (vdn, primary_input++);
       vup_i->setSpace (ap_u);
       vdn_i->setSpace (ap_u);
+      engine->addDriverPin (ap_u);
+
+      AGvertexFwdIter fw(gr, vup->vid);
+      for (fw = fw.begin(); fw != fw.end(); fw++) {
+	phash_bucket_t *b;
+	AGedge *e = (*fw);
+	TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+	b = phash_lookup (TS.edgeMap, ei);
+	if (b) {
+	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
+	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
+	}
+      }
+      AGvertexFwdIter fw2(gr, vdn->vid);
+      for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
+	phash_bucket_t *b;
+	AGedge *e = (*fw2);
+	TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+	b = phash_lookup (TS.edgeMap, ei);
+	if (b) {
+	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
+	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
+	}
+      }
     }
   }
 
