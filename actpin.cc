@@ -366,6 +366,11 @@ std::string ActNetlistAdaptor::getFullName4Net (void *const net) const
 void *ActNetlistAdaptor::getInst4Pin (void *const pin) const
 {
   ActPin *p = (ActPin *)pin;
+
+  if (p->isExternalInput()) {
+    return NULL;
+  }
+
   return p->getInst();
 }
 
