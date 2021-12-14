@@ -772,6 +772,34 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   }
   A_FREE (cur_gate_pins);
 
+
+  /* -- assign dummy drivers to primary input pins -- */
+  unsigned int primary_input = 0;
+  for (int i=0; i < gr->numVertices(); i += 2) {
+    AGvertex *vdn = gr->getVertex (i);
+    AGvertex *vup = gr->getVertex (i+1);
+
+    TimingVertexInfo *vup_i, *vdn_i;
+
+    vup_i = (TimingVertexInfo *) vup->getInfo ();
+    vdn_i = (TimingVertexInfo *) vdn->getInfo ();
+
+    if (!vup_i || !vdn_i) {
+      continue;
+    }
+
+    ActPin *ap_u = (ActPin *) vup_i->getSpace ();
+    ActPin *ap_d = (ActPin *) vdn_i->getSpace ();
+
+    Assert (ap_u == ap_d, "Different pins for up and down transition!");
+
+    if (!ap_u) {
+      ap_u = new ActPin (vdn, primary_input++);
+      vup_i->setSpace (ap_u);
+      vdn_i->setSpace (ap_u);
+    }
+  }
+
   /* -- check for cycle of unticked edges -- */
 
   auto unticked = engine->findUntickedDelayEdgeCycles ();

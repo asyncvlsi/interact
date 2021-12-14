@@ -101,7 +101,13 @@ public:
     _pin_vtx = pinvtx;
     _pin = pinname;
   }
-	  
+
+  ActPin (AGvertex *net, unsigned int prim_inp) {
+    _driver_vtx = net;
+    _pin_vtx = net;
+    _pin = (act_connection *) (((unsigned long)prim_inp << 1) | 1);
+  }
+
   void Print (FILE *fp);
 
   AGvertex *getNetVertex() { return _driver_vtx; }
@@ -115,6 +121,9 @@ public:
     return (TimingVertexInfo *) (_pin_vtx->getInfo());
   }
   act_connection *getPin() { return _pin; }
+
+  int isExternalInput() { return (((unsigned long)_pin) & 1); }
+  int externalId() { return (((unsigned long)_pin) >> 1); };
 
   act_boolean_netlist_t *cellBNL(ActBooleanizePass *p) {
     return p->getBNL (getInst()->getCell());

@@ -43,9 +43,15 @@ void ActPin::Print (FILE *fp)
 void ActPin::sPrintPin (char *buf, int sz)
 {
   ActId *tmp;
-  tmp = _pin->toid();
-  tmp->sPrint (buf, sz);
-  delete tmp;
+
+  if (isExternalInput()) {
+    snprintf (buf, sz, "pi$%d", externalId());
+  }
+  else {
+    tmp = _pin->toid();
+    tmp->sPrint (buf, sz);
+    delete tmp;
+  }
 }
 
 void ActPin::sPrintCellType (char *buf, int sz)
@@ -170,6 +176,7 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
   }
   buf[pos] = '.';
 
+
   ActId *x = ActId::parseId (buf, divider, busDelimL,
 			     busDelimR, '.');
 
@@ -199,6 +206,11 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     printf ("WARNING: `%s' is an invalid pin name\n", buf+pos+1);
     FREE (buf);
     return NULL;
+  }
+
+  if (me->isExternalInput()) {
+    /* this is an external input pin; return it directly */
+    return me;
   }
 
   /*-- check if this is the driver pin --*/
