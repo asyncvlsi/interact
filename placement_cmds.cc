@@ -73,7 +73,8 @@ static int process_dali_add_welltap (int argc, char **argv)
 
 static int process_dali_place_design (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
+  if (argc < 2) {
+    fprintf (stderr, "Usage: place-design <target_density> [number_of_threads]\n");
     return LISP_RET_ERROR;
   }
 
@@ -90,7 +91,17 @@ static int process_dali_place_design (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  F.dali->StartPlacement(density);
+  int number_of_threads = 1;
+  if (argc >= 3) {
+    try {
+      number_of_threads = std::stoi(argv[2]);
+    } catch (...) {
+      fprintf (stderr, "%s: invalid number of threads!\n", argv[2]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  F.dali->StartPlacement(density, number_of_threads);
   save_to_log (argc, argv, "f");
 
   return LISP_RET_TRUE;
@@ -115,7 +126,8 @@ static int process_dali_place_io (int argc, char **argv)
 
 static int process_dali_global_place (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<target_density>", STATE_EXPANDED)) {
+  if (argc < 2) {
+    fprintf (stderr, "Usage: global-place <target_density> [number_of_threads]\n");
     return LISP_RET_ERROR;
   }
 
@@ -132,7 +144,17 @@ static int process_dali_global_place (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  F.dali->GlobalPlace(density);
+  int number_of_threads = 1;
+  if (argc >= 3) {
+    try {
+      number_of_threads = std::stoi(argv[2]);
+    } catch (...) {
+      fprintf (stderr, "%s: invalid number of threads!\n", argv[2]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  F.dali->GlobalPlace(density, number_of_threads);
   save_to_log (argc, argv, "s");
 
   return LISP_RET_TRUE;
@@ -193,9 +215,9 @@ static struct LispCliCommand dali_cmds[] = {
   
   { "init", "<verbosity_level(0-5)> - initialize Dali placement engine", process_dali_init },
   { "add-welltap", "<-cell cell_name -interval max_microns> [-checker_board] - add well-tap cell", process_dali_add_welltap},
-  { "place-design", "<target_density> - place design", process_dali_place_design },
+  { "place-design", "<target_density> [number_of_threads] - place design", process_dali_place_design },
   { "place-io", "<metal_name> - place I/O pins", process_dali_place_io },
-  { "global-place", "<target_density> - global placement", process_dali_global_place},
+  { "global-place", "<target_density> [number_of_threads] - global placement", process_dali_global_place},
   { "refine-place", "<engine> - refine placement using an external placer", process_dali_external_refine},
   { "export-phydb", "- export placement to phydb", process_dali_export_phydb },
   { "close", "- close Dali", process_dali_close }
