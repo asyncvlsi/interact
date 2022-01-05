@@ -151,56 +151,44 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
     }
     /* if there are no ports, we can skip the instance */
     if (ports_exist || instproc->isBlackBox()) {
+      Arraystep *as;
       if (vx->t->arrayInfo()) {
-	Arraystep *as = vx->t->arrayInfo()->stepper();
-	while (!as->isend()) {
-
-	  if (vx->isPrimary (as->index())) {
-	    emit_verilog_moduletype (fp, a, instproc);
-	    fprintf (fp, " \\%s", vx->getName());
-	    as->Print (stdout);
-	    fprintf (fp, "  (");
-
-	    int first = 1;
-	    for (i=0; i < A_LEN (sub->ports); i++) {
-	      if (sub->ports[i].omit) continue;
-	      if (!first) {
-		fprintf (fp, ", ");
-	      }
-	      first = 0;
-	      fprintf (fp, ".");
-	      emit_verilog_id (fp, sub->ports[i].c);
-	      fprintf (fp, "(");
-	      emit_verilog_id (fp, n->instports[iport]);
-	      fprintf (fp, ")");
-	      iport++;
-	    }
-	    fprintf (fp, ");\n");
-	  }
-	  as->step();
-	}
-	delete as;
+	as = vx->t->arrayInfo()->stepper();
       }
       else {
-	int first = 1;
-	emit_verilog_moduletype (fp, a, instproc);
-	a->mfprintf (fp, " %s", vx->getName());
-	fprintf (fp, "(");
-	for (i=0; i < A_LEN (sub->ports); i++) {
-	  if (sub->ports[i].omit) continue;
-
-	  if (!first) {
-	    fprintf (fp, ", ");
+	as = NULL;
+      }
+      do {
+	if (!as || (!as->isend() && vx->isPrimary (as->index()))) {
+	  emit_verilog_moduletype (fp, a, instproc);
+	  fprintf (fp, " \\%s", vx->getName());
+	  if (as) {
+	    as->Print (stdout);
 	  }
-	  first = 0;
-	  fprintf (fp, ".");
-	  emit_verilog_id (fp, sub->ports[i].c);
-	  fprintf (fp, "(");
-	  emit_verilog_id (fp, n->instports[iport]);
-	  fprintf (fp, ")");
-	  iport++;
+	  fprintf (fp, "  (");
+
+	  int first = 1;
+	  for (i=0; i < A_LEN (sub->ports); i++) {
+	    if (sub->ports[i].omit) continue;
+	    if (!first) {
+	      fprintf (fp, ", ");
+	    }
+	    first = 0;
+	    fprintf (fp, ".");
+	    emit_verilog_id (fp, sub->ports[i].c);
+	    fprintf (fp, "(");
+	    emit_verilog_id (fp, n->instports[iport]);
+	    fprintf (fp, ")");
+	    iport++;
+	  }
+	  fprintf (fp, ");\n");
 	}
-	fprintf (fp, ");\n");
+	if (as) {
+	  as->step ();
+	}
+      } while (as && !as->isend());
+      if (as) {
+	delete as;
       }
     }
   }
