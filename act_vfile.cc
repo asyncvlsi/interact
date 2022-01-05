@@ -75,12 +75,10 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
   if (n->visited) return;
   n->visited = 1;
 
-  ActInstiter inst(p->CurScope());
+  ActUniqProcInstiter inst(p->CurScope());
   for (inst = inst.begin(); inst != inst.end(); inst++) {
     ValueIdx *vx = *inst;
-    if (TypeFactory::isProcessType (vx->t)) {
-      emit_verilog (fp, a, dynamic_cast<Process *>(vx->t->BaseType()));
-    }
+    emit_verilog (fp, a, dynamic_cast<Process *>(vx->t->BaseType()));
   }
 
   /* now emit this module */
@@ -140,23 +138,24 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
   fprintf (fp, "\n// --- instances\n");
   for (inst = inst.begin(); inst != inst.end(); inst++) {
     ValueIdx *vx = *inst;
-    if (TypeFactory::isProcessType (vx->t)) {
-      act_boolean_netlist_t *sub;
-      Process *instproc = dynamic_cast<Process *>(vx->t->BaseType());
-      int ports_exist = 0;
+    act_boolean_netlist_t *sub;
+    Process *instproc = dynamic_cast<Process *>(vx->t->BaseType());
+    int ports_exist = 0;
 
-      sub = BOOL->getBNL (instproc);
-      for (i=0; i < A_LEN (sub->ports); i++) {
-	if (!sub->ports[i].omit) {
-	  ports_exist = 1;
-	  break;
-	}
+    sub = BOOL->getBNL (instproc);
+    for (i=0; i < A_LEN (sub->ports); i++) {
+      if (!sub->ports[i].omit) {
+	ports_exist = 1;
+	break;
       }
-      /* if there are no ports, we can skip the instance */
-      if (ports_exist || instproc->isBlackBox()) {
-	if (vx->t->arrayInfo()) {
-	  Arraystep *as = vx->t->arrayInfo()->stepper();
-	  while (!as->isend()) {
+    }
+    /* if there are no ports, we can skip the instance */
+    if (ports_exist || instproc->isBlackBox()) {
+      if (vx->t->arrayInfo()) {
+	Arraystep *as = vx->t->arrayInfo()->stepper();
+	while (!as->isend()) {
+
+	  if (vx->isPrimary (as->index())) {
 	    emit_verilog_moduletype (fp, a, instproc);
 	    fprintf (fp, " \\%s", vx->getName());
 	    as->Print (stdout);
@@ -177,31 +176,31 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	      iport++;
 	    }
 	    fprintf (fp, ");\n");
-	    as->step();
 	  }
-	  delete as;
+	  as->step();
 	}
-	else {
-	  int first = 1;
-	  emit_verilog_moduletype (fp, a, instproc);
-	  a->mfprintf (fp, " %s", vx->getName());
-	  fprintf (fp, "(");
-	  for (i=0; i < A_LEN (sub->ports); i++) {
-	    if (sub->ports[i].omit) continue;
+	delete as;
+      }
+      else {
+	int first = 1;
+	emit_verilog_moduletype (fp, a, instproc);
+	a->mfprintf (fp, " %s", vx->getName());
+	fprintf (fp, "(");
+	for (i=0; i < A_LEN (sub->ports); i++) {
+	  if (sub->ports[i].omit) continue;
 
-	    if (!first) {
-	      fprintf (fp, ", ");
-	    }
-	    first = 0;
-	    fprintf (fp, ".");
-	    emit_verilog_id (fp, sub->ports[i].c);
-	    fprintf (fp, "(");
-	    emit_verilog_id (fp, n->instports[iport]);
-	    fprintf (fp, ")");
-	    iport++;
+	  if (!first) {
+	    fprintf (fp, ", ");
 	  }
-	  fprintf (fp, ");\n");
+	  first = 0;
+	  fprintf (fp, ".");
+	  emit_verilog_id (fp, sub->ports[i].c);
+	  fprintf (fp, "(");
+	  emit_verilog_id (fp, n->instports[iport]);
+	  fprintf (fp, ")");
+	  iport++;
 	}
+	fprintf (fp, ");\n");
       }
     }
   }
