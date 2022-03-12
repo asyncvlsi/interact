@@ -1093,7 +1093,7 @@ const char *timer_run (void)
   }
   
   TS.engine->computeCriticalCycle(TS.lib);
-  auto stats = TS.engine->getCriticalCycleRatioAndTicks();
+  auto stats = TS.engine->getCriticalCycleRatioAndTicks(TS.lib);
 
   // set core metrics
   TS.p = stats.first;
@@ -1625,7 +1625,7 @@ void timer_compute_witnesses (void)
 void timer_incremental_update (void)
 {
   TS.engine->computeCriticalCycle (TS.lib, true);
-  auto stats = TS.engine->getCriticalCycleRatioAndTicks ();
+  auto stats = TS.engine->getCriticalCycleRatioAndTicks (TS.lib);
   TS.engine->computeTiming4Pins ();
 
   TS.p = stats.first;
