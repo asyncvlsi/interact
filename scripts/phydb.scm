@@ -31,7 +31,7 @@
 	 (act:layout:create)
 	 (act:layout:lef "_out.lef" "_out.cell")
 	 (act:layout:def "_out.def" #t area ratio)
-	 (phydb:read-lef "_out.lef")
+     (phydb:read-lef "_out.lef")
 	 (phydb:read-cell "_out.cell")
 	 (phydb:read-def "_out.def")
 	 (system "rm _out.def _out.cell")

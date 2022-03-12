@@ -161,7 +161,7 @@ static int process_sproute_init (int argc, char **argv) {
 }
 
 static int process_sproute_set_num_threads (int argc, char **argv) {
-  if (!std_argcheck (argc, argv, 1, "<int>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "<int>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -177,7 +177,7 @@ static int process_sproute_set_num_threads (int argc, char **argv) {
 }
 
 static int process_sproute_set_algo (int argc, char **argv) {
-  if (!std_argcheck (argc, argv, 1, "Det/NonDet", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "Det/NonDet", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -193,7 +193,7 @@ static int process_sproute_set_algo (int argc, char **argv) {
 }
 
 static int process_sproute_set_max_iteration (int argc, char **argv) {
-  if (!std_argcheck (argc, argv, 1, "<int>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 2, "<int>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
