@@ -190,10 +190,6 @@ void timer_convert_path (cyclone::TimingPath &path,
   double adjust = 0;
   int first = 1;
   
-  if (actp.size() != 0) {
-    actp.clear ();
-  }
-
   ActPin *prev_p;
   int path_ticks = 0;
   double path_time = 0.0;
@@ -1523,17 +1519,20 @@ void timer_get_fork_paths (int constraint, bool isFastEnd,
     return;
   }
 
-  auto Paths =
-    TS.engine->getCrctCriticalPaths(TS.constraints[constraint].tc,
-				    isFastEnd);
+  auto paths = 
+    TS.engine->getNextCrctCriticalPath(TS.constraints[constraint].tc,
+				       isFastEnd, 2);
 
   galois::eda::utility::TimingPath tpath;
 
-  if (Paths.size() != 0) {
-    tpath = Paths[0]->untar();
+  if (paths != nullptr) {
+    tpath = paths->untar();
   }
   else {
     tpath.clear();
+  }
+  if (actp.size() != 0) {
+    actp.clear();
   }
   timer_convert_path (tpath, actp);
 }
