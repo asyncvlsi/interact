@@ -991,9 +991,9 @@ static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &p
   if (cyc->witness_ready == 1) {
     timer_compute_witnesses ();
   }
-  /* a < b : b is too fast, a is too slow */
-  timer_get_fastpaths (constraint, pathb);
-  timer_get_slowpaths (constraint, patha);
+  /* a < b : a should be fast, b should be slow */
+  timer_get_fast_end_paths (constraint, patha);
+  timer_get_slow_end_paths (constraint, pathb);
 }
 #endif
 

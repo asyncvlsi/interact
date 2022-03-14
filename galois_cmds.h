@@ -64,6 +64,7 @@ struct cyclone_constraint {
   unsigned int root_dir:1, from_dir:1, to_dir:1; // 0 = -, 1 = +
   unsigned int witness_ready:2; // 0 = not registered, 1 = registered,
 				// 2 = computed 
+  cyclone::TimingCheck *tc;
 };
 
 void *read_lib_file (const char *file);
@@ -96,11 +97,11 @@ ActPin *timer_get_dst_pin (AGedge *e);
 void timer_convert_path (cyclone::TimingPath &path,
 			 std::vector<phydb::ActEdge> &actp);
 
-void timer_get_fastpaths (int constraint,
-			  std::vector<phydb::ActEdge> &actp);
+void timer_get_fast_end_paths (int constraint,
+			       std::vector<phydb::ActEdge> &actp);
 
-void timer_get_slowpaths (int constraint,
-			  std::vector<phydb::ActEdge> &actp);
+void timer_get_slow_end_paths (int constraint,
+			       std::vector<phydb::ActEdge> &actp);
 
 void timer_link_engine (phydb::PhyDB *);
 

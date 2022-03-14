@@ -942,6 +942,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	  A_NEXT (TS.constraints).to_dir =
 	    (to_dirs[m] == TransMode::TRANS_FALL ? 0 : 1);
 	  A_NEXT (TS.constraints).witness_ready = 0;
+	  A_NEXT (TS.constraints).tc = NULL;
 	  A_INC (TS.constraints);
 
 	  engine->addTimingFork (rpin, root_dir[n],
@@ -1509,37 +1510,22 @@ cyclone_constraint *timer_get_cyclone_constraint (int id)
   return &TS.constraints[id];
 }
 
-void timer_get_fork_paths (int constraint, bool which,
+void timer_get_fork_paths (int constraint, bool isFastEnd,
 			   std::vector<phydb::ActEdge> &actp)
 {
   TaggedTG *tg;
   TaggedTG::constraint *c;
-  ActPin *rpin, *apin, *bpin;
-  TransMode rt, at, bt;
 
   tg = timer_get_tagged_tg ();
-
   c = tg->getConstraint (TS.constraints[constraint].tg_id);
 
-  rpin = tgraph_vertex_to_pin (c->root);
-  rt = TS.constraints[constraint].root_dir ? TransMode::TRANS_RISE :
-    TransMode::TRANS_FALL;
-  
-  apin = tgraph_vertex_to_pin (c->from);
-  at = TS.constraints[constraint].from_dir ? TransMode::TRANS_RISE :
-    TransMode::TRANS_FALL;
-  
-  bpin = tgraph_vertex_to_pin (c->to);
-  bt = TS.constraints[constraint].to_dir ? TransMode::TRANS_RISE :
-    TransMode::TRANS_FALL;
-  
-  auto maxMode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
+  if (TS.constraints[constraint].tc == NULL) {
+    return;
+  }
 
   auto Paths =
-    TS.engine->getCrctCriticalPaths(rpin, rt,
-				    apin, at, c->from_tick ? true : false,
-				    bpin, bt,  c->to_tick ? true : false,
-				    &TS.lib[0], maxMode, 0, which);
+    TS.engine->getCrctCriticalPaths(TS.constraints[constraint].tc,
+				    isFastEnd);
 
   galois::eda::utility::TimingPath tpath;
 
@@ -1552,16 +1538,16 @@ void timer_get_fork_paths (int constraint, bool which,
   timer_convert_path (tpath, actp);
 }
 
-void timer_get_fastpaths (int constraint,
-			  std::vector<phydb::ActEdge> &actp)
-{
-  timer_get_fork_paths (constraint, false, actp);
-}
-
-void timer_get_slowpaths (int constraint,
+void timer_get_fast_end_paths (int constraint,
 			  std::vector<phydb::ActEdge> &actp)
 {
   timer_get_fork_paths (constraint, true, actp);
+}
+
+void timer_get_slow_end_paths (int constraint,
+			       std::vector<phydb::ActEdge> &actp)
+{
+  timer_get_fork_paths (constraint, false, actp);
 }
 
 ActPin *timer_get_dst_pin (AGedge *e)
@@ -1602,10 +1588,11 @@ void timer_add_check (int constraint)
   
   auto maxMode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
 
-  TS.engine->addTimingCheck (rpin, rt,
-			     apin, at, c->from_tick ? true : false,
-			     bpin, bt,  c->to_tick ? true : false,
-			     &TS.lib[0], maxMode, 0);
+  TS.constraints[constraint].tc =
+    TS.engine->addTimingCheck (rpin, rt,
+			       apin, at, c->from_tick ? true : false,
+			       bpin, bt,  c->to_tick ? true : false,
+			       &TS.lib[0], maxMode, 0);
 
   TS.constraints[constraint].witness_ready = 1;
 }
@@ -1633,6 +1620,7 @@ void timer_incremental_update (void)
 
   for (int i=0; i < A_LEN (TS.constraints); i++) {
     TS.constraints[i].witness_ready = 0;
+    TS.constraints[i].tc = NULL;
   }
 }
 
