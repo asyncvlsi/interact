@@ -66,6 +66,8 @@ static struct timing_state {
   TaggedTG *tg;
 
   A_DECL (cyclone_constraint, constraints);
+  int global_topK;
+  int perf_idx;
   
 } TS;
 
@@ -98,6 +100,8 @@ static void clear_timer()
   TS.lib_units = NULL;
   TS.time_mult = 1.0;
   TS.tg = NULL;
+  TS.global_topK = 1;
+  TS.perf_idx = 0;
   A_INIT (TS.constraints);
 }
 
@@ -939,6 +943,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	    (to_dirs[m] == TransMode::TRANS_FALL ? 0 : 1);
 	  A_NEXT (TS.constraints).witness_ready = 0;
 	  A_NEXT (TS.constraints).tc = NULL;
+	  A_NEXT (TS.constraints).topK = 0;
 	  A_INC (TS.constraints);
 
 	  engine->addTimingFork (rpin, root_dir[n],
@@ -1095,6 +1100,7 @@ const char *timer_run (void)
   // set core metrics
   TS.p = stats.first;
   TS.M = stats.second;
+  TS.perf_idx = 0;
 
   // timing propagation
   TS.engine->computeTiming4Pins();
@@ -1476,6 +1482,36 @@ cyclone::TimingPath timer_get_crit (void)
 {
   return TS.engine->getCriticalCycle ();
 }
+      
+void timer_get_perf_paths (int constraint, 
+			   std::vector<phydb::ActEdge> &actp)
+{
+  int k_val = (TS.global_topK != 0 ? TS.global_topK : 2);
+  int idx;
+  
+  idx = TS.perf_idx++;
+
+  if (idx != 0) {
+    k_val = 0;
+  }
+
+  auto maxMode = galois::eda::utility::AnalysisMode::ANALYSIS_MAX;
+  auto paths = 
+    TS.engine->getNextPerfCriticalPath(&TS.lib[0], maxMode, k_val);
+
+  galois::eda::utility::TimingPath tpath;
+  
+  if (paths != nullptr) {
+    tpath = paths->untar();
+  }
+  else {
+    tpath.clear();
+  }
+  if (actp.size() != 0) {
+    actp.clear();
+  }
+  timer_convert_path (tpath, actp);
+}
 
 
 const char *timer_get_time_string (void)
@@ -1496,6 +1532,21 @@ TaggedTG *timer_get_tagged_tg (void)
 int timer_get_num_cyclone_constraints (void)
 {
   return A_LEN (TS.constraints);
+}
+
+void timer_set_topK (int k)
+{
+  TS.global_topK = k;
+}
+
+void timer_set_topK_id (int id, int k)
+{
+  if (id <= 0 && id < A_LEN (TS.constraints)) {
+    TS.constraints[id].topK = k;
+  }
+  else {
+    warning ("PhyDB callback set_topK: invalid id (%d)\n", id);
+  }
 }
 
 cyclone_constraint *timer_get_cyclone_constraint (int id)
@@ -1519,9 +1570,26 @@ void timer_get_fork_paths (int constraint, bool isFastEnd,
     return;
   }
 
+  int k_val = (TS.constraints[constraint].topK != 0 ?
+	       TS.constraints[constraint].topK :
+	       (TS.global_topK != 0 ? TS.global_topK : 2));
+  int idx;
+  
+  if (isFastEnd) {
+    idx = TS.constraints[constraint].fast_path_id++;
+  }
+  else {
+    idx = TS.constraints[constraint].slow_path_id++;
+  }
+
+  if (idx != 0) {
+    k_val = 0;
+  }
+
   auto paths = 
     TS.engine->getNextCrctCriticalPath(TS.constraints[constraint].tc,
-				       isFastEnd, 2);
+				       isFastEnd, k_val);
+					
 
   galois::eda::utility::TimingPath tpath;
 
@@ -1603,19 +1671,26 @@ void timer_compute_witnesses (void)
   for (int i=0; i < A_LEN (TS.constraints); i++) {
     if (TS.constraints[i].witness_ready == 1) {
       TS.constraints[i].witness_ready = 2;
+      TS.constraints[i].fast_path_id = 0;
+      TS.constraints[i].slow_path_id = 0;
     }
   }
 }
 
 
+/*
+  XXX: Check if incremental update failed and requires a full update 
+*/
 void timer_incremental_update (void)
 {
   TS.engine->computeCriticalCycle (TS.lib, true);
   auto stats = TS.engine->getCriticalCycleRatioAndTicks (TS.lib);
   TS.engine->computeTiming4Pins ();
+  
 
   TS.p = stats.first;
   TS.M = stats.second;
+  TS.perf_idx = 0;
 
   for (int i=0; i < A_LEN (TS.constraints); i++) {
     TS.constraints[i].witness_ready = 0;

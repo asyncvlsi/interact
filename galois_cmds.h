@@ -63,7 +63,12 @@ struct cyclone_constraint {
   int tg_id; // timing graph constraint #
   unsigned int root_dir:1, from_dir:1, to_dir:1; // 0 = -, 1 = +
   unsigned int witness_ready:2; // 0 = not registered, 1 = registered,
-				// 2 = computed 
+				// 2 = computed
+
+  int fast_path_id;
+  int slow_path_id;
+  int topK;
+  
   cyclone::TimingCheck *tc;
 };
 
@@ -103,12 +108,18 @@ void timer_get_fast_end_paths (int constraint,
 void timer_get_slow_end_paths (int constraint,
 			       std::vector<phydb::ActEdge> &actp);
 
+void timer_get_perf_paths (int constraint, 
+			   std::vector<phydb::ActEdge> &actp);
+
 void timer_link_engine (phydb::PhyDB *);
 
 #endif
 
 void timer_compute_witnesses (void);
 void timer_add_check (int constraint);
+void timer_set_topK (int k);
+void timer_set_topK_id (int id, int k);
+
 
 #endif
 

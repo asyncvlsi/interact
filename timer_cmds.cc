@@ -905,6 +905,43 @@ static int num_constraint_callback (void)
   return timer_get_num_cyclone_constraints ();
 }
 
+static int num_perf_tags (void)
+{
+  return 1;
+}
+
+static double get_perf_weight (int id)
+{
+  return 1.0;
+}
+
+static double get_perf_slack (int id)
+{
+  return 0.0;
+}
+
+static void get_violated_perf (std::vector<int> &v)
+{
+  v.clear();
+}
+
+static void get_violated_perf_witness (int id, std::vector<ActEdge> &path)
+{
+  
+}
+
+
+static void set_global_topK (int k)
+{
+  timer_set_topK (k);
+}
+
+static void set_constraint_topK (int id, int k)
+{
+  timer_set_topK_id (id, k);
+}
+
+
 static void incremental_update_timer (void)
 {
   timer_incremental_update ();
@@ -976,7 +1013,8 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
 }
 
 #if defined (FOUND_phydb)
-static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &patha,
+static void get_witness_callback (int constraint,
+				  std::vector<phydb::ActEdge> &patha,
 				  std::vector<phydb::ActEdge> &pathb)
 {
   TaggedTG *tg = timer_get_tagged_tg ();
@@ -995,6 +1033,46 @@ static void get_witness_callback (int constraint, std::vector<phydb::ActEdge> &p
   timer_get_fast_end_paths (constraint, patha);
   timer_get_slow_end_paths (constraint, pathb);
 }
+
+static void get_slow_witness_callback (int constraint,
+				       std::vector<phydb::ActEdge> &path)
+{
+  TaggedTG *tg = timer_get_tagged_tg ();
+  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  if (!cyc) {
+    return;
+  }
+  if (cyc->witness_ready == 0) {
+    /* error */
+    return;
+  }
+  if (cyc->witness_ready == 1) {
+    timer_compute_witnesses ();
+  }
+  /* a < b : a should be fast, b should be slow */
+  timer_get_slow_end_paths (constraint, path);
+}
+
+static void get_fast_witness_callback (int constraint,
+				       std::vector<phydb::ActEdge> &path)
+{
+  TaggedTG *tg = timer_get_tagged_tg ();
+  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  if (!cyc) {
+    return;
+  }
+  if (cyc->witness_ready == 0) {
+    /* error */
+    return;
+  }
+  if (cyc->witness_ready == 1) {
+    timer_compute_witnesses ();
+  }
+  /* a < b : a should be fast, b should be slow */
+  timer_get_fast_end_paths (constraint, path);
+}
+
+
 #endif
 
 struct _violation_pair {
@@ -1277,11 +1355,45 @@ static struct LispCliCommand timer_cmds[] = {
 
 void timer_phydb_link (phydb::PhyDB *phydb)
 {
+  /* find out how many constraints there are */
   phydb->SetGetNumConstraintsCB (num_constraint_callback);
+
+  /* set the k-value for top-k paths for correctness */
+  phydb->SetSpecifyTopKsCB (set_global_topK);
+
+  /* set the k-value for top-k paths for performance */
+  phydb->SetSpecifyTopKCB (set_constraint_topK);
+
+  /* incremental update */
   phydb->SetUpdateTimingIncrementalCB (incremental_update_timer);
+
+  /* return the slack for the specified constraints */
   phydb->SetGetSlackCB (get_slack_callback);
-  phydb->SetGetWitnessCB (get_witness_callback);
+
+  /* callback to get the ids of violated constraints */
   phydb->SetGetViolatedTimingConstraintsCB (get_violated_constraints);
+
+  /* get first witness */
+  phydb->SetGetWitnessCB (get_witness_callback);
+
+  /* get next witnesses */
+  phydb->SetGetSlowWitnessCB (get_slow_witness_callback);
+  phydb->SetGetFastWitnessCB (get_fast_witness_callback);
+  
+  /* get # of performance tags */
+  phydb->SetGetNumPerformanceConstraintsCB (num_perf_tags);
+
+  /* weight of each tag */
+  phydb->SetGetPerformanceConstraintWeightCB (get_perf_weight);
+
+  /* slack of each tag */
+  phydb->SetGetPerformanceSlack(get_perf_slack);
+
+  /* violated constraints */
+  phydb->SetGetViolatedPerformanceConstraintsCB (get_violated_perf);
+  
+  /* violated constraints */
+  phydb->SetGetPerformanceWitnessCB (get_violated_perf_witness);
 
   timer_link_engine (phydb);
 }
