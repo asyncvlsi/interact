@@ -559,12 +559,52 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 #endif    
   }
 
+  /* -- assign dummy drivers to primary input pins -- */
+  unsigned int primary_input = 0;
+
+#if 0  
+  A_DECL (int, primary_in_vtx);
+  A_INIT (primary_in_vtx);
+#endif  
+  
+  for (int i=0; i < gr->numVertices(); i += 2) {
+    AGvertex *vdn = gr->getVertex (i);
+    AGvertex *vup = gr->getVertex (i+1);
+
+    TimingVertexInfo *vup_i, *vdn_i;
+
+    vup_i = (TimingVertexInfo *) vup->getInfo ();
+    vdn_i = (TimingVertexInfo *) vdn->getInfo ();
+
+    if (!vup_i || !vdn_i) {
+      continue;
+    }
+
+    ActPin *ap_u = (ActPin *) vup_i->getSpace ();
+    ActPin *ap_d = (ActPin *) vdn_i->getSpace ();
+
+    Assert (ap_u == ap_d, "Different pins for up and down transition!");
+
+    if (!ap_u) {
+#if 0      
+      A_NEW (primary_in_vtx, int);
+      A_NEXT (primary_in_vtx) = i;
+      A_INC (primary_in_vtx);
+#endif
+      
+      ap_u = new ActPin (vdn, primary_input++);
+      vup_i->setSpace (ap_u);
+      vdn_i->setSpace (ap_u);
+      engine->addDriverPin (ap_u);
+    }
+  }
+
   A_DECL (ActPin *, cur_gate_pins);
   A_INIT (cur_gate_pins);
 
   TS.edgeMap = phash_new (32);
   (*ret_anl)->setEdgeMap (TS.edgeMap);
-    
+
   for (int i=0; i < gr->numVertices(); i += 2) {
     AGvertex *vdn = gr->getVertex (i);
     AGvertex *vup = gr->getVertex (i+1);
@@ -637,9 +677,9 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
       engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
 
-#if 0      
-      printf ("add net leg: "); actpin_print (drv_pin);
-      printf (" -> "); actpin_print (ap);
+#if 0
+      printf ("add net leg: "); drv_pin->Print (stdout);
+      printf (" -> "); ap->Print (stdout);
       printf ("\n");
 #endif      
 	
@@ -683,7 +723,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
       ActPin *drv_pin;
       TimingVertexInfo *src_v = (TimingVertexInfo *) src->getInfo();
       ActPin *ap;
-      
+
       if (!src_v->getSpace()) continue;
 
       drv_pin = (ActPin *) src_v->getSpace();
@@ -705,7 +745,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	pinid--;
       }
       Assert (pinname, "Can't find pin?");
-      
+
       /* -- see if we have this pin already -- */
       ap = NULL;
       for (int pc=0; pc < A_LEN (cur_gate_pins); pc++) {
@@ -726,8 +766,8 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	//printf ("add pin to %p (src=%d, dst=%d)\n", ei, be->src, be->dst);
 
 	engine->addLoadPin (ap);
-#if 0	
-	printf ("add load pin: "); actpin_print (ap);
+#if 0
+	printf ("add load pin: "); ap->Print (stdout);
 	printf ("\n");
 #endif	
 
@@ -739,8 +779,8 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 	engine->addNetLeg (drv_pin, ap, TransMode::TRANS_RISE);
 	engine->addNetLeg (drv_pin, ap, TransMode::TRANS_FALL);
 #if 0
-	printf ("add net leg: "); actpin_print (drv_pin);
-	printf (" -> "); actpin_print (ap);
+	printf ("add net leg: "); drv_pin->Print (stdout);
+	printf (" -> "); ap->Print (stdout);
 	printf ("\n");
 #endif	
       }
@@ -779,57 +819,44 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
   }
   A_FREE (cur_gate_pins);
 
-
-  /* -- assign dummy drivers to primary input pins -- */
-  unsigned int primary_input = 0;
-  for (int i=0; i < gr->numVertices(); i += 2) {
-    AGvertex *vdn = gr->getVertex (i);
-    AGvertex *vup = gr->getVertex (i+1);
+#if 0
+  for (int i=0; i < A_LEN (primary_in_vtx); i++) {
+    AGvertex *vdn = gr->getVertex (primary_in_vtx[i]);
+    AGvertex *vup = gr->getVertex (primary_in_vtx[i]+1);
 
     TimingVertexInfo *vup_i, *vdn_i;
 
     vup_i = (TimingVertexInfo *) vup->getInfo ();
     vdn_i = (TimingVertexInfo *) vdn->getInfo ();
 
-    if (!vup_i || !vdn_i) {
-      continue;
-    }
-
     ActPin *ap_u = (ActPin *) vup_i->getSpace ();
-    ActPin *ap_d = (ActPin *) vdn_i->getSpace ();
 
-    Assert (ap_u == ap_d, "Different pins for up and down transition!");
-
-    if (!ap_u) {
-      ap_u = new ActPin (vdn, primary_input++);
-      vup_i->setSpace (ap_u);
-      vdn_i->setSpace (ap_u);
-      engine->addDriverPin (ap_u);
-
-      AGvertexFwdIter fw(gr, vup->vid);
-      for (fw = fw.begin(); fw != fw.end(); fw++) {
-	phash_bucket_t *b;
-	AGedge *e = (*fw);
-	TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
-	b = phash_lookup (TS.edgeMap, ei);
-	if (b) {
-	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
-	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
-	}
+    AGvertexFwdIter fw(gr, vup->vid);
+    for (fw = fw.begin(); fw != fw.end(); fw++) {
+      phash_bucket_t *b;
+      AGedge *e = (*fw);
+      TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+      b = phash_lookup (TS.edgeMap, ei);
+      if (b) {
+	engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
+	engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
       }
-      AGvertexFwdIter fw2(gr, vdn->vid);
-      for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
-	phash_bucket_t *b;
-	AGedge *e = (*fw2);
-	TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
-	b = phash_lookup (TS.edgeMap, ei);
-	if (b) {
-	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
-	  engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
-	}
+    }
+    AGvertexFwdIter fw2(gr, vdn->vid);
+    for (fw2 = fw2.begin(); fw2 != fw2.end(); fw2++) {
+      phash_bucket_t *b;
+      AGedge *e = (*fw2);
+      TimingEdgeInfo *ei = (TimingEdgeInfo *)e->getInfo();
+      b = phash_lookup (TS.edgeMap, ei);
+      if (b) {
+	engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_RISE);
+	engine->addNetLeg (ap_u, (ActPin *)b->v, TransMode::TRANS_FALL);
       }
     }
   }
+  A_FREE (primary_in_vtx);
+#endif  
+
 
   /* -- check for cycle of unticked edges -- */
 
