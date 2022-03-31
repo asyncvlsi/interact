@@ -925,7 +925,7 @@ static void get_violated_perf (std::vector<int> &v)
   v.clear();
 }
 
-static void get_violated_perf_witness (int id, std::vector<ActEdge> &path)
+static void get_violated_perf_witness (int id, std::vector<phydb::ActEdge> &path)
 {
   
 }
