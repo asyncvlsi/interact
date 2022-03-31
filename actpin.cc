@@ -176,7 +176,6 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
   }
   buf[pos] = '.';
 
-
   ActId *x = ActId::parseId (buf, divider, busDelimL,
 			     busDelimR, '.');
 
@@ -208,20 +207,30 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     return NULL;
   }
 
-  if (me->isExternalInput()) {
-    /* this is an external input pin; return it directly */
-    return me;
-  }
+#if 0
+  printf (">>> %s\n", buf);
+  printf ("   >>> pin id: ");
+  pin_act_id->Print (stdout);
+  printf ("\n");
+#endif
 
-  /*-- check if this is the driver pin --*/
-  if (bnl->cur->localLookup (pin_act_id, NULL)) {
-    if (pin_act_id->validateDeref (bnl->cur)) {
-      act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
-      Assert (pin_req, "What?");
-      delete pin_act_id;
+  if (!me->isExternalInput()) {
+    /* not an external pin, check if it is a driver */
 
-      if (pin_req == me->getPin()) {
-	return me;
+    /*-- check if this is the driver pin --*/
+    if (bnl->cur->localLookup (pin_act_id, NULL)) {
+      if (pin_act_id->validateDeref (bnl->cur)) {
+	act_connection *pin_req = pin_act_id->Canonical (bnl->cur);
+	Assert (pin_req, "What?");
+	delete pin_act_id;
+
+	if (pin_req == me->getPin()) {
+#if 0
+	  printf (">> Returning driver: "); me->Print (stdout);
+	  printf ("\n");
+#endif
+	  return me;
+	}
       }
     }
   }
@@ -252,6 +261,9 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     if (tp) {
       tp->sPrintFullName (buf2, sz);
       if (strcmp (buf,buf2) == 0) {
+#if 0
+	printf (">> Returning: %s\n", buf2);
+#endif
 	FREE (buf);
 	FREE (buf2);
 	return tp;
@@ -277,6 +289,9 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
     if (tp) {
       tp->sPrintFullName (buf2, sz);
       if (strcmp (buf,buf2) == 0) {
+#if 0
+	printf (">> Returning: %s\n", buf2);
+#endif
 	FREE (buf);
 	FREE (buf2);
 	return tp;
