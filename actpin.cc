@@ -157,6 +157,18 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
   int vid;
   char *buf;
   int sz;
+  int is_ext = 0;
+  int i = 0;
+  const char *s;
+
+  s = name.c_str();
+  while (s[i]) {
+    if (s[i] == '$' && s[i+1] == '\0') {
+      is_ext = 1;
+      break;
+    }
+    i++;
+  }
 
   sz = 1 + strlen (name.c_str());
   MALLOC (buf, char, sz);
@@ -165,16 +177,24 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
      FREE (buf);
      return NULL; 
   }
+
   int pos = strlen (buf)-1;
-  while (pos > 0 && buf[pos] != delimiter) {
-     pos--;
+
+  if (is_ext) {
+    /* primary I/O pin with virtual driver: strip the trailing $ */
+    buf[pos] = '\0';
   }
-  if (pos == 0) {
-     printf ("WARNING: `%s' couldn't find the pin separator `%c'\n", buf, delimiter);
-     FREE (buf);
-     return NULL;
+  else {
+    while (pos > 0 && buf[pos] != delimiter) {
+      pos--;
+    }
+    if (pos == 0) {
+      printf ("WARNING: `%s' couldn't find the pin separator `%c'\n", buf, delimiter);
+      FREE (buf);
+      return NULL;
+    }
+    buf[pos] = '.';
   }
-  buf[pos] = '.';
 
   ActId *x = ActId::parseId (buf, divider, busDelimL,
 			     busDelimR, '.');
@@ -197,6 +217,11 @@ void *ActNetlistAdaptor::getPinFromFullName (const std::string& name,
 
   /* driver */
   me = (ActPin *) tv->getSpace();
+
+  if (is_ext) {
+    return me;
+  }
+
   act_boolean_netlist_t *bnl = me->cellBNL (_bp);
   
   /* pin must be here */
