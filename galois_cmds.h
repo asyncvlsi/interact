@@ -124,5 +124,6 @@ void timer_set_topK_id (int id, int k);
 #endif
 
 void init_galois_shmemsys(int mode = 0);
+void galois_set_threads (int nthreads);
 
 #endif /* __GALOIS_CMDS_H__ */

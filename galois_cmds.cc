@@ -1731,19 +1731,36 @@ void timer_incremental_update (void)
 
 #ifdef FOUND_galois
 
+static int _initialized = 0;
+
 void init_galois_shmemsys(int mode) {
   static galois::SharedMemSys *g = NULL;
 
   if (mode == 0) {
     if (!g) {
       g = new galois::SharedMemSys;
+      _initialized = 1;
     }
   }
   else {
     if (g) {
       delete g;
       g = NULL;
+      _initialized = 0;
     }
+  }
+}
+
+void galois_set_threads (int nthreads)
+{
+  if (nthreads < 1) {
+    nthreads = 1;
+  }
+  if (_initialized) {
+    galois::setActiveThreads (nthreads);
+  }
+  else {
+    printf ("WARNING: ignored nthread command, Galois system not initialized!\n");
   }
 }
 

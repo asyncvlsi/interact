@@ -26,6 +26,7 @@
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
+#include "galois_cmds.h"
 #include <common/array.h>
 
 static int process_file_open (int argc, char **argv)
@@ -129,8 +130,25 @@ int process_end_log (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_nthreads (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, NULL);
+#ifdef FOUND_galois
+  galois_set_threads (atoi(argv[1]));
+  return LISP_RET_TRUE;
+#else
+  fprintf (stderr, "%s: no Galois system found!\n", argv[0]);
+  return LISP_RET_ERROR;
+#endif
+}
+
 static struct LispCliCommand conf_cmds[] = {
   { NULL, "Misc support functions", NULL },
+  { "nthreads", "<num> - set number of threads to <num>", process_nthreads },
   { "open", "<name> <r|w|a> - open file, return handle", process_file_open },
   { "close", "<handle> - close file", process_file_close },
   { "log", "<name> - open log file", process_log_file },
