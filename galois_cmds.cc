@@ -350,7 +350,7 @@ void timer_display_path (pp_t *pp, cyclone::TimingPath path, int show_delays)
     }
 
     if (show_delays) {
-      Assert (path_ticks < TS.M, "What?");
+      Assert (path_ticks <= TS.M, "What?");
 
       if (ti) {
 	tm = ti->arr[path_ticks] - adjust - path_time;
