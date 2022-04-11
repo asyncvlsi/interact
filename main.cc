@@ -29,6 +29,7 @@
 #include <act/tech.h>
 #include <act/passes.h>
 #include <common/config.h>
+#include <common/mytime.h>
 #include <lisp.h>
 #include <lispCli.h>
 #include "all_cmds.h"
@@ -167,6 +168,24 @@ int process_error (int argc, char **argv)
   return LISP_RET_ERROR;
 }
 
+int process_curtime (int argc, char **argv)
+{
+  double c_time, r_time;
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+  c_time = cputime_msec();
+  r_time = realtime_msec();
+  LispSetReturnListStart ();
+  LispAppendReturnFloat (c_time);
+  LispAppendReturnFloat (r_time);
+  LispSetReturnListEnd ();
+  return LISP_RET_LIST;
+}
+
+
 int process_getopt (int argc, char **argv)
 {
   if (argc != 2) {
@@ -266,6 +285,7 @@ struct LispCliCommand Cmds[] = {
   { "read", "[prompt] - read input, return string", process_read },
   { "prompt", "<str> - change prompt to the specified string", process_prompt },
   { "error", "<str> - report error and abort execution", process_error },
+  { "curtime", "- return a pair of elapsed (cputime realtime) in ms since the last call", process_curtime },
   { "window-width", "<width> - set output window width in characters (min 40)", process_window }
 };
 
