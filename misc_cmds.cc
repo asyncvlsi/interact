@@ -133,7 +133,7 @@ int process_end_log (int argc, char **argv)
 int process_nthreads (int argc, char **argv)
 {
   if (argc != 2) {
-    fprintf (stderr, "Usage: %s\n", argv[0]);
+    fprintf (stderr, "Usage: %s <num>\n", argv[0]);
     return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, NULL);
