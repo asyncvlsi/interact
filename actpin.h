@@ -46,6 +46,8 @@ private:
   
 public:
   ActNetlistAdaptor (Act *a, Process *p);
+  
+  int tgExists () { return _tg == nullptr ? 0 : 1; }
 
   void setEdgeMap (struct pHashtable *map) { _map = map; }
   

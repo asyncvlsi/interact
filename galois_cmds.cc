@@ -479,6 +479,9 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
 
   /* -- create the pin translator -- */
   *ret_anl = new ActNetlistAdaptor (F.act_design, p);
+  if (!(*ret_anl)->tgExists()) {
+    return NULL;
+  }
 
   /* -- create timer -- */
   engine = new cyclone::AsyncTimingEngine(*ret_anl);

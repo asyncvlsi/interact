@@ -84,9 +84,6 @@ ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
     fatal_error ("Need to have timing analysis!");
   }
   _tg = (TaggedTG *) _tp->getMap (_top);
-  if (!_tg) {
-    fatal_error ("No timing graph!");
-  }
   pass = a->pass_find ("collect_state");
   if (pass) {
     _sp = dynamic_cast<ActStatePass *> (pass);
@@ -100,6 +97,9 @@ ActNetlistAdaptor::ActNetlistAdaptor (Act *a, Process *p)
   }
   if (!pass || !_bp) {
     fatal_error ("No Booleanize pass!");
+  }
+  if (!_tg) {
+    warning ("No timing graph!");
   }
 }
 
