@@ -1220,14 +1220,19 @@ int process_timer_save (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  
+  if (!tg) {
+    fprintf (stderr, "%s: no timing graph\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
   FILE *fp = fopen (argv[1], "w");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s' for writing\n", argv[0],
 	     argv[1]);
     return LISP_RET_ERROR;
   }
-
-  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
 
   tg->printDot (fp, NULL);
 
