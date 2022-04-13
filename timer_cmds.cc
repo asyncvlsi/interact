@@ -376,6 +376,11 @@ int process_timer_info (int argc, char **argv)
 
     timer_get_period (&p, &M);
 
+    if (M == 0) {
+      warning ("No critical cycle found; is the circuit acyclic?");
+      return LISP_RET_ERROR;
+    }
+
     for (li = list_first (l); li; li = list_next (li)) {
       struct timing_info *ti = (struct timing_info *) list_value (li);
       char buf[10240];
@@ -597,6 +602,11 @@ int process_timer_constraint (int argc, char **argv)
   double p;
   
   timer_get_period (&p, &M);
+
+  if (M == 0) {
+    warning ("No critical cycle found; is the circuit acyclic?");
+    return LISP_RET_ERROR;
+  }
 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
   int tmp = tg->numConstraints();

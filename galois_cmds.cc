@@ -1135,8 +1135,13 @@ const char *timer_run (void)
   // timing propagation
   TS.engine->computeTiming4Pins();
 
-  // check root from/to ordering in constraints
-  timer_validate_constraints ();
+  if (TS.M == 0) {
+    warning ("No critical cycle found; is the circuit acyclic?");
+  }
+  else {
+    // check root from/to ordering in constraints
+    timer_validate_constraints ();
+  }
 
   LispSetReturnListStart ();
 
@@ -1151,11 +1156,17 @@ const char *timer_run (void)
 void timing_info::_init ()
 {
   pin = NULL;
-  MALLOC (arr, double, TS.M);
-  MALLOC (req, double, TS.M);
-  for (int i=0; i < TS.M; i++) {
-    arr[i] = 0;
-    req[i] = 0;
+  if (TS.M > 0) {
+    MALLOC (arr, double, TS.M);
+    MALLOC (req, double, TS.M);
+    for (int i=0; i < TS.M; i++) {
+      arr[i] = 0;
+      req[i] = 0;
+    }
+  }
+  else {
+    arr = NULL;
+    req = NULL;
   }
   slew = 0.0;
   dir = -1;
@@ -1168,8 +1179,12 @@ timing_info::timing_info ()
 
 timing_info::~timing_info ()
 {
-  FREE (arr);
-  FREE (req);
+  if (arr) {
+    FREE (arr);
+  }
+  if (req) {
+    FREE (req);
+  }
 }
 
 void timing_info::_populate (ActPin *p,
