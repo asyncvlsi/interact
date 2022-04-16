@@ -228,7 +228,15 @@ static int process_cell_map (int argc, char **argv)
   
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
+    list_t *l;
     cp->run (F.act_toplevel);
+    l = cp->getNewCells ();
+    if (list_length (l) > 0) {
+      printf ("WARNING: new cells generated; please update your cell library.\n(Use ckt:cell-save to see the new cells.) New cell names are:\n");
+      for (listitem_t *li = list_first (l); li; li = list_next (li)) {
+	printf ("   %s\n", ((Process *)list_value (li))->getName());
+      }
+    }
   }
   else {
     printf ("%s: cell pass already executed; skipped\n", argv[0]);
