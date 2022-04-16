@@ -495,6 +495,7 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     for (listitem_t *li = list_first (l); li; li = list_next (li)) {
       char buf[1024], buf2[1024];
       Process *cell = (Process *) list_value (li);
+      if (cell->getNumPorts() == 0) continue;
       tg->getAct()->msnprintfproc (buf, 1024, cell);
       tg->getAct()->unmangle_string (buf, buf2, 1024);
       std::string str(buf);
