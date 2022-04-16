@@ -483,6 +483,32 @@ timer_engine_init (ActPass *tg, Process *p, int nlibs,
     return NULL;
   }
 
+  ActCellPass *cp = (ActCellPass *) tg->getPass ("prs2cells");
+  if (!cp || !cp->completed()) {
+    fprintf (stderr, "Run the cell mapper before timing analysis!\n");
+    /* no cells! */
+    return NULL;
+  }
+  list_t *l = cp->getUsedCells ();
+  int bad_lib = 0;
+  for (int i=0; i < nlibs; i++) {
+    for (listitem_t *li = list_first (l); li; li = list_next (li)) {
+      char buf[1024], buf2[1024];
+      Process *cell = (Process *) list_value (li);
+      tg->getAct()->msnprintfproc (buf, 1024, cell);
+      tg->getAct()->unmangle_string (buf, buf2, 1024);
+      std::string str(buf);
+      if (libs[i]->findCell (str) == NULL) {
+	fprintf (stderr, "ERROR: cell `%s' (%s) not found in .lib file #%d\n",
+		 buf2, buf, i);
+	bad_lib = 1;
+      }
+    }
+  }
+  if (bad_lib) {
+    return NULL;
+  }
+
   /* -- create timer -- */
   engine = new cyclone::AsyncTimingEngine(*ret_anl);
 

@@ -281,6 +281,8 @@ int process_timer_init (int argc, char **argv)
   
   const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
 				       args, A_LEN (args));
+
+  A_FREE (args);
   
   if (msg) {
     fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
