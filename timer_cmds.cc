@@ -1389,7 +1389,7 @@ void timer_phydb_link (phydb::PhyDB *phydb)
   phydb->SetGetViolatedTimingConstraintsCB (get_violated_constraints);
 
   /* get first witness */
-  phydb->SetGetWitnessCB (get_witness_callback);
+  //phydb->SetGetWitnessCB (get_witness_callback);
 
   /* get next witnesses */
   phydb->SetGetSlowWitnessCB (get_slow_witness_callback);
