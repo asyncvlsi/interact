@@ -146,9 +146,26 @@ int process_nthreads (int argc, char **argv)
 #endif
 }
 
+int process_end_galois (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, NULL);
+#ifdef FOUND_galois
+  init_galois_shmemsys (0);
+  return LISP_RET_TRUE;
+#else
+  fprintf (stderr, "%s: no Galois system found!\n", argv[0]);
+  return LISP_RET_ERROR;
+#endif
+}
+
 static struct LispCliCommand conf_cmds[] = {
   { NULL, "Misc support functions", NULL },
-  { "nthreads", "<num> - set number of threads to <num>", process_nthreads },
+  { "nthreads", "<num> - set number of threads used by Galois runtime to <num>", process_nthreads },
+  { "end-galois", "- shutdown Galois runtime", process_end_galois },
   { "open", "<name> <r|w|a> - open file, return handle", process_file_open },
   { "close", "<handle> - close file", process_file_close },
   { "log", "<name> - open log file", process_log_file },
