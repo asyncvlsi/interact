@@ -25,17 +25,58 @@
 #include <common/pp.h>
 #include <lispCli.h>
 #include "all_cmds.h"
-#include "galois_cmds.h"
 #include "ptr_manager.h"
 #include "flow.h"
-#include "actpin.h"
 #include <act/tech.h>
 
-#ifdef FOUND_galois_eda
+#ifdef FOUND_timing_actpin
 
-#include "galois_cmds.h"
+#include <act/timing/galois_api.h>
 
 static double act_delay_units = -1.0;
+
+static ActGaloisTiming *agt = NULL;
+
+static void init (int mode = 0)
+{
+  static int first = 1;
+
+  if (first) {
+    agt = NULL;
+  }
+  first = 0;
+  
+  if (mode == 1) {
+    if (agt) {
+      delete agt;
+      agt = NULL;
+    }
+    first = 1;
+  }
+  init_galois_shmemsys (mode);
+}
+
+/*------------------------------------------------------------------------
+ *
+ *  Read liberty file, return handle
+ *
+ *------------------------------------------------------------------------
+ */
+static void *read_lib_file (const char *file)
+{
+  init();
+  
+  FILE *fp = fopen (file, "r");
+  if (!fp) {
+    return NULL;
+  }
+  fclose (fp);
+
+  galois::eda::liberty::CellLib *lib = new galois::eda::liberty::CellLib;
+  lib->parse(file);
+
+  return (void *)lib;
+}
 
 /*------------------------------------------------------------------------
  *
@@ -160,11 +201,22 @@ static int process_timer_build (int argc, char **argv)
     fprintf (stderr, "%s: need top level of design set\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  const char *msg = timer_create_graph (F.act_design, F.act_toplevel);
-  if (msg) {
-    fprintf (stderr, "%s: %s\n", argv[0], msg);
+
+  ActPass *ap = F.act_design->pass_find ("taggedTG");
+
+  if (!ap) {
+    fprintf (stderr, "%s: no timing graph construction pass found\n", argv[0]);
     return LISP_RET_ERROR;
   }
+
+  F.tp = dynamic_cast<ActDynamicPass *> (ap);
+  Assert (F.tp, "Hmm");
+
+  /* -- create timing graph -- */
+  if (!F.tp->completed()) {
+    F.tp->run (F.act_toplevel);
+  }
+
   save_to_log (argc, argv, "s");
   return LISP_RET_TRUE;
 }
@@ -270,26 +322,47 @@ int process_timer_init (int argc, char **argv)
     fprintf (stderr, "%s: need top level of design set\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  
-  A_DECL (int, args);
-  A_INIT (args);
-  for (int i=1; i < argc; i++) {
-    A_NEW (args, int);
-    A_NEXT (args) = atoi (argv[i]);
-    A_INC (args);
-  }
-  
-  const char *msg = timing_graph_init (F.act_design, F.act_toplevel,
-				       args, A_LEN (args));
 
-  A_FREE (args);
+  /* -- add cell library -- */
+  galois::eda::liberty::CellLib **libs;
+
+  MALLOC (libs, galois::eda::liberty::CellLib *, argc-1);
   
-  if (msg) {
-    fprintf (stderr, "%s: failed to initialize timer.\n -> %s\n", argv[0], msg);
+  for (int i=1; i < argc; i++) {
+    libs[i-1] = (galois::eda::liberty::CellLib *) ptr_get ("liberty", atoi(argv[i]));
+    if (!libs[i-1]) {
+      fprintf (stderr, "%s: timing lib file #%d (`%s') not found\n", argv[0],
+	       i-1, argv[i]);
+      FREE (libs);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  if (agt) {
+    delete agt;
+  }
+  agt = new ActGaloisTiming (F.act_design,
+			     F.act_toplevel,
+			     argc-1, libs);
+
+  if (agt->tgError()) {
+    fprintf (stderr, "%s: failed to initialize timer.\n", argv[0]);
+    if (agt->getError()) {
+      fprintf (stderr, " -> %s\n", agt->getError());
+    }
     return LISP_RET_ERROR;
   }
 
   F.timer = TIMER_INIT;
+
+  ActPass *ap = F.act_design->pass_find ("taggedTG");
+  if (!ap) {
+    fprintf (stderr, "%s: no timing graph construction pass found\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  F.tp = dynamic_cast<ActDynamicPass *> (ap);
+  Assert (F.tp, "Hmm");
+
 
   save_to_log (argc, argv, "i*");
   
@@ -313,9 +386,16 @@ int process_timer_run (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  const char *msg = timer_run ();
-  if (msg) {
-    fprintf (stderr, "%s: error running timer\n -> %s\n", argv[0], msg);
+  if (!agt) {
+    fprintf (stderr, "%s: timer needs to be initialized (inconsistency?)\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!agt->runFullTiming ()) {
+    fprintf (stderr, "%s: error running timer\n", argv[0]);
+    if (agt->getError()) {
+      fprintf (stderr, " -> %s\n", agt->getError());
+    }
     return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "");
@@ -368,15 +448,16 @@ int process_timer_info (int argc, char **argv)
 				 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
   Assert (tg, "What?");
+  Assert (agt, "What?!");
 
-  list_t *l = timer_query (vid);
+  list_t *l = agt->queryAll (vid);
 
   if (l) {
     listitem_t *li;
     double p;
     int M;
 
-    timer_get_period (&p, &M);
+    agt->getPeriod (&p, &M);
 
     if (M == 0) {
       warning ("No critical cycle found; is the circuit acyclic?");
@@ -396,7 +477,8 @@ int process_timer_info (int argc, char **argv)
       }
     }
   }
-  timer_query_free (l);
+
+  agt->queryFree (l);
   
   save_to_log (argc, argv, "s");
 
@@ -415,14 +497,16 @@ int process_timer_cycle (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  cyclone::TimingPath cyc = timer_get_crit ();
+  Assert (agt, "What?");
+
+  cyclone::TimingPath cyc = agt->getCritCycle ();
 
   if (cyc.empty()) {
     printf ("%s: No critical cycle.\n", argv[0]);
   }
   else {
     pp_t *pp = pp_init (stdout, output_window_width);
-    timer_display_path (pp, cyc, 1);
+    agt->displayPath (pp, cyc, 1);
     pp_stop (pp);
   }
   save_to_log (argc, argv, "s*");
@@ -599,11 +683,13 @@ int process_timer_constraint (int argc, char **argv)
   else {
     vid = -1;
   }
+
+  Assert (agt, "What?");
     
   int M;
   double p;
-  
-  timer_get_period (&p, &M);
+
+  agt->getPeriod (&p, &M);
 
   if (M == 0) {
     warning ("No critical cycle found; is the circuit acyclic?");
@@ -619,7 +705,7 @@ int process_timer_constraint (int argc, char **argv)
   }
 
   _set_delay_units ();
-  double timer_units = timer_get_time_units ();
+  double timer_units = agt->getTimeUnits ();
 
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
@@ -652,7 +738,7 @@ int process_timer_constraint (int argc, char **argv)
 	  int myvid = c->root + (c->root_dir == 1 ? 1 : 0);
 	  AGvertexFwdIter fw(tg, myvid);
 	  timing_info *root_ti =
-	    timer_query_transition (c->root, c->root_dir == 1 ? 1 : 0);
+	    agt->queryTransition (c->root, c->root_dir == 1 ? 1 : 0);
 
 	  if (!root_ti) {
 	    continue;
@@ -672,9 +758,9 @@ int process_timer_constraint (int argc, char **argv)
 
 	    if ((e->dst & ~1) == c->from) {
 	      /* isochronic fork leg */
-	      ActPin *dp = timer_get_dst_pin (e);
+	      ActPin *dp = agt->getDstPin (e);
 	      if (dp) {
-		pi = new timing_info (dp, c->root_dir == 1 ? 1 : 0);
+		pi = new timing_info (agt, dp, c->root_dir == 1 ? 1 : 0);
 		if (pi) {
 		  iso_set = 1;
 		  for (int i=0; i < M; i++) {
@@ -685,9 +771,9 @@ int process_timer_constraint (int argc, char **argv)
 	      }
 	    }
 	    else {
-	      ActPin *gate_drive = tgraph_vertex_to_pin (e->dst);
+	      ActPin *gate_drive = agt->tgVertexToPin (e->dst);
 	      if (gate_drive) {
-		pi = new timing_info (gate_drive, (e->dst & 1) ? 1 : 0);
+		pi = new timing_info (agt, gate_drive, (e->dst & 1) ? 1 : 0);
 		if (pi) {
 		  if (!min_set) {
 		    for (int i=0; i < M; i++) {
@@ -812,8 +898,8 @@ int process_timer_constraint (int argc, char **argv)
       }
       
       list_t *l[2];
-      l[0] = timer_query_driver (c->from);
-      l[1] = timer_query_driver (c->to);
+      l[0] = agt->queryDriver (c->from);
+      l[1] = agt->queryDriver (c->to);
       
       if (l[0] && l[1]) {
 	timing_info *ti[2][2];
@@ -881,8 +967,8 @@ int process_timer_constraint (int argc, char **argv)
 	  printf ("\n");
 	}
       }
-      timer_query_free (l[0]);
-      timer_query_free (l[1]);
+      agt->queryFree (l[0]);
+      agt->queryFree (l[1]);
     }
   }
   
@@ -901,9 +987,10 @@ int process_lib_timeunits (int argc, char **argv)
     fprintf (stderr, "%s: timer needs to be initialized.\n", argv[0]);
     return LISP_RET_ERROR;
   }
+  Assert (agt, "What?");
 
   save_to_log (argc, argv, "s");
-  LispSetReturnString (timer_get_time_string());
+  LispSetReturnString (agt->getTimeString());
   
   return LISP_RET_STRING;
 }
@@ -914,7 +1001,7 @@ int process_lib_timeunits (int argc, char **argv)
 
 static int num_constraint_callback (void)
 {
-  return timer_get_num_cyclone_constraints ();
+  return agt->getNumConstraints ();
 }
 
 static int num_perf_tags (void)
@@ -945,18 +1032,18 @@ static void get_violated_perf_witness (int id, std::vector<phydb::ActEdge> &path
 
 static void set_global_topK (int k)
 {
-  timer_set_topK (k);
+  agt->setTopK (k);
 }
 
 static void set_constraint_topK (int id, int k)
 {
-  timer_set_topK_id (id, k);
+  agt->setTopK_id (id, k);
 }
 
 
 static void incremental_update_timer (void)
 {
-  timer_incremental_update ();
+  agt->incrementalUpdate ();
 }
 
 static double get_worst_slack (int constraint_id)
@@ -966,10 +1053,10 @@ static double get_worst_slack (int constraint_id)
   cyclone_constraint *cyc;
 
   _set_delay_units ();
-  timer_units = timer_get_time_units ();
-  tg = timer_get_tagged_tg ();
+  timer_units = agt->getTimeUnits ();
+  tg = agt->getTaggedTG ();
 
-  cyc = timer_get_cyclone_constraint (constraint_id);
+  cyc = agt->_getConstraint (constraint_id);
   if (!cyc) {
     return 0.0;
   }
@@ -984,12 +1071,12 @@ static double get_worst_slack (int constraint_id)
     return 0.0;
   }
 
-  t_from = timer_query_transition (c->from, cyc->from_dir);
-  t_to = timer_query_transition (c->to, cyc->to_dir);
+  t_from = agt->queryTransition (c->from, cyc->from_dir);
+  t_to = agt->queryTransition (c->to, cyc->to_dir);
 
   double p;
   int M;
-  timer_get_period (&p, &M);
+  agt->getPeriod (&p, &M);
 
   int slack_set = 0;
   double slack = 0;
@@ -1019,7 +1106,7 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
   
   for (int i=0; i < ids.size(); i++) {
     slk.push_back (get_worst_slack (ids[i]));
-    timer_add_check (ids[i]);
+    agt->addCheck (ids[i]);
   }
   return slk;
 }
@@ -1029,8 +1116,8 @@ static void get_witness_callback (int constraint,
 				  std::vector<phydb::ActEdge> &patha,
 				  std::vector<phydb::ActEdge> &pathb)
 {
-  TaggedTG *tg = timer_get_tagged_tg ();
-  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  TaggedTG *tg = agt->getTaggedTG ();
+  cyclone_constraint *cyc = agt->_getConstraint (constraint);
   if (!cyc) {
     return;
   }
@@ -1039,18 +1126,23 @@ static void get_witness_callback (int constraint,
     return;
   }
   if (cyc->witness_ready == 1) {
-    timer_compute_witnesses ();
+    agt->computeWitnesses ();
   }
   /* a < b : a should be fast, b should be slow */
-  timer_get_fast_end_paths (constraint, patha);
-  timer_get_slow_end_paths (constraint, pathb);
+  cyclone::TimingPath pa, pb;
+
+  agt->getFastEndPaths (constraint, pa);
+  agt->getSlowEndPaths (constraint, pb);
+
+  agt->convertPath (pa, patha);
+  agt->convertPath (pb, pathb);
 }
 
 static void get_slow_witness_callback (int constraint,
 				       std::vector<phydb::ActEdge> &path)
 {
-  TaggedTG *tg = timer_get_tagged_tg ();
-  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  TaggedTG *tg = agt->getTaggedTG ();
+  cyclone_constraint *cyc = agt->_getConstraint (constraint);
   if (!cyc) {
     return;
   }
@@ -1059,17 +1151,19 @@ static void get_slow_witness_callback (int constraint,
     return;
   }
   if (cyc->witness_ready == 1) {
-    timer_compute_witnesses ();
+    agt->computeWitnesses ();
   }
   /* a < b : a should be fast, b should be slow */
-  timer_get_slow_end_paths (constraint, path);
+  cyclone::TimingPath p;
+  agt->getSlowEndPaths (constraint, p);
+  agt->convertPath (p, path);
 }
 
 static void get_fast_witness_callback (int constraint,
 				       std::vector<phydb::ActEdge> &path)
 {
-  TaggedTG *tg = timer_get_tagged_tg ();
-  cyclone_constraint *cyc = timer_get_cyclone_constraint (constraint);
+  TaggedTG *tg = agt->getTaggedTG ();
+  cyclone_constraint *cyc = agt->_getConstraint (constraint);
   if (!cyc) {
     return;
   }
@@ -1078,10 +1172,12 @@ static void get_fast_witness_callback (int constraint,
     return;
   }
   if (cyc->witness_ready == 1) {
-    timer_compute_witnesses ();
+    agt->computeWitnesses ();
   }
   /* a < b : a should be fast, b should be slow */
-  timer_get_fast_end_paths (constraint, path);
+  cyclone::TimingPath p;
+  agt->getFastEndPaths (constraint, p);
+  agt->convertPath (p, path);
 }
 
 
@@ -1109,8 +1205,8 @@ static int _sortviolationsfn (char *a, char *b)
 
 static void get_violated_constraints (std::vector<int> &violations)
 {
-  int nc = timer_get_num_cyclone_constraints ();
-  TaggedTG *tg = timer_get_tagged_tg ();
+  int nc = agt->getNumConstraints ();
+  TaggedTG *tg = agt->getTaggedTG ();
 
   violations.clear();
 
@@ -1369,7 +1465,6 @@ static struct LispCliCommand timer_cmds[] = {
 
 #if defined(FOUND_phydb)
 
-
 void timer_phydb_link (phydb::PhyDB *phydb)
 {
   /* find out how many constraints there are */
@@ -1412,7 +1507,7 @@ void timer_phydb_link (phydb::PhyDB *phydb)
   /* violated constraints */
   phydb->SetGetPerformanceWitnessCB (get_violated_perf_witness);
 
-  timer_link_engine (phydb);
+  agt->linkPhyDB (phydb);
 }
 
 #endif
@@ -1422,7 +1517,7 @@ void timer_phydb_link (phydb::PhyDB *phydb)
 
 void timer_cmds_init (void)
 {
-#ifdef FOUND_galois_eda
+#ifdef FOUND_timing_actpin
   LispCliAddCommands ("timer", timer_cmds,
             sizeof (timer_cmds)/sizeof (timer_cmds[0]));
 #endif

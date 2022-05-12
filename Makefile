@@ -25,8 +25,8 @@ SUBDIRS=scripts
 
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 	act_simfile.o act_vfile.o ptr_manager.o ckt_cmds.o flow.o \
-	galois_cmds.o timer_cmds.o actpin.o \
-	pandr_cmds.o placement_cmds.o routing_cmds.o
+	timer_cmds.o pandr_cmds.o placement_cmds.o \
+	routing_cmds.o
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
@@ -36,9 +36,9 @@ include config.mk
 
 GALOIS_EDA_PIECES=
 
-ifdef galois_eda_INCLUDE 
+ifdef timing_actpin_INCLUDE 
 
-GALOIS_EDA_PIECES+=-lacttpass -lcyclone -lgalois_eda
+GALOIS_EDA_PIECES+=-lactcyclone -lacttpass -lcyclone -lgalois_eda
 
 endif
 

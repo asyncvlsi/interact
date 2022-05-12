@@ -1,6 +1,6 @@
 boost
 galois
-galois/eda
+timing/actpin
 dali
 phydb
 pwroute

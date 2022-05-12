@@ -45,3 +45,10 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p);
 void save_to_log (int argc, char **argv, const char *fmt);
 
 ActNetlistPass *getNetlistPass (void);
+
+#ifdef FOUND_galois
+
+void init_galois_shmemsys(int mode = 0);
+void galois_set_threads (int nthreads);
+
+#endif

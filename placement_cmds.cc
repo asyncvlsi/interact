@@ -25,10 +25,8 @@
 #include <common/pp.h>
 #include <lispCli.h>
 #include "all_cmds.h"
-#include "galois_cmds.h"
 #include "ptr_manager.h"
 #include "flow.h"
-#include "actpin.h"
 #include <act/tech.h>
 
 #if defined(FOUND_dali) 
