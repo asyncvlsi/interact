@@ -497,9 +497,10 @@ static int process_phydb_add_io (int argc, char **argv)
   std::string use_str(argv[4]);
   phydb::SignalDirection direction = phydb::StrToSignalDirection(direction_str);
   phydb::SignalUse use = phydb::StrToSignalUse(use_str);
+  int net_id = F.phydb->GetNetId(net_name);
 
   phydb::IOPin *io_pin = F.phydb->AddIoPin(iopin_name, direction, use);
-  io_pin->SetNetName(net_name);
+  io_pin->SetNetId(net_id);
 
   save_to_log (argc, argv, "siis");
 
