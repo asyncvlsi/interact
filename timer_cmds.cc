@@ -401,9 +401,60 @@ int process_timer_run (int argc, char **argv)
   save_to_log (argc, argv, "");
 
   F.timer = TIMER_RUN;
+
+  double p = 0.0;
+  int M = 0;
+
+  agt->getPeriod (&p, &M);
+
+  LispSetReturnListStart ();
+  LispAppendReturnFloat (p);
+  LispAppendReturnInt (M);
+  LispSetReturnListEnd ();
   
   return LISP_RET_LIST;
 }
+
+/*------------------------------------------------------------------------
+ *
+ *  Read in SPEF file
+ *
+ *------------------------------------------------------------------------
+ */
+int process_timer_spef (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (F.timer == TIMER_NONE) {
+    fprintf (stderr, "%s: timer needs to be initialized\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!agt) {
+    fprintf (stderr, "%s: timer needs to be initialized (inconsistency?)\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: file `%s' not found\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  fclose (fp);
+
+  if (!agt->readSPEF (argv[1])) {
+    fprintf (stderr, "%s: could not read SPEF `%s'\n", argv[0], argv[1]);
+    if (agt->getError()) {
+      fprintf (stderr, " -> %s\n", agt->getError());
+    }
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
 
 
 static double my_round (double d)
@@ -1426,13 +1477,16 @@ static struct LispCliCommand timer_cmds[] = {
   { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
     process_timer_init },
 
+  { "spef", "<file> - read in SPEF parasitics from <file>",
+    process_timer_spef },
+
 #if defined(FOUND_phydb)
   { "phydb-link",
     "- link timer to phydb for timing-driven physical design flow",
     process_timer_phydb 
   },
 #endif
-  
+
   { "run", "- run timing analysis, and returns list (p M)",
     process_timer_run },
 
