@@ -443,11 +443,17 @@ int process_timer_spef (int argc, char **argv)
   }
   fclose (fp);
 
-  if (!agt->readSPEF (argv[1])) {
-    fprintf (stderr, "%s: could not read SPEF `%s'\n", argv[0], argv[1]);
-    if (agt->getError()) {
-      fprintf (stderr, " -> %s\n", agt->getError());
+  try {
+    if (!agt->readSPEF (argv[1])) {
+      fprintf (stderr, "%s: could not read SPEF `%s'\n", argv[0], argv[1]);
+      if (agt->getError()) {
+	fprintf (stderr, " -> %s\n", agt->getError());
+      }
+      return LISP_RET_ERROR;
     }
+  } catch (galois::eda::parasitics::spef_exc &e) {
+    fprintf (stderr, "%s: resetting SPEF information\n", argv[0]);
+    agt->resetSPEF ();
     return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s");
