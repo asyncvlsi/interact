@@ -99,9 +99,12 @@ static int process_dali_place_design (int argc, char **argv)
     }
   }
 
-  F.dali->StartPlacement(density, number_of_threads);
+  bool is_success = F.dali->StartPlacement(density, number_of_threads);
   save_to_log (argc, argv, "f");
 
+  if (!is_success) {
+    return LISP_RET_ERROR;
+  }
   return LISP_RET_TRUE;
 }
 
