@@ -310,6 +310,17 @@ static int process_set_top (int argc, char **argv)
       }
     }
   }
+  else {
+    if (!F.act_toplevel->isExpanded()) {
+      if (F.act_toplevel->getNumParams() != 0) {
+	fprintf (stderr, "%s: unexpanded process `%s' specified, but it requires template parameters\n", argv[0], argv[1]);
+	return LISP_RET_ERROR;
+      }
+      F.act_toplevel =
+	F.act_toplevel->Expand (ActNamespace::Global(),
+				F.act_toplevel->CurScope(), 0, NULL);
+    }
+  }
   
   if (!F.act_toplevel) {
     fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);

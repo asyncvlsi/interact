@@ -53,6 +53,14 @@
 	 )
        )
      )
+ 
+   (define phydb:update-lef
+      (lambda (outname)
+        (begin (system (string-append "rect2lef.pl " (string-append (string-append outname "_ppnp circuitppnp >> ") (string-append outname ".lef"))))
+               (system (string-append "rect2lef.pl " (string-append (string-append outname "_wells circuitwell >>") (string-append outname ".lef"))))
+        )
+      )
+   )
 
    (define pydb-loaded #t)
    )
