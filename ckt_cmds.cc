@@ -329,7 +329,7 @@ static int process_add_buffer (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  Process *buftype = F.act_design->findProcess (argv[4]);
+  Process *buftype = F.act_design->findProcess (argv[4], true);
   if (!buftype) {
     fprintf (stderr, "%s: could not find buffer type `%s'\n", argv[0], argv[4]);
     return LISP_RET_ERROR;

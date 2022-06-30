@@ -294,7 +294,7 @@ int main (int argc, char **argv)
   FILE *fp;
 
   /* initialize ACT library */
-  Act::Init (&argc, &argv);
+  Act::Init (&argc, &argv, "layout:layout.conf");
 
   output_window_width = 72;
 
