@@ -312,7 +312,7 @@ static int process_set_top (int argc, char **argv)
   }
   else {
     if (!F.act_toplevel->isExpanded()) {
-      if (F.act_toplevel->getNumParams() != 0) {
+      if (F.act_toplevel->getRemainingParams() != 0) {
 	fprintf (stderr, "%s: unexpanded process `%s' specified, but it requires template parameters\n", argv[0], argv[1]);
 	return LISP_RET_ERROR;
       }
