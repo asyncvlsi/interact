@@ -56,8 +56,8 @@
  
    (define phydb:update-lef
       (lambda (outname)
-        (begin (system (string-append "rect2lef.pl " (string-append (string-append outname "_ppnp circuitppnp >> ") (string-append outname ".lef"))))
-               (system (string-append "rect2lef.pl " (string-append (string-append outname "_wells circuitwell >>") (string-append outname ".lef"))))
+        (begin (system (string-append (string-append "rect2lef.pl " (string-append (string-append outname "_ppnp circuitppnp >> ") (string-append outname ".lef "))) (number->string (conf:get_int "lefdef.micron_conversion"))))
+               (system (string-append (string-append "rect2lef.pl " (string-append (string-append outname "_wells circuitwell >>") (string-append outname ".lef "))) (number->string (conf:get_int "lefdef.micron_conversion"))))
         )
       )
    )
