@@ -223,6 +223,8 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p)
     BOOL = dynamic_cast<ActBooleanizePass *> (ap);
   }
   Assert (BOOL, "what?");
-  BOOL->run (p);
+  if (!BOOL->completed()) {
+    BOOL->run (p);
+  }
   emit_verilog (fp, a, p);
 }
