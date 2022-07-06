@@ -163,7 +163,7 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	  emit_verilog_moduletype (fp, a, instproc);
 	  fprintf (fp, " \\%s", vx->getName());
 	  if (as) {
-	    as->Print (stdout);
+	    as->Print (fp);
 	  }
 	  fprintf (fp, "  (");
 
