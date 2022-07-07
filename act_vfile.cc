@@ -27,6 +27,7 @@
 #include "all_cmds.h"
 
 static ActBooleanizePass *BOOL = NULL;
+static const char *global_signal_prefix = NULL;
 
 static void emit_verilog_id (FILE *fp, act_connection *c)
 {
@@ -36,7 +37,7 @@ static void emit_verilog_id (FILE *fp, act_connection *c)
 
   if (c->isglobal()) {
     /* XXX: this only works in simulation land */
-    fprintf (fp, "top.");
+    fprintf (fp, "%s", global_signal_prefix);
   }
 
   if (id->arrayInfo() || id->Rest()) {
@@ -74,6 +75,24 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 
   if (n->visited) return;
   n->visited = 1;
+
+  if (p->isBlackBox() || p->isLowLevelBlackBox()) {
+    if (n->macro && n->macro->isValid()) {
+      const char *nm = n->macro->getVerilogFile();
+      if (nm) {
+	FILE *xfp = fopen (nm, "r");
+	if (xfp) {
+	  int sz;
+	  char buf[1024];
+	  while ((sz = fread (buf, 1, 1024, xfp)) > 0) {
+	    fwrite (buf, 1, sz, fp);
+	  }
+	  fclose (xfp);
+	}
+	return;
+      }
+    }
+  }
 
   ActUniqProcInstiter inst(p->CurScope());
   for (inst = inst.begin(); inst != inst.end(); inst++) {
@@ -212,6 +231,26 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
   return;
 }
 
+static void clear_visited_flag (Process *p)
+{
+  Assert (p->isExpanded(), "What?");
+
+  act_boolean_netlist_t *n = BOOL->getBNL (p);
+  if (!n) {
+    Assert (0, "emit_verilog internal inconsistency");
+  }
+
+  if (!n->visited) return;
+  n->visited = 0;
+
+  ActUniqProcInstiter inst(p->CurScope());
+  for (inst = inst.begin(); inst != inst.end(); inst++) {
+    ValueIdx *vx = *inst;
+    clear_visited_flag (dynamic_cast<Process *>(vx->t->BaseType()));
+  }
+  return;
+}
+
 
 void act_emit_verilog (Act *a, FILE *fp, Process *p)
 {
@@ -222,9 +261,12 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p)
   else {
     BOOL = dynamic_cast<ActBooleanizePass *> (ap);
   }
+  config_set_default_string ("act.global_signal_prefix", "top.");
   Assert (BOOL, "what?");
   if (!BOOL->completed()) {
     BOOL->run (p);
   }
+  global_signal_prefix = config_get_string ("act.global_signal_prefix");
   emit_verilog (fp, a, p);
+  clear_visited_flag (p);
 }
