@@ -543,6 +543,9 @@ static void aflat_print_prs (FILE *fp, Scope *s, act_prs_lang_t *p)
       /* this is fine */
       aflat_print_prs (fp, s, p->u.l.p);
       break;
+    case ACT_PRS_CAP:
+      /* nothing to do */
+      break;
     default:
       fatal_error ("loops should have been expanded by now!");
       break;
