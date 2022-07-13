@@ -32,7 +32,8 @@
 #if defined(FOUND_dali) 
 static int process_dali_init (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "<verbosity level>", STATE_EXPANDED)) {
+  if (argc < 2) {
+    fprintf (stderr, "Usage: init <verbosity level> [log_file_name]\n");
     return LISP_RET_ERROR;
   }
 
@@ -46,7 +47,11 @@ static int process_dali_init (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  F.dali = new dali::Dali(F.phydb, argv[1]);
+  if (argc == 2) {
+    F.dali = new dali::Dali(F.phydb, argv[1], "");
+  } else {
+    F.dali = new dali::Dali(F.phydb, argv[1], argv[2]);
+  }
   save_to_log (argc, argv, "i");
 
   return LISP_RET_TRUE;
