@@ -31,6 +31,8 @@ OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
 
+EXTRALIBDEPEND=
+
 include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
@@ -38,12 +40,17 @@ GALOIS_EDA_PIECES=
 
 ifdef timing_actpin_INCLUDE 
 
-GALOIS_EDA_PIECES+=-lactcyclone -lacttpass -lcyclone -lgalois_eda
+GALOIS_EDA_PIECES+=-lactcyclone -lcyclone -lacttpass -lgalois_eda
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libactcyclone.a \
+	$(ACT_HOME)/lib/libacttpass.so \
+	$(ACT_HOME)/lib/libcyclone.a \
+	$(ACT_HOME)/lib/libgalois_eda.a
 
 endif
 
 ifdef galois_INCLUDE
 GALOIS_EDA_PIECES+=-lgalois_shmem
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libgalois_shmem.a 
 
 ifeq ($(BASEOS),linux)
 GALOIS_EDA_PIECES+=-lnuma
@@ -66,18 +73,22 @@ PANDR_PIECES=$(DALI_PIECES)
 
 ifdef phydb_INCLUDE
 PANDR_PIECES+=-lphydb -llef -ldef
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libphydb.a 
 endif
 
 ifdef pwroute_INCLUDE
 PANDR_PIECES+=-lpwroute 
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libpwroute.a 
 endif
 
 ifdef sproute_INCLUDE
 PANDR_PIECES+=-lsproute 
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libsproute.a 
 endif
 
 ifdef bipart_INCLUDE
 PANDR_PIECES+=-lbipart
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libbipart.a 
 endif
 
 
@@ -97,7 +108,7 @@ ifeq ($(BASEOS),darwin)
 OMPFLAG=-lomp
 endif
 
-$(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND)
+$(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND) $(EXTRALIBDEPEND)
 	$(CXX) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) $(OMPFLAG) -ldl -ledit
 
 -include Makefile.deps
