@@ -986,42 +986,66 @@ int process_timer_constraint (int argc, char **argv)
 	  }
 	}
 	printf ("\n");
-
-	for (int i=0; i < M; i++) {
-	  printf ("\titer %2d: ", i);
-	  for (int ii=0; ii < nfrom; ii++) {
-	    for (int jj=0; jj < nto; jj++) {
-
-	      double slack = get_slack (c,
-					ti[0][from_dirs[ii]],
-					ti[1][to_dirs[jj]],
-					i,
-					margin,
-					p,
-					M);
-
-	      double amt = slack*timer_units;
-	      char unit;
-
-	      if (fabs(amt) < 1e-9) {
-		amt *= 1e12;
-		unit = 'p';
-	      }
-	      else if (fabs(amt) < 1e-6) {
-		unit = 'n';
-		amt *= 1e9;
-	      }
-	      else {
-		unit = 'u';
-		amt *= 1e6;
-	      }
-	      printf ("[%g %cs]%c%c%s", my_round_2 (amt), unit,
-		      from_dirs[ii] ? '+' : '-',
-		      to_dirs[jj] ? '+' : '-',
-		      (slack < 0) ? "*ER" : "");
-	    }
-	  }
+	if (c->error) {
+	  timing_info *root_ti =
+	    agt->queryTransition (c->root, c->root_dir == 1 ? 1 : 0);
+	  Assert (root_ti, "What?!");
+	  root_ti->pin->sPrintFullName (buf1, 1024);
+	  printf (" >> root: %s%c\n   ", buf1, c->root_dir ? '+' : '-');
+	  root_ti->Print (stdout);
 	  printf ("\n");
+	}
+
+	if (c->error) {
+	  for (int ii=0; ii < nfrom; ii++) {
+	    ti[0][from_dirs[ii]]->pin->sPrintFullName (buf1, 1024);
+	    printf (" >> from: %s%c\n   ", buf1, from_dirs[ii] ? '+' : '-');
+	    ti[0][from_dirs[ii]]->Print (stdout);
+	    printf ("\n");
+	  }
+	  for (int ii=0; ii < nto; ii++) {
+	    ti[1][to_dirs[ii]]->pin->sPrintFullName (buf1, 1024);
+	    printf (" >>   to: %s%c\n   ", buf1, to_dirs[ii] ? '+' : '-');
+	    ti[1][to_dirs[ii]]->Print (stdout);
+	    printf ("\n");
+	  }
+	}
+	else {
+	  for (int i=0; i < M; i++) {
+	    printf ("\titer %2d: ", i);
+	    for (int ii=0; ii < nfrom; ii++) {
+	      for (int jj=0; jj < nto; jj++) {
+		double slack = get_slack (c,
+					  ti[0][from_dirs[ii]],
+					  ti[1][to_dirs[jj]],
+					  i,
+					  margin,
+					  p,
+					  M);
+
+		double amt = slack*timer_units;
+		char unit;
+
+		if (fabs(amt) < 1e-9) {
+		  amt *= 1e12;
+		  unit = 'p';
+		}
+		else if (fabs(amt) < 1e-6) {
+		  unit = 'n';
+		  amt *= 1e9;
+		}
+		else {
+		  unit = 'u';
+		  amt *= 1e6;
+		}
+		printf ("[%g %cs]%c%c%s", my_round_2 (amt), unit,
+			from_dirs[ii] ? '+' : '-',
+			to_dirs[jj] ? '+' : '-',
+			(slack < 0) ? "*ER " : " ");
+	      }
+	    }
+	    printf ("\n");
+	  }
 	}
       }
       agt->queryFree (l[0]);
@@ -1476,7 +1500,9 @@ static struct LispCliCommand timer_cmds[] = {
   { "time-units", "- returns string for time units", process_lib_timeunits },
   
   { "build-graph", "- build timing graph", process_timer_build },
+
   { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+
   { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
   
 

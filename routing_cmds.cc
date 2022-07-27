@@ -128,7 +128,7 @@ static int process_pwroute_close (int argc, char **argv) {
 static struct LispCliCommand pwroute_cmds[] = {
   { NULL, "Power Routing for Gridded Cells", NULL },
   
-  { "init", "-initialize pwroute engine <verbose> ", process_pwroute_init },
+  { "init", "<verbose> -initialize pwroute engine <verbose> ", process_pwroute_init },
   { "set_parameters", "<reinforcement_width, reinforcement_step, cluster_mesh_width> - run pw route with mesh configuration. Default is <8, 16, 2>", 
     process_pwroute_set_parameters},
   { "set_reinforcement", "<bool>, enable/disable reinforcement connection (default: 1) ", process_pwroute_set_reinforcement },
