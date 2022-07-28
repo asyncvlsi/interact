@@ -1441,11 +1441,34 @@ int process_timer_get_witness (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+
+
   std::vector<phydb::ActEdge> patha, pathb;
 
   get_witness_callback (atoi (argv[1]), patha, pathb);
 
-  printf ("### Constraint-id: %d ###\n", atoi (argv[1]));
+  cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
+  TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
+
+  printf ("### Constraint-id: %d [elaborated-id: %d] ###\n", cyc->tg_id + 1,
+	  atoi (argv[1]));
+  
+  char buf[1024];
+  ActPin *xp;
+
+  xp = agt->tgVertexToPin (tgc->root);
+  xp->sPrintFullName (buf, 1024);
+  printf (" %s%c : ", buf, cyc->root_dir ? '+' : '-');
+  xp = agt->tgVertexToPin (tgc->from);
+  xp->sPrintFullName (buf, 1024);
+  printf ("%s%c%s < ", buf, cyc->from_dir ? '+' : '-',
+	  tgc->from_tick ? "*" : "");
+  xp = agt->tgVertexToPin (tgc->to);
+  xp->sPrintFullName (buf, 1024);
+  printf ("%s%c%s ", buf, cyc->to_dir ? '+' : '-', tgc->to_tick ? "*" : "");
+  printf ("\n");
+
   printf ("Fast path that is too slow:\n");
   for (int i=0; i < patha.size(); i++) {
     print_act_edge (patha[i]);
