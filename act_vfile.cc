@@ -156,10 +156,10 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	  if (n->ports[k].omit) continue;
 	  if (n->ports[k].c == v->id) {
 	    if (n->ports[k].input) {
-	      printf ("   input ");
+	      fprintf (fp, "   input ");
 	    }
 	    else {
-	      printf ("   output ");
+	      fprintf (fp, "   output ");
 	    }
 	    break;
 	  }
@@ -207,17 +207,17 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	if (!as || (!as->isend() && vx->isPrimary (as->index()))) {
 	  emit_verilog_moduletype (fp, a, instproc);
           if (name_mangle) {
-	    ActNamespace::Act()->mfprintf (stdout, " %s", vx->getName());
+	    ActNamespace::Act()->mfprintf (fp, " %s", vx->getName());
 	    if (as) {
 	      char *s = as->string();
-	      ActNamespace::Act()->mfprintf (stdout, "%s", s);
+	      ActNamespace::Act()->mfprintf (fp, "%s", s);
 	      FREE (s);
 	    }
           }
           else {
-	    printf (" \\%s", vx->getName());
+	    fprintf (fp, " \\%s", vx->getName());
 	    if (as) {
-	      as->Print (stdout);
+	      as->Print (fp);
 	    }
           }
 	  fprintf (fp, "  (");
