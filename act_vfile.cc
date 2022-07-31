@@ -27,6 +27,8 @@
 #include "all_cmds.h"
 
 static ActBooleanizePass *BOOL = NULL;
+static int name_mangle = 0;
+static int fuse_signal_directives = 0;
 static const char *global_signal_prefix = NULL;
 
 static void emit_verilog_id (FILE *fp, act_connection *c)
@@ -40,12 +42,19 @@ static void emit_verilog_id (FILE *fp, act_connection *c)
     fprintf (fp, "%s", global_signal_prefix);
   }
 
-  if (id->arrayInfo() || id->Rest()) {
-    fprintf (fp, "\\");
+  if (name_mangle) {
+    char buf[10240];
+    id->sPrint (buf, 10240);
+    ActNamespace::Act()->mfprintf (fp, "%s", buf);
   }
-  id->Print (fp);
-  if (id->arrayInfo() || id->Rest()) {
-    fprintf (fp, " ");
+  else {
+    if (id->arrayInfo() || id->Rest()) {
+      fprintf (fp, "\\");
+    }
+    id->Print (fp);
+    if (id->arrayInfo() || id->Rest()) {
+      fprintf (fp, " ");
+    }
   }
   delete id;
 }
@@ -119,16 +128,18 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
   }
   fprintf (fp, ");\n");
 
-  for (int i=0; i < A_LEN (n->ports); i++) {
-    if (n->ports[i].omit) continue;
-    if (n->ports[i].input) {
-      fprintf (fp, "   input ");
+  if (!fuse_signal_directives) {
+    for (int i=0; i < A_LEN (n->ports); i++) {
+      if (n->ports[i].omit) continue;
+      if (n->ports[i].input) {
+	fprintf (fp, "   input ");
+      }
+      else {
+	fprintf (fp, "   output ");
+      }
+      emit_verilog_id (fp, n->ports[i].c);
+      fprintf (fp, ";\n");
     }
-    else {
-      fprintf (fp, "   output ");
-    }
-    emit_verilog_id (fp, n->ports[i].c);
-    fprintf (fp, ";\n");
   }
 
   fprintf (fp, "\n// -- signals ---\n");
@@ -139,6 +150,21 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
       act_booleanized_var_t *v = (act_booleanized_var_t *)b->v;
       if (!v->used) continue;
       if (v->id->isglobal()) continue;
+
+      if (fuse_signal_directives) {
+	for (int k=0; k < A_LEN (n->ports); k++) {
+	  if (n->ports[k].omit) continue;
+	  if (n->ports[k].c == v->id) {
+	    if (n->ports[k].input) {
+	      printf ("   input ");
+	    }
+	    else {
+	      printf ("   output ");
+	    }
+	    break;
+	  }
+	}
+      }
 
       if (v->input && !v->output) {
 	fprintf (fp, "   wire ");
@@ -180,10 +206,20 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
       do {
 	if (!as || (!as->isend() && vx->isPrimary (as->index()))) {
 	  emit_verilog_moduletype (fp, a, instproc);
-	  fprintf (fp, " \\%s", vx->getName());
-	  if (as) {
-	    as->Print (fp);
-	  }
+          if (name_mangle) {
+	    ActNamespace::Act()->mfprintf (stdout, " %s", vx->getName());
+	    if (as) {
+	      char *s = as->string();
+	      ActNamespace::Act()->mfprintf (stdout, "%s", s);
+	      FREE (s);
+	    }
+          }
+          else {
+	    printf (" \\%s", vx->getName());
+	    if (as) {
+	      as->Print (stdout);
+	    }
+          }
 	  fprintf (fp, "  (");
 
 	  int first = 1;
@@ -262,6 +298,11 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p)
     BOOL = dynamic_cast<ActBooleanizePass *> (ap);
   }
   config_set_default_string ("act.global_signal_prefix", "top.");
+  config_set_default_int ("act2v.name_mangle", 0);
+  config_set_default_int ("act2v.fuse_signal_directives", 0);
+
+  name_mangle = config_get_int ("act2v.name_mangle");
+  fuse_signal_directives = config_get_int ("act2v.fuse_signal_directives");
   Assert (BOOL, "what?");
   if (!BOOL->completed()) {
     BOOL->run (p);
