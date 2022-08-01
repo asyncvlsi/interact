@@ -1363,6 +1363,224 @@ int process_timer_get_violations (int argc, char **argv)
 }
 
 
+static int _path_search (TaggedTG *tg,
+			 AGvertex *root,
+			 AGvertex *v1, int tick1,
+			 AGvertex *v2, int tick2)
+{
+  struct iHashtable *H[2];
+  ihash_bucket_t *b;
+  ihash_iter_t it;
+  int change, cur;
+
+  H[0] = ihash_new (8);
+  H[1] = ihash_new (8);
+
+  b = ihash_add (H[0], root->vid);
+  b->i = 0;  // no ticks
+
+  cur = 1;
+  int warn = 0;
+
+#if 0  
+  int round = 0;
+#endif
+  
+  do {
+    int found = 0;
+
+#if 0    
+    printf ("\n~~~~~~ Round %d ~~~~~~\n", round++);
+#endif
+    
+    ihash_clear (H[cur]);
+    cur = 1 - cur;
+    change = 0;
+
+    ihash_iter_init (H[cur], &it);
+    while ((b = ihash_iter_next (H[cur], &it))) {
+      int vid = (int) b->key;
+
+#if 0
+      const char *tmp = tg->getVertex (vid)->getInfo()->info();
+      printf ("> %s [ticks=%d]\n", tmp, b->i);
+#endif      
+
+      if (vid == v1->vid && (b->i == tick1)) {
+#if 0	
+	printf ("  >> found from\n");
+#endif	
+	found++;
+      }
+      else if (vid == v1->vid) {
+	warning (">> found path from root to lhs, tick mismatch");
+      }
+
+      if (vid == v2->vid && (b->i == tick2)) {
+#if 0	
+	printf ("  >> found to\n");
+#endif	
+	found++;
+      }
+      else if (vid == v2->vid) {
+	warning (">> found path from root to rhs, tick mismatch");
+      }
+
+      if (found == 2) {
+	ihash_free (H[0]);
+	ihash_free (H[1]);
+	return 0;
+      }
+
+      if (!ihash_lookup (H[1-cur], b->key)) {
+	ihash_add (H[1-cur], b->key)->i = b->i;
+      }
+      
+      AGvertexFwdIter fw(tg, vid);
+      for (fw = fw.begin(); fw != fw.end(); fw++) {
+	AGedge *e = (*fw);
+	TimingEdgeInfo *ei = (TimingEdgeInfo *) e->getInfo();
+	ihash_bucket_t *newb;
+	if (b->i && ei->isTicked()) {
+	  // double tick
+#if 0	  
+	  printf ("  >> pruned %s\n",
+		  tg->getVertex (e->dst)->getInfo()->info());
+#endif	  
+	  continue;
+	}
+
+#if 0	
+	printf ("  >> explore %s [arctick=%d]\n", tg->getVertex (e->dst)->getInfo()->info(), ei->isTicked());
+#endif
+	
+	// did we add this already?
+	newb = ihash_lookup (H[1-cur], e->dst);
+	if (newb) {
+	  if (newb->i != (b->i + ei->isTicked())) {
+	    warn++;
+	    newb->i = 1;
+	  }
+	}
+	else {
+	  newb = ihash_add (H[1-cur], e->dst);
+	  newb->i = b->i + ei->isTicked();
+	}
+
+	// did it exist alraedy?
+	newb = ihash_lookup (H[cur], e->dst);
+	if (!newb) {
+	  change = 1;
+	}
+      }
+    }
+  } while (change);
+
+  warn = 0;
+  
+  b = ihash_lookup (H[cur], v1->vid);
+  if (!b) {
+    warn |= 1;
+  }
+  else if (b->i != tick1) {
+    warn |= 2;
+  }
+  b = ihash_lookup (H[cur], v2->vid);
+  if (!b) {
+    warn |= (1 << 2);
+  }
+  else if (b->i != tick2) {
+    warn |= (2 << 2);
+  }
+    
+  ihash_free (H[0]);
+  ihash_free (H[1]);
+
+  return warn;
+}
+
+
+int process_timer_check_constraint (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "cid", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+
+
+  std::vector<phydb::ActEdge> patha, pathb;
+
+  get_witness_callback (atoi (argv[1]), patha, pathb);
+
+  cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
+  TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
+
+  printf ("### Constraint-id: %d [elaborated-id: %d] ###\n", cyc->tg_id + 1,
+	  atoi (argv[1]));
+  
+  char buf[1024];
+  ActPin *xp;
+
+  AGvertex *rootv, *fromv, *tov;
+
+  xp = agt->tgVertexToPin (tgc->root);
+  xp->sPrintFullName (buf, 1024);
+  printf (" %s%c : ", buf, cyc->root_dir ? '+' : '-');
+
+  rootv = xp->getNetVertex();
+  Assert ((rootv->vid & 1) == 0, "What?");
+  if (cyc->root_dir) {
+    /* add one to vertex */
+    rootv = tg->getVertex (rootv->vid + 1);
+  }
+  
+  xp = agt->tgVertexToPin (tgc->from);
+  xp->sPrintFullName (buf, 1024);
+  printf ("%s%c%s < ", buf, cyc->from_dir ? '+' : '-',
+	  tgc->from_tick ? "*" : "");
+
+  fromv = xp->getNetVertex();
+  Assert ((fromv->vid & 1) == 0, "What?");
+  if (cyc->from_dir) {
+    /* add one to vertex */
+    fromv = tg->getVertex (fromv->vid + 1);
+  }
+  
+  xp = agt->tgVertexToPin (tgc->to);
+  xp->sPrintFullName (buf, 1024);
+  printf ("%s%c%s ", buf, cyc->to_dir ? '+' : '-', tgc->to_tick ? "*" : "");
+  printf ("\n");
+
+  tov = xp->getNetVertex();
+  Assert ((tov->vid & 1) == 0, "What?");
+  if (cyc->to_dir) {
+    /* add one to vertex */
+    tov = tg->getVertex (tov->vid + 1);
+  }
+
+  int res = _path_search (tg, rootv, fromv, tgc->from_tick, tov, tgc->to_tick);
+  if (res) {
+    if (res & 0x3) {
+      printf (">> could not find path from root to lhs%s!\n",
+	      (res & 0x3) == 2 ? " (wrong ticks)" : "");
+    }
+    if (res >> 2) {
+      printf (">> could not find path from root to rhs%s!\n",
+	      ((res>> 2) & 0x3) == 2 ? " (wrong ticks)" : "");
+    }
+    return LISP_RET_FALSE;
+  }
+  return LISP_RET_TRUE;
+}
+
+
+
 int process_timer_get_slack (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "cid", STATE_EXPANDED)) {
@@ -1528,8 +1746,7 @@ static struct LispCliCommand timer_cmds[] = {
 
   { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
   
-
-  { "init", "<l1> <l2> ... - initialize timer with specified liberty handles",
+  { "init", "<l1> <l2> ... - initialize analysis engine with specified liberty handles",
     process_timer_init },
 
   { "spef", "<file> - read in SPEF parasitics from <file>",
@@ -1557,6 +1774,9 @@ static struct LispCliCommand timer_cmds[] = {
 
   { "get-violations", "- returns a list of constraint ids (cids) that have violations",
     process_timer_get_violations },
+
+  { "check-constraint", "cid - does a path analysis to check paths for timing fork #<cid> exist",
+    process_timer_check_constraint },
 
   { "get-slack", "cid - returns the slack of the violating constraint id #cid",
     process_timer_get_slack },
