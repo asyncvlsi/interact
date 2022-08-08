@@ -1365,8 +1365,9 @@ int process_timer_get_violations (int argc, char **argv)
 
 static int _path_search (TaggedTG *tg,
 			 AGvertex *root,
-			 AGvertex *v1, int tick1,
-			 AGvertex *v2, int tick2)
+			 AGvertex *v1, int *tick1,
+			 AGvertex *v2, int *tick2,
+			 int tick_limit)
 {
   struct iHashtable *H[2];
   ihash_bucket_t *b;
@@ -1377,7 +1378,7 @@ static int _path_search (TaggedTG *tg,
   H[1] = ihash_new (8);
 
   b = ihash_add (H[0], root->vid);
-  b->i = 0;  // no ticks
+  b->i = 0; // no ticks
 
   cur = 1;
   int warn = 0;
@@ -1404,26 +1405,26 @@ static int _path_search (TaggedTG *tg,
 #if 0
       const char *tmp = tg->getVertex (vid)->getInfo()->info();
       printf ("> %s [ticks=%d]\n", tmp, b->i);
-#endif      
+#endif
 
-      if (vid == v1->vid && (b->i == tick1)) {
-#if 0	
+      if (vid == v1->vid && (b->i == *tick1)) {
+#if 0
 	printf ("  >> found from\n");
-#endif	
+#endif
 	found++;
       }
       else if (vid == v1->vid) {
-	warning (">> found path from root to lhs, tick mismatch");
+	//warning (">> found path from root to lhs, tick mismatch");
       }
 
-      if (vid == v2->vid && (b->i == tick2)) {
-#if 0	
+      if (vid == v2->vid && (b->i == *tick2)) {
+#if 0
 	printf ("  >> found to\n");
-#endif	
+#endif
 	found++;
       }
       else if (vid == v2->vid) {
-	warning (">> found path from root to rhs, tick mismatch");
+	//warning (">> found path from root to rhs, tick mismatch");
       }
 
       if (found == 2) {
@@ -1441,16 +1442,16 @@ static int _path_search (TaggedTG *tg,
 	AGedge *e = (*fw);
 	TimingEdgeInfo *ei = (TimingEdgeInfo *) e->getInfo();
 	ihash_bucket_t *newb;
-	if (b->i && ei->isTicked()) {
+	if (ei->isTicked() && (b->i + 1 > tick_limit)) {
 	  // double tick
-#if 0	  
+#if 0
 	  printf ("  >> pruned %s\n",
 		  tg->getVertex (e->dst)->getInfo()->info());
-#endif	  
+#endif
 	  continue;
 	}
 
-#if 0	
+#if 0
 	printf ("  >> explore %s [arctick=%d]\n", tg->getVertex (e->dst)->getInfo()->info(), ei->isTicked());
 #endif
 	
@@ -1459,7 +1460,7 @@ static int _path_search (TaggedTG *tg,
 	if (newb) {
 	  if (newb->i != (b->i + ei->isTicked())) {
 	    warn++;
-	    newb->i = 1;
+	    newb->i = MAX(newb->i, b->i + ei->isTicked());
 	  }
 	}
 	else {
@@ -1482,14 +1483,16 @@ static int _path_search (TaggedTG *tg,
   if (!b) {
     warn |= 1;
   }
-  else if (b->i != tick1) {
+  else if (b->i != *tick1) {
+    *tick1 = b->i;
     warn |= 2;
   }
   b = ihash_lookup (H[cur], v2->vid);
   if (!b) {
     warn |= (1 << 2);
   }
-  else if (b->i != tick2) {
+  else if (b->i != *tick2) {
+    *tick2 = b->i;
     warn |= (2 << 2);
   }
     
@@ -1502,7 +1505,7 @@ static int _path_search (TaggedTG *tg,
 
 int process_timer_check_constraint (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 2, "cid", STATE_EXPANDED)) {
+  if (!std_argcheck (argc == 2 ? 3 : argc, argv, 3, "cid [ticks]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -1513,10 +1516,11 @@ int process_timer_check_constraint (int argc, char **argv)
 
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
 
+  int tick_lim = 1;
 
-  std::vector<phydb::ActEdge> patha, pathb;
-
-  get_witness_callback (atoi (argv[1]), patha, pathb);
+  if (argc == 3) {
+    tick_lim = atoi (argv[2]);
+  }
 
   cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
   TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
@@ -1531,7 +1535,7 @@ int process_timer_check_constraint (int argc, char **argv)
 
   xp = agt->tgVertexToPin (tgc->root);
   xp->sPrintFullName (buf, 1024);
-  printf (" %s%c : ", buf, cyc->root_dir ? '+' : '-');
+  printf ("  %s%c : ", buf, cyc->root_dir ? '+' : '-');
 
   rootv = xp->getNetVertex();
   Assert ((rootv->vid & 1) == 0, "What?");
@@ -1564,15 +1568,23 @@ int process_timer_check_constraint (int argc, char **argv)
     tov = tg->getVertex (tov->vid + 1);
   }
 
-  int res = _path_search (tg, rootv, fromv, tgc->from_tick, tov, tgc->to_tick);
+  int tick1 = tgc->from_tick;
+  int tick2 = tgc->to_tick;
+  int res = _path_search (tg, rootv, fromv, &tick1, tov, &tick2, tick_lim);
   if (res) {
     if (res & 0x3) {
-      printf (">> could not find path from root to lhs%s!\n",
-	      (res & 0x3) == 2 ? " (wrong ticks)" : "");
+      printf (">> could not find path from root to lhs");
+      if ((res & 0x3) == 2) {
+	printf (" (wrong ticks, got %d)", tick1);
+      }
+      printf ("\n");
     }
     if (res >> 2) {
-      printf (">> could not find path from root to rhs%s!\n",
-	      ((res>> 2) & 0x3) == 2 ? " (wrong ticks)" : "");
+      printf (">> could not find path from root to rhs");
+      if (((res>> 2) & 0x3) == 2) {
+	printf (" (wrong ticks, got %d)", tick2);
+      }
+      printf ("\n");
     }
     return LISP_RET_FALSE;
   }
