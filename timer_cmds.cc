@@ -513,6 +513,7 @@ int process_timer_info (int argc, char **argv)
     listitem_t *li;
     double p;
     int M;
+    int count = 0;
 
     agt->getPeriod (&p, &M);
 
@@ -526,12 +527,13 @@ int process_timer_info (int argc, char **argv)
       char buf[10240];
 
       ti->pin->sPrintFullName (buf, 10240);
-      printf ("%s%c (%s)\n", buf, ti->dir ? '+' : '-',
-	      ti->dir ? "rise" : "fall");
+      printf ("%s%c (%s) [%s]\n", buf, ti->dir ? '+' : '-',
+	      ti->dir ? "rise" : "fall", (count < 2 ? "driver" : "driven pin"));
       for (int i=0; i < M; i++) {
 	printf ("\titer %2d: arr: %g; req: %g; slk: %g\n", i,
 		ti->arr[i], ti->req[i], my_round (ti->req[i]-ti->arr[i]));
       }
+      count++;
     }
   }
 
@@ -991,7 +993,7 @@ int process_timer_constraint (int argc, char **argv)
 	    agt->queryTransition (c->root, c->root_dir == 1 ? 1 : 0);
 	  Assert (root_ti, "What?!");
 	  root_ti->pin->sPrintFullName (buf1, 1024);
-	  printf (" >> root: %s%c\n   ", buf1, c->root_dir ? '+' : '-');
+	  printf (" >> root: %s%c\n   ", buf1, c->root_dir == 1 ? '+' : '-');
 	  root_ti->Print (stdout);
 	  printf ("\n");
 	}
