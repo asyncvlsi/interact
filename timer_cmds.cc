@@ -1523,6 +1523,12 @@ int process_timer_check_constraint (int argc, char **argv)
   }
 
   cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
+
+  if (!cyc) {
+    fprintf (stderr, "%s: unknown constraint #%s\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
   TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
 
   printf ("### Constraint-id: %d [elaborated-id: %d] ###\n", cyc->tg_id + 1,

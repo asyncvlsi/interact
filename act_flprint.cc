@@ -223,7 +223,7 @@ static void aflat_print_spec (FILE *fp, Scope *s, act_spec *spec)
   const char *tmp;
   ActId *id;
   while (spec) {
-    if (ACT_SPEC_ISTIMING (spec)) {
+    if (ACT_SPEC_ISTIMINGFORK (spec)) {
       /* timing constraint: special representation */
       if (_prs_out_fmt == 0) {
 	Expr *e = (Expr *)spec->ids[3];
@@ -385,6 +385,10 @@ static void aflat_print_spec (FILE *fp, Scope *s, act_spec *spec)
 	  }
 	}
       }
+      spec = spec->next;
+      continue;
+    }
+    else if (ACT_SPEC_ISTIMING (spec)) {
       spec = spec->next;
       continue;
     }
