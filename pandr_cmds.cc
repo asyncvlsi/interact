@@ -129,7 +129,11 @@ static void _find_macro (void *cookie, Process *p)
   F.act_design->msnprintfproc (buf, 10240, p);
 
   phydb::Macro *m = F.phydb->GetMacroPtr (std::string (buf));
+
   if (!m) {
+    if (p->isBlackBox() || p->isLowLevelBlackBox() || !p->getUnexpanded()->isDefined()) {
+      warning ("Did not find macro for black-box: `%s'", buf);
+    }
     return;
   }
 
@@ -182,9 +186,9 @@ static int process_phydb_get_used_lef (int argc, char **argv)
   app->run_per_type (F.act_toplevel);
   app->setProcFn (NULL);
 
-  save_to_log (argc, argv, "s");
-
   LispSetReturnListEnd ();
+
+  save_to_log (argc, argv, "s");
 
   return LISP_RET_LIST;
 }
