@@ -88,6 +88,33 @@ static int process_phydb_close (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_phydb_set_placement_grid (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 3, "<grid_value_x> <grid_value_y>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  double placement_grid_value_x = 0;
+  double placement_grid_value_y = 0;
+  try {
+    placement_grid_value_x = atof (argv[2]);
+    placement_grid_value_y = atof (argv[3]);
+  } catch (...) {
+    fprintf (stderr, "%s %s: cannot convert string to double!\n", argv[2], argv[3]);
+    return LISP_RET_ERROR;
+  }
+  F.phydb->SetPlacementGrids (placement_grid_value_x, placement_grid_value_y);
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
 static int process_phydb_read_lef (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
@@ -557,6 +584,8 @@ static struct LispCliCommand phydb_cmds[] = {
   { NULL, "Physical database access", NULL },
   
   { "init", "- initialize physical database", process_phydb_init },
+  { "set-placement-grid", "<grid_value_x> <grid_value_y> - set placement grid",
+    process_phydb_set_placement_grid },
   { "read-lef", "<file> - read LEF and populate database",
     process_phydb_read_lef },
   { "get-used-lef", "- return list of macros used by the design",
