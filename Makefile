@@ -60,6 +60,7 @@ endif
 
 ifdef dali_INCLUDE
 DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libdalilib.a
 
 ifeq ($(BASEOS)_$(ARCH),darwin_arm64)
 DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
@@ -73,7 +74,7 @@ PANDR_PIECES=$(DALI_PIECES)
 
 ifdef phydb_INCLUDE
 PANDR_PIECES+=-lphydb -llef -ldef
-EXTRALIBDEPEND+=$(ACT_HOME)/lib/libphydb.a 
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libphydb.a  $(ACT_HOME)/lib/liblef.a $(ACT_HOME)/lib/libdef.a
 endif
 
 ifdef pwroute_INCLUDE
