@@ -108,3 +108,69 @@
       (define stk-pass-loaded #t)
       )
     )
+
+
+(load-scm "more-string.scm")
+
+(help-add "act:layout:create"
+	  (string-multiappend
+	   (list 
+	    "Create the layout for the ACT design"
+	    ">  Usage: (act:layout:create)"
+	    "|    This walks through the ACT design and creates internal data sturctures"
+	    "|    for the layout problem, including individual cell layout and cell LEF"
+	    "|    Normally this function is called by phydb:create rather than directly."
+	    ""
+	   )
+	   )
+	  )
+
+(help-add "act:layout:lef"
+	  (string-multiappend
+	   (list 
+	    "Save LEF and CELL file for the design"
+	    ">  Usage: (act:layout:lef lef-file-name cell-file-name)"
+	    "|    act:layout:create must be called before this function can be used"
+	    "|    Normally this function is called by phydb:create rather than directly."
+	    ""
+	   )
+	   )
+	  )
+
+(help-add "act:layout:rect"
+	  (string-multiappend
+	   (list
+	    "Save .rect files for cells to the current working directory"
+	    ">  Usage: (act:layout:rect)"
+	    "|    act:layout:create must be called before this function can be used."
+	    ""
+	    )
+	   )
+	  )
+
+(help-add "act:layout:def"
+	  (string-multiappend
+	   (list
+	    "Generate DEF file with ACT netlist in DEF format"
+	    ">  Usage: (act:layout:def def-file pins? area_mult aspect_r)"
+	    ">    def-file - the output file name"
+	    ">       pins? - #t or #f if pins should be generated"
+	    ">   area_mult - scale factor for die area compared to area required for cells"
+	    ">    aspect_r - aspect ratio for the die area"
+	    "|    act:layout:create must be called before this function can be used."
+	    "|    Normally this function is called by phydb:create rather than directly."
+	    ""
+	    )
+	   )
+	  )
+
+(help-add "act:layout:report"
+	  (string-multiappend
+	   (list
+	    "Print out area report and break-down"
+	    ">  Usage: (act:layout:report)"
+	    "|    act:layout:create must be called before this function can be used"
+	    ""
+	    )
+	   )
+	  )
