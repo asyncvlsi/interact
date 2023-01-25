@@ -47,8 +47,7 @@
 (if (boolean? act-option-parsing-loaded)
     #t
     (begin
-
-					; where parsed options end and where the rest begin
+       ; where parsed options end and where the rest begin
       (define act:_arg-division
 	(lambda (n)
 	  (if (>=? n (getargc))
@@ -61,7 +60,7 @@
 	  )
 	)
 
-					; search for argument that matches request
+      ; search for argument that matches request
       (define act:_find-arg
 	(let ((arg-end (act:_arg-division 1)))
 	  (lambda (argpair n)

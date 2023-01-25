@@ -31,7 +31,7 @@
 	 (act:layout:create)
 	 (act:layout:lef "_out.lef" "_out.cell")
 	 (act:layout:def "_out.def" #t area ratio)
-     (phydb:read-lef "_out.lef")
+	 (phydb:read-lef "_out.lef")
 	 (phydb:read-cell "_out.cell")
 	 (phydb:read-def "_out.def")
 	 (system "rm _out.def _out.cell")
@@ -65,3 +65,52 @@
    (define pydb-loaded #t)
    )
  )
+
+(help-add "phydb:create"
+	  (string-multiappend
+	   (list
+	    "Create layout problem and populate the physical database."
+	    ">  Usage: (phydb:create area ratio lef-file)"
+	    ">         area - the multiplier used to compute the die area from cell area"
+	    ">        ratio - aspect ratio"
+	    ">     lef-file - filename for LEF output file"
+	    "|"
+	    "|    This is used to take an ACT design, create the layout problem, and store"
+	    "|    it in the physical database (phydb) used by the ACT tools."
+	    ""
+	    )
+	   )
+	  )
+
+(help-add "phydb:create-stdcell"
+	  (string-multiappend
+	   (list
+	    "Create a standard-cell layout problem and populate the physical database."
+	    ">  Usage: (phydb:create-stdcell area ratio lef_list)"
+	    ">        area - the multiplier used to compute the die area from cell area"
+	    ">       ratio - aspect ratio"
+	    ">    lef_list - list of external LEF files used for the layout problem"
+	    "|"
+	    "|    This is used to take an ACT design, create the layout problem, and store"
+	    "|    it in the physical database (phydb) used by the ACT tools."
+	    "|    In this version, the assumption is that an external standard cell library"
+	    "|    is being used, and the list of LEF files needed are provided to the"
+	    "|    command."
+	    ""
+	    )
+	   )
+	  )
+
+
+(help-add "phydb:update-lef"
+	  (string-multiappend
+	   (list
+	    "Update LEF with definitions of well/select cells needed."
+	    ">  Usage: (phydb:update-lef lef-file)"
+	    "|"
+	    "|    After placement, new cells are created for well/select legalization."
+	    "|    This command appends the LEF definitions of these cells to the LEF file."
+	    ""
+	    )
+	   )
+	  )
