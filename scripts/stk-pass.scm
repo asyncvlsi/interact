@@ -113,9 +113,9 @@
 (load-scm "more-string.scm")
 
 (help-add "act:layout:create"
+    "Create the layout for the ACT design"
 	  (string-multiappend
 	   (list 
-	    "Create the layout for the ACT design"
 	    ">  Usage: (act:layout:create)"
 	    "|    This walks through the ACT design and creates internal data sturctures"
 	    "|    for the layout problem, including individual cell layout and cell LEF"
@@ -126,9 +126,9 @@
 	  )
 
 (help-add "act:layout:lef"
+    "Save LEF and CELL file for the design"
 	  (string-multiappend
 	   (list 
-	    "Save LEF and CELL file for the design"
 	    ">  Usage: (act:layout:lef lef-file-name cell-file-name)"
 	    "|    act:layout:create must be called before this function can be used"
 	    "|    Normally this function is called by phydb:create rather than directly."
@@ -138,9 +138,9 @@
 	  )
 
 (help-add "act:layout:rect"
+    "Save .rect files for cells to the current working directory"
 	  (string-multiappend
 	   (list
-	    "Save .rect files for cells to the current working directory"
 	    ">  Usage: (act:layout:rect)"
 	    "|    act:layout:create must be called before this function can be used."
 	    ""
@@ -149,9 +149,9 @@
 	  )
 
 (help-add "act:layout:def"
+    "Generate DEF file with ACT netlist in DEF format"
 	  (string-multiappend
 	   (list
-	    "Generate DEF file with ACT netlist in DEF format"
 	    ">  Usage: (act:layout:def def-file pins? area_mult aspect_r)"
 	    ">    def-file - the output file name"
 	    ">       pins? - #t or #f if pins should be generated"
@@ -165,9 +165,9 @@
 	  )
 
 (help-add "act:layout:report"
+    "Print out area report and break-down"
 	  (string-multiappend
 	   (list
-	    "Print out area report and break-down"
 	    ">  Usage: (act:layout:report)"
 	    "|    act:layout:create must be called before this function can be used"
 	    ""

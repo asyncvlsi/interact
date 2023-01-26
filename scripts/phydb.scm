@@ -67,9 +67,9 @@
  )
 
 (help-add "phydb:create"
+	  "Create layout problem and populate the physical database."
 	  (string-multiappend
 	   (list
-	    "Create layout problem and populate the physical database."
 	    ">  Usage: (phydb:create area ratio lef-file)"
 	    ">         area - the multiplier used to compute the die area from cell area"
 	    ">        ratio - aspect ratio"
@@ -83,9 +83,9 @@
 	  )
 
 (help-add "phydb:create-stdcell"
+   "Create a standard-cell layout problem and populate the physical database."
 	  (string-multiappend
 	   (list
-	    "Create a standard-cell layout problem and populate the physical database."
 	    ">  Usage: (phydb:create-stdcell area ratio lef_list)"
 	    ">        area - the multiplier used to compute the die area from cell area"
 	    ">       ratio - aspect ratio"
@@ -103,9 +103,9 @@
 
 
 (help-add "phydb:update-lef"
+    "Update LEF with definitions of well/select cells needed."
 	  (string-multiappend
 	   (list
-	    "Update LEF with definitions of well/select cells needed."
 	    ">  Usage: (phydb:update-lef lef-file)"
 	    "|"
 	    "|    After placement, new cells are created for well/select legalization."
