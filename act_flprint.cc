@@ -199,7 +199,7 @@ static void print_attr_prefix (FILE *fp, act_attr_t *attr, int force_after)
       unstab = 1;
     }
     else if (strcmp (x->attr, "after") == 0) {
-      after = x->e->u.v;
+      after = x->e->u.ival.v;
       have_after = 1;
     }
   }
@@ -230,7 +230,7 @@ static void aflat_print_spec (FILE *fp, Scope *s, act_spec *spec)
 	int delay;
 	if (e) {
 	  Assert (e->type == E_INT, "What?");
-	  delay = e->u.v;
+	  delay = e->u.ival.v;
 	}
 	Array *aref[3];
 	InstType *it[3];
