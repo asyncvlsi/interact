@@ -36,6 +36,7 @@ EXTRALIBDEPEND=
 include $(ACT_HOME)/scripts/Makefile.std
 include config.mk
 
+OMPFLAG=
 GALOIS_EDA_PIECES=
 
 ifdef timing_actpin_INCLUDE 
@@ -51,6 +52,7 @@ endif
 ifdef galois_INCLUDE
 GALOIS_EDA_PIECES+=-lgalois_shmem
 EXTRALIBDEPEND+=$(ACT_HOME)/lib/libgalois_shmem.a 
+OMPFLAG=-fopenmp
 
 ifeq ($(BASEOS),linux)
 GALOIS_EDA_PIECES+=-lnuma
@@ -104,12 +106,8 @@ ifeq ($(BASEOS),linux)
 CFLAGS+= -pthread
 endif
 
-OMPFLAG=-fopenmp
-ifeq ($(BASEOS),darwin)
-OMPFLAG=-lomp
-endif
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND) $(EXTRALIBDEPEND)
-	$(CXX) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) $(OMPFLAG) -ldl -ledit
+	$(CXX) $(OMPFLAG) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
 
 -include Makefile.deps
