@@ -64,7 +64,7 @@ ifdef dali_INCLUDE
 DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log
 EXTRALIBDEPEND+=$(ACT_HOME)/lib/libdalilib.a
 
-ifeq ($(BASEOS)_$(ARCH),darwin_arm64)
+ifeq ($(BASEOS),darwin)
 DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
 else
 DALI_PIECES+=-lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
