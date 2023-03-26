@@ -70,6 +70,10 @@ else
 DALI_PIECES+=-lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
 endif
 
+ifdef NEED_LIBCXXFS
+DALI_PIECES+=-lstdc++fs
+endif
+
 endif
 
 PANDR_PIECES=$(DALI_PIECES)
