@@ -98,6 +98,7 @@ PANDR_PIECES+=-lbipart
 EXTRALIBDEPEND+=$(ACT_HOME)/lib/libbipart.a 
 endif
 
+boost_INCLUDE+=-D_HAS_AUTO_PTR_ETC=0
 
 ALL_INCLUDE=$(boost_INCLUDE) $(galois_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE) 
 
