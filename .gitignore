@@ -9,3 +9,4 @@ interact.*
 
 config.mk
 config_pkg.h
+config_pkg.h.old
