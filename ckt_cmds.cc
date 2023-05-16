@@ -176,17 +176,30 @@ static int process_ckt_save_v (int argc, char **argv)
 {
   FILE *fp;
 
-  if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
+  if (!std_argcheck ((argc == 3 ? 2 : argc), argv, 2, "[-nocell] <file>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
-  save_to_log (argc, argv, "s");
+  save_to_log (argc, argv, "s*");
 
   if (!F.act_toplevel) {
     fprintf (stderr,  "%s: top-level module is unspecified.\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
-  fp = std_open_output (argv[0], argv[1]);
+  if (argc == 3) {
+    if (strcmp (argv[1], "-nocell") != 0) {
+      fprintf (stderr, "%s: only -nocell is a supported argument", argv[0]);
+      return LISP_RET_ERROR;
+    }
+    else {
+      config_set_int ("act2v.emit_cells", 0);
+    }
+  }
+  else {
+    config_set_int ("act2v.emit_cells", 1);
+  }
+
+  fp = std_open_output (argv[0], argv[argc-1]);
   if (!fp) {
     return LISP_RET_ERROR;
   }
@@ -462,7 +475,7 @@ static struct LispCliCommand ckt_cmds[] = {
     process_ckt_save_lvp },
   { "save-sim", "<file-prefix> - save flat .sim/.al file",
     process_ckt_save_sim },
-  { "save-vnet", "<file> - save Verilog netlist to <file>",
+  { "save-vnet", "[-nocell] <file> - save Verilog netlist to <file>",
     process_ckt_save_v },
   
 

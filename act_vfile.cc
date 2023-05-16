@@ -30,6 +30,7 @@ static ActBooleanizePass *BOOL = NULL;
 static int name_mangle = 0;
 static int fuse_signal_directives = 0;
 static const char *global_signal_prefix = NULL;
+static int verilog_emit_cells;
 
 static void emit_verilog_id (FILE *fp, act_connection *c)
 {
@@ -101,6 +102,10 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	return;
       }
     }
+  }
+
+  if (p->isCell() && verilog_emit_cells == 0) {
+    return;
   }
 
   ActUniqProcInstiter inst(p->CurScope());
@@ -300,7 +305,9 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p)
   config_set_default_string ("act.global_signal_prefix", "top.");
   config_set_default_int ("act2v.name_mangle", 0);
   config_set_default_int ("act2v.fuse_signal_directives", 0);
+  config_set_default_int ("act2v.emit_cells", 1);
 
+  verilog_emit_cells = config_get_int ("act2v.emit_cells");
   name_mangle = config_get_int ("act2v.name_mangle");
   fuse_signal_directives = config_get_int ("act2v.fuse_signal_directives");
   Assert (BOOL, "what?");

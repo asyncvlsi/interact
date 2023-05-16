@@ -181,6 +181,29 @@ static int process_expand (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+
+/*------------------------------------------------------------------------
+ *
+ *  Localize a global signal
+ *
+ *------------------------------------------------------------------------
+ */
+static int process_localize (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<sig>", STATE_DESIGN)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, NULL);
+
+  if (F.act_design->LocalizeGlobal (argv[1])) {
+    return LISP_RET_TRUE;
+  }
+  else {
+    return LISP_RET_ERROR;
+  }
+}
+
+
 static int process_set_top (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<process>", STATE_EXPANDED)) {
@@ -879,6 +902,8 @@ static struct LispCliCommand act_cmds[] = {
     process_defpbool },
   { "read", "<file> - read in the ACT design", process_read },
   { "merge", "<file> - merge in additional ACT file", process_merge },
+  { "localize", "<sig> - localize global signal <sig> in the design; must be called before expansion.",
+    process_localize },
   { "expand", "- expand/elaborate ACT design", process_expand },
   { "save", "<file> - save current ACT to a file", process_save },
   { "top", "<process> - set <process> as the design root",
