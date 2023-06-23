@@ -29,6 +29,7 @@
 static ActBooleanizePass *BOOL = NULL;
 static int name_mangle = 0;
 static int fuse_signal_directives = 0;
+static int no_signal_decl = 0;
 static const char *global_signal_prefix = NULL;
 static int verilog_emit_cells;
 
@@ -153,6 +154,7 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
   for (i=0; i < n->cH->size; i++) {
     for (b = n->cH->head[i]; b; b = b->next) {
       act_booleanized_var_t *v = (act_booleanized_var_t *)b->v;
+      int io_sig = 0;
       if (!v->used) continue;
       if (v->id->isglobal()) continue;
 
@@ -160,6 +162,7 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	for (int k=0; k < A_LEN (n->ports); k++) {
 	  if (n->ports[k].omit) continue;
 	  if (n->ports[k].c == v->id) {
+	    io_sig = 1;
 	    if (n->ports[k].input) {
 	      fprintf (fp, "   input ");
 	    }
@@ -171,14 +174,20 @@ static void emit_verilog (FILE *fp, Act *a, Process *p)
 	}
       }
 
-      if (v->input && !v->output) {
-	fprintf (fp, "   wire ");
+      if (!no_signal_decl) {
+	if (v->input && !v->output) {
+	  fprintf (fp, "   wire ");
+	}
+	else {
+	  fprintf (fp, "   reg ");
+	}
+	emit_verilog_id (fp, v->id);
+	fprintf (fp, ";\n");
       }
-      else {
-	fprintf (fp, "   reg ");
+      else if (io_sig) {
+	emit_verilog_id (fp, v->id);
+	fprintf (fp, ";\n");
       }
-      emit_verilog_id (fp, v->id);
-      fprintf (fp, ";\n");
     }
   }
 
@@ -306,10 +315,12 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p)
   config_set_default_int ("act2v.name_mangle", 0);
   config_set_default_int ("act2v.fuse_signal_directives", 0);
   config_set_default_int ("act2v.emit_cells", 1);
+  config_set_default_int ("act2v.no_signal_decl", 0);
 
   verilog_emit_cells = config_get_int ("act2v.emit_cells");
   name_mangle = config_get_int ("act2v.name_mangle");
   fuse_signal_directives = config_get_int ("act2v.fuse_signal_directives");
+  no_signal_decl = config_get_int ("act2v.no_signal_decl");
   Assert (BOOL, "what?");
   if (!BOOL->completed()) {
     BOOL->run (p);
