@@ -105,6 +105,44 @@ int process_read_lib (int argc, char **argv)
 }
 
 
+/*------------------------------------------------------------------------
+ *
+ *  Read in a .lib file for timing/power analysis
+ *
+ *------------------------------------------------------------------------
+ */
+int process_merge_lib (int argc, char **argv)
+{
+  int lh;
+  galois::eda::liberty::CellLib *cl;
+  FILE *fp;
+  
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <lh> <liberty-file>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  lh = atoi (argv[1]);
+  cl = (galois::eda::liberty::CellLib *) ptr_get ("liberty", lh);
+  if (!cl) {
+    fprintf (stderr, "%s: specified liberty file handle (%d) not found!\n", argv[0], lh);
+    return LISP_RET_ERROR;
+  }
+
+  fp = fopen (argv[2], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: liberty file `%s' not found!\n", argv[0], argv[2]);
+    return LISP_RET_ERROR;
+  }
+  fclose (fp);
+  
+  cl->parse (argv[2]);
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_TRUE;
+}
+
+
 static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin = NULL)
 {
   ActId *id = ActId::parseId (name);
@@ -1757,6 +1795,9 @@ static struct LispCliCommand timer_cmds[] = {
   
   { "lib-read", "<file> - read liberty timing file and return handle",
     process_read_lib },
+
+  { "lib-merge", "<lh> <file> - merge <file> into liberty file handle <lh>",
+    process_merge_lib },
 
   { "time-units", "- returns string for time units", process_lib_timeunits },
   
