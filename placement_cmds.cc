@@ -274,13 +274,22 @@ static int process_bipart_partition (int argc, char **argv)
 
   /* write partition */
   bipart::GGraph &gg = *(mG->getGraph ());
+  char *outbuf;
+  int bufsz = 1024;
+  MALLOC (outbuf, char, bufsz);
   for (auto &node : gg) {
     std::string str = gg.getData (node).name;
     int idx = gg.getData (node).getPart ();
     if (strlen (str.data()) > 0) {
-      fprintf (fp, "%s %d\n", str.data(), idx);
+      while (strlen (str.data()) >= bufsz) {
+         bufsz *= 2;
+         REALLOC (outbuf, char, bufsz);
+      }
+      F.act_design->unmangle_string (str.data(), outbuf, bufsz);
+      fprintf (fp, "%s %d\n", outbuf, idx);
     }
   }
+  FREE (outbuf);
 
   fclose (fp);
 
