@@ -238,7 +238,7 @@ static struct LispCliCommand dali_cmds[] = {
 
 static int process_bipart_partition (int argc, char **argv)
 {
-  if (!std_argcheck (argc <= 3 ? 3 : argc, argv, 3, "[k] [depth]", STATE_EXPANDED)) {
+  if (!std_argcheck ((argc >= 2 && argc <= 4 )? 4 : argc, argv, 4, "<file> [k] [depth]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
 
@@ -249,19 +249,40 @@ static int process_bipart_partition (int argc, char **argv)
 
   int K = 2;
   int Cdepth = 20;
+  FILE *fp;
 
-  if (argc == 2) {
-    K = atoi (argv[1]);
+
+  if (argc >= 3) {
+    K = atoi (argv[2]);
   }
-  else if (argc == 3) {
-    K = atoi(argv[1]);
-    Cdepth = atoi(argv[2]);
+  if (argc >= 4) {
+    Cdepth = atoi(argv[3]);
   }
 
   /*-- make sure Galois runtime is initialized --*/
   init_galois_shmemsys ();
 
   bipart::MetisGraph *mG = bipart::biparting (*F.phydb, Cdepth, K);
+  
+  fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "Could not open file `%s' to write partition info\n",
+	     argv[1]);
+    delete mG;
+    return LISP_RET_ERROR;
+  }
+
+  /* write partition */
+  bipart::GGraph &gg = *(mG->getGraph ());
+  for (auto &node : gg) {
+    std::string str = gg.getData (node).name;
+    int idx = gg.getData (node).getPart ();
+    if (strlen (str.data()) > 0) {
+      fprintf (fp, "%s %d\n", str.data(), idx);
+    }
+  }
+
+  fclose (fp);
 
   delete mG;
 
@@ -271,7 +292,7 @@ static int process_bipart_partition (int argc, char **argv)
 static struct LispCliCommand bipart_cmds[] = {
   { NULL, "Partitioning", NULL },
   
-  { "partition", "[k] [depth] - compute a k-way partition (default 2)",
+  { "partition", "<file> [k] [depth] - compute a k-way partition (default 2)",
     process_bipart_partition }
 };
 
