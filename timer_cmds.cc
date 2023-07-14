@@ -56,6 +56,11 @@ static void init (int mode = 0)
   init_galois_shmemsys (mode);
 }
 
+static ActId *my_parse_id (const char *name)
+{
+  return ActId::parseId (name);
+}
+
 /*------------------------------------------------------------------------
  *
  *  Read liberty file, return handle
@@ -145,7 +150,7 @@ int process_merge_lib (int argc, char **argv)
 
 static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin = NULL)
 {
-  ActId *id = ActId::parseId (name);
+  ActId *id = my_parse_id (name);
   int goff;
 
   if (!F.tp) {

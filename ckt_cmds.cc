@@ -46,6 +46,13 @@ ActNetlistPass *getNetlistPass()
   return np;
 }
 
+
+static ActId *my_parse_id (const char *name)
+{
+  return ActId::parseId (name);
+}
+
+
 int process_ckt_map (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
@@ -315,7 +322,7 @@ static int process_add_buffer (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  ActId *tmp = ActId::parseId (argv[2]);
+  ActId *tmp = my_parse_id (argv[2]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[2]);
     return LISP_RET_ERROR;
@@ -329,7 +336,7 @@ static int process_add_buffer (int argc, char **argv)
   }
   delete tmp;
 
-  tmp = ActId::parseId (argv[3]);
+  tmp = my_parse_id (argv[3]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[3]);
     return LISP_RET_ERROR;
@@ -397,7 +404,7 @@ static int process_edit_cell (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  ActId *tmp = ActId::parseId (argv[2]);
+  ActId *tmp = my_parse_id (argv[2]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[2]);
     return LISP_RET_ERROR;

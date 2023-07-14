@@ -34,6 +34,10 @@
 
 flow_state F;
 
+static ActId *my_parse_id (const char *name)
+{
+  return ActId::parseId (name);
+}
 
 /*------------------------------------------------------------------------
  * 
@@ -859,7 +863,7 @@ static int process_show_type (int argc, char **argv)
     }
   }
 
-  ActId *tmp = ActId::parseId (argv[argc-1]);
+  ActId *tmp = my_parse_id (argv[argc-1]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[argc-1]);
   }
