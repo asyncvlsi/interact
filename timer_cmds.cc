@@ -573,11 +573,13 @@ int process_timer_info (int argc, char **argv)
       char buf[10240];
 
       ti->pin->sPrintFullName (buf, 10240);
-      printf ("%s%c (%s) [%s]\n", buf, ti->dir ? '+' : '-',
-	      ti->dir ? "rise" : "fall", (count < 2 ? "driver" : "driven pin"));
+      printf ("%s%c (%s) [%s] slew: %g\n", buf, ti->dir ? '+' : '-',
+	      ti->getDir() ? "rise" : "fall", (count < 2 ? "driver" : "driven pin"),
+	      ti->getSlew ());
       for (int i=0; i < M; i++) {
 	printf ("\titer %2d: arr: %g; req: %g; slk: %g\n", i,
-		ti->arr[i], ti->req[i], my_round (ti->req[i]-ti->arr[i]));
+		ti->getArrv (i), ti->getReq (i),
+		my_round (ti->getReq(i) - ti->getArrv(i)));
       }
       count++;
     }
