@@ -211,8 +211,11 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin
   goff = F.sp->globalBoolOffset (id);
   
   TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  stateinfo_t *si = F.sp->getStateInfo (F.act_toplevel);
+
+  Assert (tg && si, "What?");
   
-  *vid = 2*(tg->globOffset() + goff);
+  *vid = 2*(tg->globOffset() + si->ports.numBools() + goff);
 
   if (pin) {
     char *tmp;
