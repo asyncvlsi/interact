@@ -1699,7 +1699,7 @@ int process_timer_save (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  tg->printDot (fp, NULL);
+  tg->printDOT (fp, NULL);
 
   fclose (fp);
 
