@@ -78,9 +78,13 @@ static void *read_lib_file (const char *file)
   fclose (fp);
 
   galois::eda::liberty::CellLib *lib = new galois::eda::liberty::CellLib;
-  lib->parse(file);
-
-  return (void *)lib;
+  if (lib->parse(file)) {
+     return (void *)lib;
+  }
+  else {
+     delete lib;
+     return NULL;
+  }
 }
 
 /*------------------------------------------------------------------------
