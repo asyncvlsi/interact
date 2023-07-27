@@ -1371,6 +1371,41 @@ static void get_violated_constraints (std::vector<int> &violations)
   return;
 }
 
+
+static
+void get_violated_constraints2 (std::vector<std::pair<int,float>> &violations)
+{
+  int nc = agt->getNumConstraints ();
+  TaggedTG *tg = agt->getTaggedTG ();
+
+  violations.clear();
+
+  A_DECL (_violation_pair, v);
+  A_INIT (v);
+  
+  for (int i=0; i < nc; i++) {
+    double slack = get_worst_slack (i);
+    if (slack < 0) {
+      A_NEW (v, _violation_pair);
+      A_NEXT (v).idx = i;
+      A_NEXT (v).slack = slack;
+      A_INC (v);
+    }
+  }
+
+  if (A_LEN (v) > 0) {
+    mygenmergesort ((char *)v, sizeof (_violation_pair), A_LEN (v),
+		    _sortviolationsfn);
+    for (int i=0; i < A_LEN (v); i++) {
+      violations.push_back (std::pair<int,float>(v[i].idx, v[i].slack));
+    }
+  }
+
+  A_FREE (v);
+
+  return;
+}
+
 int process_timer_num_constraints (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
@@ -1401,14 +1436,17 @@ int process_timer_get_violations (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  std::vector<int> res;
+  std::vector<std::pair<int,float>> res;
 
-  get_violated_constraints (res);
+  get_violated_constraints2 (res);
   
   LispSetReturnListStart ();
 
   for (int i=0; i < res.size(); i++) {
-    LispAppendReturnInt (res[i]);
+    LispAppendListStart ();
+    LispAppendReturnInt (res[i].first);
+    LispAppendReturnFloat (res[i].second);
+    LispAppendListEnd ();
   }
 
   LispSetReturnListEnd ();
