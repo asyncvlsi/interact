@@ -689,7 +689,7 @@ int process_timer_addconstraint (int argc, char **argv)
   int margin;
   
   if (argc == 5) {
-    margin = atoi (argv[5]);
+    margin = atoi (argv[4]);
   }
   else {
     margin = 0;
