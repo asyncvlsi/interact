@@ -850,8 +850,30 @@ static int process_net_to_pins (int argc, char **argv)
       Assert (itx, "What?");
       if (itx->getDir() == dir[i]) {
 	char buf[10240];
-	x->sPrint (buf, 10240);
-	LispAppendReturnString (buf);
+	ActId *pin, *xprev;
+
+	pin = x;
+	xprev = NULL;
+	while (pin->Rest()) {
+	  xprev = pin;
+	  pin = pin->Rest();
+	}
+	if (!xprev) {
+	  x->sPrint (buf, 10240);
+	  LispAppendReturnString (buf);
+	  warning ("%s: list of pins has an unexpected issue (pin: %s)",
+		   argv[0], buf);
+	}
+	else {
+	  LispAppendListStart ();
+	  xprev->prune();
+	  x->sPrint (buf, 10240);
+	  LispAppendReturnString (buf);
+	  xprev->Append (pin);
+	  pin->sPrint (buf, 10240);
+	  LispAppendReturnString (buf);
+	  LispAppendListEnd ();
+	}
       }
       if (i == 2) {
 	delete x;
@@ -942,11 +964,12 @@ static int process_cell_to_pins (int argc, char **argv)
   LispSetReturnListStart ();
 
 
-  for (int k=0; k < 2; k++) {
+  for (int k=0; k < 3; k++) {
     LispAppendListStart ();
     for (int i=0; i < A_LEN (nl->ports); i++) {
       if (nl->ports[i].omit) continue;
-      if (nl->ports[i].input == k) {
+      /* output = 0, input = 1, bidir = 2 */
+      if (nl->ports[i].input + nl->ports[i].bidir == k) {
 	ActId *tid;
 	char buf[10240];
 	tid = nl->ports[i].c->toid();
