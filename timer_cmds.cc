@@ -1841,6 +1841,120 @@ static int process_timer_phydb (int argc, char **argv)
 
 #endif
 
+
+static int process_get_rise_fall (int argc, char **argv, int dir)
+{
+  TaggedTG *tg;
+
+  if (!std_argcheck (argc, argv, 2, "<net>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  if (!F.sp) {
+    ActPass *ap = F.act_design->pass_find ("collect_state");
+    if (!ap) {
+      fprintf (stderr, "Internal error: state pass missing but timer present?\n");
+      return LISP_RET_ERROR;
+    }
+    F.sp = dynamic_cast<ActStatePass *> (ap);
+    Assert (F.sp, "What?");
+  }
+
+  int vid;
+  if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
+    return LISP_RET_ERROR;
+  }
+
+  Assert (agt, "What?");
+
+  timing_info *ti = agt->queryTransition (vid, dir);
+  if (!ti) {
+    fprintf (stderr, "%s: unexpected timer query failure (%s)!\n", argv[0],
+	     argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  LispSetReturnFloat (ti->getSlew ());
+  delete ti;
+
+  return LISP_RET_FLOAT;
+}
+
+
+static int process_get_rise (int argc, char **argv)
+{
+  return process_get_rise_fall (argc, argv, 1);
+}
+
+static int process_get_fall (int argc, char **argv)
+{
+  return process_get_rise_fall (argc, argv, 0);
+}
+
+static int process_rise_fall_violations (int argc, char **argv, int dir)
+{
+  TaggedTG *tg;
+
+  if (!std_argcheck (argc, argv, 2, "<time>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  if (!F.sp) {
+    ActPass *ap = F.act_design->pass_find ("collect_state");
+    if (!ap) {
+      fprintf (stderr, "Internal error: state pass missing but timer present?\n");
+      return LISP_RET_ERROR;
+    }
+    F.sp = dynamic_cast<ActStatePass *> (ap);
+    Assert (F.sp, "What?");
+  }
+
+  Assert (agt, "What?");
+
+  tg = agt->getTaggedTG ();
+  double viol = atof (argv[1]);
+  LispSetReturnListStart ();
+  for (int vid = 0; vid < tg->numVertices(); vid += 2) {
+    TimingVertexInfo *vi = (TimingVertexInfo *)
+      tg->getVertex (vid+dir)->getInfo();
+    if (vi->dummyInfo()) continue;
+    timing_info *ti = agt->queryTransition (vid, 1);
+    if (ti) {
+      if (ti->getSlew() >= viol) {
+	char *str = vi->toActId ();
+	Assert (str, "What?");
+	LispAppendReturnString (str);
+	FREE (str);
+      }
+      delete ti;
+    }
+  }
+  LispSetReturnListEnd ();
+
+  return LISP_RET_LIST;
+}
+
+static int process_rise_violations (int argc, char **argv)
+{
+  return process_rise_fall_violations (argc, argv, 1);
+}
+
+static int process_fall_violations (int argc, char **argv)
+{
+  return process_rise_fall_violations (argc, argv, 0);
+}
+  
+
 static struct LispCliCommand timer_cmds[] = {
 
   { NULL, "Timing and power analysis", NULL },
@@ -1897,7 +2011,19 @@ static struct LispCliCommand timer_cmds[] = {
 #if defined(FOUND_phydb)  
   { "get-witness", "cid - displays the witness for the violation",
     process_timer_get_witness },
-#endif  
+#endif
+
+  { "get-rise", "<net> - returns rise time for <net>",
+    process_get_rise },
+
+  { "get-fall", "<net> - returns fall time for <net>",
+    process_get_fall },
+  
+  { "rise-violations", "<time> - returns a list of drivers that have rise time worse than <time> in timer units",
+    process_rise_violations },
+    
+  { "fall-violations", "<time> - returns a list of drivers that have fall time worse than <time> in timer units",
+    process_fall_violations },
 
   { "save", "<file> - save abstract timing graph to file in graphviz format",
     process_timer_save }
