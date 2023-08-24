@@ -1102,6 +1102,37 @@ int process_timer_constraint (int argc, char **argv)
 	  }
 	}
       }
+      else {
+	char buf1[1024],  buf2[1024];
+	TimingVertexInfo *vi;
+	AGvertex *v;
+
+	v = tg->getVertex (c->from);
+	Assert (v, "What?");
+	vi = (TimingVertexInfo *) v->getInfo();
+	if (vi) {
+	  strcpy (buf1, (char *)vi->info());
+	}
+	else {
+	  strcpy (buf1, "(unknown)");
+	}
+
+	v = tg->getVertex (c->to);
+	Assert (v, "What?");
+	vi = (TimingVertexInfo *) v->getInfo();
+	if (vi) {
+	  strcpy (buf2, (char *)vi->info());
+	}
+	else {
+	  strcpy (buf2, "(unknown)");
+	}
+	
+	printf ("[%*d/%*d] %s%s -> %s%s (driver missing: %s)",
+		nzeros, i+1, nzeros, tg->numConstraints(),
+		c->from_tick ? "*" : "", buf1,
+		c->to_tick ? "*" : "", buf2,
+		l[0] ? "rhs" : (l[1] ? "lhs" : "both ends"));
+      }
       agt->queryFree (l[0]);
       agt->queryFree (l[1]);
     }
