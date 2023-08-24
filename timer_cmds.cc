@@ -1011,7 +1011,7 @@ int process_timer_constraint (int argc, char **argv)
       list_t *l[2];
       l[0] = agt->queryDriver (c->from);
       l[1] = agt->queryDriver (c->to);
-      
+
       if (l[0] && l[1]) {
 	timing_info *ti[2][2];
 	for (int i=0; i < 2; i++) {
@@ -1023,10 +1023,10 @@ int process_timer_constraint (int argc, char **argv)
 	ti[0][0]->pin->sPrintFullName (buf1, 1024);
 	ti[1][0]->pin->sPrintFullName (buf2, 1024);
 
-	printf ("[%*d/%*d] %s%s -> %s%s%s", nzeros, i+1, nzeros,
+	printf ("[%*d/%*d] %s%s%c -> %s%s%c%s", nzeros, i+1, nzeros,
 		tg->numConstraints(),
-		c->from_tick ? "*" : "", buf1,
-		c->to_tick ? "*" : "", buf2,
+		c->from_tick ? "*" : "", buf1, from_char,
+		c->to_tick ? "*" : "", buf2, to_char,
 		c->error ? " *root-err*" : "");
 	if (c->margin != 0) {
 	  if (margin*timer_units < 1e-9) {
@@ -1112,6 +1112,7 @@ int process_timer_constraint (int argc, char **argv)
 	vi = (TimingVertexInfo *) v->getInfo();
 	if (vi) {
 	  strcpy (buf1, (char *)vi->info());
+	  buf1[strlen(buf1)-1] = '\0';
 	}
 	else {
 	  strcpy (buf1, "(unknown)");
@@ -1122,15 +1123,16 @@ int process_timer_constraint (int argc, char **argv)
 	vi = (TimingVertexInfo *) v->getInfo();
 	if (vi) {
 	  strcpy (buf2, (char *)vi->info());
+	  buf2[strlen(buf2)-1] = '\0';
 	}
 	else {
 	  strcpy (buf2, "(unknown)");
 	}
 	
-	printf ("[%*d/%*d] %s%s -> %s%s (driver missing: %s)",
+	printf ("[%*d/%*d] %s%s%c -> %s%s%c (driver missing: %s)\n",
 		nzeros, i+1, nzeros, tg->numConstraints(),
-		c->from_tick ? "*" : "", buf1,
-		c->to_tick ? "*" : "", buf2,
+		c->from_tick ? "*" : "", buf1, from_char,
+		c->to_tick ? "*" : "", buf2, to_char,
 		l[0] ? "rhs" : (l[1] ? "lhs" : "both ends"));
       }
       agt->queryFree (l[0]);
