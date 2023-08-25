@@ -151,7 +151,6 @@ int process_merge_lib (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-
 static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin = NULL)
 {
   ActId *id = my_parse_id (name);
@@ -233,6 +232,56 @@ static int get_net_to_timing_vertex (char *cmd, char *name, int *vid, char **pin
     (*pin)[len] = '\0';
   }
   return 1;
+}
+
+
+
+/*
+ *  Check if this is a Boolean array
+ */  
+static ActId *is_arrayed_boolean (char *cmd, char *name, Array **aref)
+{
+  ActId *id = my_parse_id (name);
+
+  if (!id) {
+    return NULL;
+  }
+
+  Array *x;
+  InstType *itx;
+
+  /* -- validate the type of this identifier -- */
+
+  itx = F.act_toplevel->CurScope()->FullLookup (id, &x);
+  if (itx == NULL) {
+    delete id;
+    return NULL;
+  }
+
+  if (!TypeFactory::isBoolType (itx)) {
+    delete id;
+    return NULL;
+  }
+  
+  if (!itx->arrayInfo() || (x && x->isDeref())) {
+    delete id;
+    return NULL;
+  }
+
+  if (aref) {
+    *aref = itx->arrayInfo();
+  }
+
+  id->Tail()->setArray (NULL);
+  /* -- check all the de-references are valid -- */
+  if (!id->validateDeref (F.act_toplevel->CurScope())) {
+    delete id;
+    return NULL;
+  }
+
+  id->Tail()->setArray (x);
+
+  return id;
 }
 
 
@@ -629,7 +678,7 @@ int process_timer_cycle (int argc, char **argv)
 
 int process_timer_addconstraint (int argc, char **argv)
 {
-  if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- [*]<fast>+/- [*]<slow>+/- [margin]", STATE_EXPANDED)) {
+  if (!std_argcheck (argc == 5 ? 4 : argc, argv, 4, "<root>+/- [*]<fast>[+/-] [*]<slow>[+/-] [margin]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   if (!F.tp) {
@@ -641,9 +690,21 @@ int process_timer_addconstraint (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  int margin;
+  
+  if (argc == 5) {
+    margin = atoi (argv[4]);
+  }
+  else {
+    margin = 0;
+  }
+
   int dir[3];
   int len[3];
   int vid[3];
+  ActId *array_expand[2]; // for vid[1] and vid[2]
+  Array *array_type[2];
 
   int tick[3];
 
@@ -658,16 +719,20 @@ int process_timer_addconstraint (int argc, char **argv)
       dir[i] = 0;
     }
     else {
-      fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0],
-	       argv[i+1]);
-      return LISP_RET_ERROR;
+      dir[i] = -1; // elaborate to both
+      if (i == 0) {
+        fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0],
+  	       argv[i+1]);
+        return LISP_RET_ERROR;
+      }
     }
-    argv[i+1][len[i]-1] = '\0';
-
+    if (dir[i] != -1) {
+       argv[i+1][len[i]-1] = '\0';
+    }
     char *tmpname = Strdup (argv[i+1]);
-
-    argv[i+1][len[i]-1] = dir[i] ? '+' : '-';
-
+    if (dir[i] != -1) {
+       argv[i+1][len[i]-1] = dir[i] ? '+' : '-';
+    }
     if (i > 0) {
       if (argv[i+1][0] == '*') {
 	tick[i] = 1;
@@ -676,34 +741,130 @@ int process_timer_addconstraint (int argc, char **argv)
 	tick[i] = 0;
       }
     }
-    
-    if (!get_net_to_timing_vertex (argv[0], tick[i] + tmpname, &vid[i])) {
-      FREE (tmpname);
-      return LISP_RET_ERROR;
+
+    // check if this is a valid net
+    if (i != 0) {
+      array_expand[i-1] =
+	is_arrayed_boolean (argv[0], tick[i] + tmpname, &array_type[i-1]);
+    }
+    if (i == 0 || array_expand[i-1] == NULL) {
+      if (!get_net_to_timing_vertex (argv[0], tick[i] + tmpname, &vid[i])) {
+	FREE (tmpname);
+	return LISP_RET_ERROR;
+      }
     }
     FREE (tmpname);
-    vid[i] += dir[i];
+    if (dir[i] != -1) {
+      vid[i] += dir[i];
+    }
   }
 
-  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
-  int margin;
-  
-  if (argc == 5) {
-    margin = atoi (argv[4]);
+  // we may need to do some array unrolling
+  Arraystep *as[2];
+  ActId *tail[2];
+  Array *orig_array[2];
+
+  for (int i=0; i < 2; i++) {
+    if (array_expand[i]) {
+      Assert (array_type[i], "Array without an arrayed type??");
+      tail[i] = array_expand[i]->Tail();
+      orig_array[i] = tail[i]->arrayInfo();
+      array_expand[i]->Tail()->setArray (NULL);
+      as[i] = array_type[i]->stepper (orig_array[i]);
+      if (as[i]->isend()) {
+	fprintf (stderr, "%s: array for `", argv[0]);
+	array_expand[i]->Print (stderr);
+	fprintf (stderr, "' is empty.\n");
+	delete as[i];
+	as[i] = NULL;
+      }
+    }
+    else {
+      as[i] = NULL;
+    }
   }
-  else {
-    margin = 0;
-  }
+
+#define FREE_ON_ERROR				\
+    do {					\
+      for (int i=0; i < 2; i++) {		\
+	if (as[i]) {				\
+	delete as[i];				\
+      }						\
+      if (array_expand[i]) {			\
+	delete array_expand[i];			\
+	if (orig_array[i]) {			\
+	  delete orig_array[i];			\
+	}					\
+      }						\
+      }						\
+    } while (0)
       
-  /* add constraint! */
-  int cid = tg->addConstraint (vid[0], vid[1], vid[2], margin);
 
-  TaggedTG::constraint *c = tg->getConstraint (cid);
-  Assert (c, "Hmm");
-  c->from_tick = tick[1];
-  c->to_tick = tick[2];
+  if (!as[0] && array_expand[0] || !as[1] && array_expand[1]) {
+    // we have a problem!
+    fprintf (stderr, "%s: unrolling array failed.\n", argv[0]);
+    FREE_ON_ERROR;
+    return LISP_RET_ERROR;
+  }
 
+  do {
+    // pick first element of array, if any
+    if (as[0]) {
+      Array *tmpa = as[0]->toArray();
+      tail[0]->setArray (tmpa);
+      as[0]->step();
+
+      char buf[10240];
+      array_expand[0]->sPrint (buf, 10240);
+	
+      tail[0]->setArray (NULL);
+      delete tmpa;
+
+      if (!get_net_to_timing_vertex (argv[0], buf, &vid[1])) {
+	FREE_ON_ERROR;
+	return LISP_RET_ERROR;
+      }
+    }
+
+    do {
+      if (as[1]) {
+	Array *tmpa = as[1]->toArray();
+	tail[1]->setArray (tmpa);
+	as[1]->step();
+
+	char buf[10240];
+	array_expand[1]->sPrint (buf, 10240);
+	tail[1]->setArray (NULL);
+	delete tmpa;
+
+	if (!get_net_to_timing_vertex (argv[0], buf, &vid[2])) {
+	  FREE_ON_ERROR;
+	  return LISP_RET_ERROR;
+	}
+      }
+      
+      /* add constraint! */
+      int cid = tg->addConstraint (vid[0], vid[1], vid[2], margin);
+
+      TaggedTG::constraint *c = tg->getConstraint (cid);
+      Assert (c, "Hmm");
+      c->from_tick = tick[1];
+      c->to_tick = tick[2];
+
+      if (dir[1] == -1) {
+	c->from_dir = 0;
+      }
+      if (dir[2] == -1) {
+	c->to_dir = 0;
+      }
+
+    } while (as[1] && !as[1]->isend());
+    
+  } while (as[0] && !as[0]->isend());
+  
   save_to_log (argc, argv, "sssi");
+  
+#undef FREE_ON_ERROR  
   
   return LISP_RET_TRUE;
 }
@@ -2004,7 +2165,7 @@ static struct LispCliCommand timer_cmds[] = {
 
   { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
 
-  { "add-constraint", "<root>+/- <fast>+/- <slow>+/- [margin] - add a timing fork constraint", process_timer_addconstraint },
+  { "add-constraint", "<root>+/- [*]<fast>[+/-] [*]<slow>[+/-] [margin] - add a timing fork constraint", process_timer_addconstraint },
   
   { "init", "<l1> <l2> ... - initialize analysis engine with specified liberty handles",
     process_timer_init },
@@ -2035,7 +2196,7 @@ static struct LispCliCommand timer_cmds[] = {
   { "get-violations", "- returns a list of constraint ids (cids) that have violations",
     process_timer_get_violations },
 
-  { "check-constraint", "cid - does a path analysis to check paths for timing fork #<cid> exist",
+  { "check-constraint", "cid [ticks] - does a path analysis to check paths for timing fork #<cid> exist",
     process_timer_check_constraint },
 
   { "get-slack", "cid - returns the slack of the violating constraint id #cid",
