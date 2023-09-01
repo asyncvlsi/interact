@@ -486,7 +486,8 @@ int process_timer_run (int argc, char **argv)
   }
 
   if (!agt) {
-    fprintf (stderr, "%s: timer needs to be initialized (inconsistency?)\n", argv[0]);
+    fprintf (stderr, "%s: timer needs to be initialized (inconsistency?)\n",
+	     argv[0]);
     return LISP_RET_ERROR;
   }
 
@@ -882,6 +883,16 @@ static void _set_delay_units (void)
   }
 }
 
+#if 0
+
+/*
+  This was used as a proxy for the correct timing fork check before
+  the timing fork check was implemented.
+
+  This is a simplified check that validates the arrival time, assuming
+  that the AND-causal timing is precise.
+*/
+
 /*
   Return slack of a timing constraint in timer units
 
@@ -892,7 +903,6 @@ static void _set_delay_units (void)
   iteration : 0 <= iteration < M : the iteration to check
 */
 
-
 static double get_slack (TaggedTG::constraint *c,
 			 timing_info *from, timing_info *to,
 			 int iteration,
@@ -902,7 +912,7 @@ static double get_slack (TaggedTG::constraint *c,
 {
   int j;
   double adj = 0;
-    
+
   if (c->from_tick == c->to_tick) {
     j = iteration;
   }
@@ -923,6 +933,10 @@ static double get_slack (TaggedTG::constraint *c,
 
   return (x - margin);
 }
+#endif
+
+
+
 
 int process_timer_constraint (int argc, char **argv)
 {
@@ -979,6 +993,7 @@ int process_timer_constraint (int argc, char **argv)
   _set_delay_units ();
   double timer_units = agt->getTimeUnits ();
 
+  int cyc_id = 0;
   for (int i=0; i < tg->numConstraints(); i++) {
     TaggedTG::constraint *c;
     c = tg->getConstraint (i);
@@ -1145,7 +1160,7 @@ int process_timer_constraint (int argc, char **argv)
 	}
 	continue;
       }
-	  
+
       if (c->from_dir == 0) {
 	from_dirs[0] = 0;
 	from_dirs[1] = 1;
@@ -1168,7 +1183,76 @@ int process_timer_constraint (int argc, char **argv)
 	to_dirs[0] = (c->to_dir == 1 ? 1 : 0);
 	to_char = (c->to_dir == 1 ? '+' : '-');
       }
-      
+
+      /* the constraints are sorted by timing graph constraint ID */
+      cyclone_constraint *cyc_c = agt->_getConstraint (cyc_id);
+      while (cyc_c && cyc_c->tg_id < i) {
+	cyc_id++;
+      }
+      while (cyc_c && cyc_c->tg_id == i) {
+	int from_vtx, to_vtx;
+	from_vtx = c->from + cyc_c->from_dir;
+	to_vtx = c->to + cyc_c->to_dir;
+	TimingVertexInfo *vfrom =
+	  (TimingVertexInfo *) tg->getVertex (from_vtx)->getInfo();
+	TimingVertexInfo *vto =
+	  (TimingVertexInfo *) tg->getVertex (to_vtx)->getInfo();
+	char *buf1 = (char *)vfrom->info();
+	char *buf2 = (char *)vto->info();
+
+	printf ("[%*d/%*d]{#%*d} %s%s -> %s%s%s", nzeros, i+1, nzeros,
+		tg->numConstraints(),
+		nzeros, cyc_id,
+		c->from_tick ? "*" : "", buf1, 
+		c->to_tick ? "*" : "", buf2,
+		c->error ? " *root-err*" : "");
+
+	FREE (buf1);
+	FREE (buf2);
+	
+	if (c->margin != 0) {
+	  if (margin*timer_units < 1e-9) {
+	    printf (" [%g ps] ", margin*timer_units*1e12);
+	  }
+	  else if (margin*timer_units < 1e-6) {
+	    printf (" [%g ns] ", margin*timer_units*1e9);
+	  }
+	  else {
+	    printf (" [%g us] ", margin*timer_units*1e6);
+	  }
+	}
+
+	if (!c->error) {
+	  double amt = agt->getForkSlack (cyc_id)*timer_units;
+	  char unit;
+
+	  if (fabs(amt) < 1e-9) {
+	    amt *= 1e12;
+	    unit = 'p';
+	  }
+	  else if (fabs(amt) < 1e-6) {
+	    unit = 'n';
+	    amt *= 1e9;
+	  }
+	  else {
+	    unit = 'u';
+	    amt *= 1e6;
+	  }
+	  printf ("  slk: %g %cs%s", my_round_2 (amt), unit,
+		  (amt < 0) ? " *ERR" : "");
+	}
+
+	printf ("\n");
+
+	cyc_id++;
+	cyc_c = agt->_getConstraint (cyc_id);
+      }
+
+#if 0
+
+      /* old code computing approximate timing fork estimate,
+	 assuming that arrival time was perfect
+      */
       list_t *l[2];
       l[0] = agt->queryDriver (c->from);
       l[1] = agt->queryDriver (c->to);
@@ -1298,6 +1382,7 @@ int process_timer_constraint (int argc, char **argv)
       }
       agt->queryFree (l[0]);
       agt->queryFree (l[1]);
+#endif      
     }
   }
   
@@ -1375,6 +1460,9 @@ static void incremental_update_timer (void)
   agt->incrementalUpdate ();
 }
 
+/*
+ * Return the slack of the timing fork
+ */
 static double get_worst_slack (int constraint_id)
 {
   double timer_units;
@@ -1390,41 +1478,8 @@ static double get_worst_slack (int constraint_id)
     return 0.0;
   }
 
-  timing_info *t_from, *t_to;
-  TaggedTG::constraint *c;
-
-  c = tg->getConstraint (cyc->tg_id);
-
-  if (c->error) {
-    /* error in constraint */
-    return 0.0;
-  }
-
-  t_from = agt->queryTransition (c->from, cyc->from_dir);
-  t_to = agt->queryTransition (c->to, cyc->to_dir);
-
-  double p;
-  int M;
-  agt->getPeriod (&p, &M);
-
-  int slack_set = 0;
-  double slack = 0;
-  double margin = c->margin*act_delay_units/timer_units;
-  
-  for (int i=0; i < M; i++) {
-    double amt = get_slack (c, t_from, t_to, i, margin, p, M);
-
-    if (!slack_set) {
-      slack = amt;
-      slack_set = 1;
-    }
-    else if (amt < slack) {
-      slack = amt;
-    }
-  }
-
-  /* return slack in timer units */
-  return slack;
+  // XXX: should this be in timer units?
+  return agt->getForkSlack (constraint_id)/timer_units;
 }
 
 static std::vector<double> get_slack_callback (const std::vector<int> &ids)
@@ -1460,8 +1515,8 @@ static void get_witness_callback (int constraint,
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath pa, pb;
 
-  agt->getFastEndPaths (constraint, pa);
-  agt->getSlowEndPaths (constraint, pb);
+  pa = agt->getFastEndPaths (constraint);
+  pb = agt->getSlowEndPaths (constraint);
 
   agt->convertPath (pa, patha, true);
   agt->convertPath (pb, pathb, true);
@@ -1486,8 +1541,8 @@ static void get_full_witness_callback (int constraint,
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath pa, pb;
 
-  agt->getFastEndPaths (constraint, pa);
-  agt->getSlowEndPaths (constraint, pb);
+  pa = agt->getFastEndPaths (constraint);
+  pb = agt->getSlowEndPaths (constraint);
 
   agt->convertPath (pa, patha, false);
   agt->convertPath (pb, pathb, false);
@@ -1511,7 +1566,7 @@ static void get_slow_witness_callback (int constraint,
   }
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath p;
-  agt->getSlowEndPaths (constraint, p);
+  p = agt->getSlowEndPaths (constraint);
   agt->convertPath (p, path, true);
 }
 
@@ -1532,7 +1587,7 @@ static void get_fast_witness_callback (int constraint,
   }
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath p;
-  agt->getFastEndPaths (constraint, p);
+  p = agt->getFastEndPaths (constraint);
   agt->convertPath (p, path, true);
 }
 
@@ -1605,7 +1660,7 @@ void get_violated_constraints2 (std::vector<std::pair<int,float>> &violations)
   A_INIT (v);
   
   for (int i=0; i < nc; i++) {
-    double slack = get_worst_slack (i);
+    double slack = agt->getForkSlack (i);
     if (slack < 0) {
       A_NEW (v, _violation_pair);
       A_NEXT (v).idx = i;
@@ -1844,7 +1899,7 @@ int process_timer_check_constraint (int argc, char **argv)
 
   TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
 
-  printf ("### Constraint-id: %d [elaborated-id: %d] ###\n", cyc->tg_id + 1,
+  printf ("### Constraint-id: %d {id: #%d} ###\n", cyc->tg_id + 1,
 	  atoi (argv[1]));
   
   char buf[1024];
@@ -1923,15 +1978,7 @@ int process_timer_get_slack (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  std::vector<int> inp;
-  std::vector<double> res;
-
-  inp.clear();
-  inp.push_back (atoi (argv[1]));
-
-  res = get_slack_callback (inp);
-
-  LispSetReturnFloat (res[0]);
+  LispSetReturnFloat (agt->getForkSlack (atoi (argv[1])));
 
   return LISP_RET_FLOAT;
 }
@@ -2000,7 +2047,7 @@ int process_timer_get_witness (int argc, char **argv)
   cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
   TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
 
-  printf ("### Constraint-id: %d [elaborated-id: %d] ###\n", cyc->tg_id + 1,
+  printf ("### Constraint-id: %d {id: #%d} ###\n", cyc->tg_id + 1,
 	  atoi (argv[1]));
   
   char buf[1024];
