@@ -1463,9 +1463,36 @@ static void get_witness_callback (int constraint,
   agt->getFastEndPaths (constraint, pa);
   agt->getSlowEndPaths (constraint, pb);
 
-  agt->convertPath (pa, patha);
-  agt->convertPath (pb, pathb);
+  agt->convertPath (pa, patha, true);
+  agt->convertPath (pb, pathb, true);
 }
+
+static void get_full_witness_callback (int constraint,
+				       std::vector<phydb::ActEdge> &patha,
+				       std::vector<phydb::ActEdge> &pathb)
+{
+  TaggedTG *tg = agt->getTaggedTG ();
+  cyclone_constraint *cyc = agt->_getConstraint (constraint);
+  if (!cyc) {
+    return;
+  }
+  if (cyc->witness_ready == 0) {
+    /* error */
+    return;
+  }
+  if (cyc->witness_ready == 1) {
+    agt->computeWitnesses ();
+  }
+  /* a < b : a should be fast, b should be slow */
+  cyclone::TimingPath pa, pb;
+
+  agt->getFastEndPaths (constraint, pa);
+  agt->getSlowEndPaths (constraint, pb);
+
+  agt->convertPath (pa, patha, false);
+  agt->convertPath (pb, pathb, false);
+}
+
 
 static void get_slow_witness_callback (int constraint,
 				       std::vector<phydb::ActEdge> &path)
@@ -1485,7 +1512,7 @@ static void get_slow_witness_callback (int constraint,
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath p;
   agt->getSlowEndPaths (constraint, p);
-  agt->convertPath (p, path);
+  agt->convertPath (p, path, true);
 }
 
 static void get_fast_witness_callback (int constraint,
@@ -1506,7 +1533,7 @@ static void get_fast_witness_callback (int constraint,
   /* a < b : a should be fast, b should be slow */
   cyclone::TimingPath p;
   agt->getFastEndPaths (constraint, p);
-  agt->convertPath (p, path);
+  agt->convertPath (p, path, true);
 }
 
 
@@ -1968,7 +1995,7 @@ int process_timer_get_witness (int argc, char **argv)
 
   std::vector<phydb::ActEdge> patha, pathb;
 
-  get_witness_callback (atoi (argv[1]), patha, pathb);
+  get_full_witness_callback (atoi (argv[1]), patha, pathb);
 
   cyclone_constraint *cyc = agt->_getConstraint (atoi(argv[1]));
   TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
