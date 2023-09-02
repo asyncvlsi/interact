@@ -936,10 +936,28 @@ static double get_slack (TaggedTG::constraint *c,
 #endif
 
 
-
+static double _time_print (double amt, char *unit)
+{
+  if (fabs(amt) < 1e-9) {
+    amt *= 1e12;
+    *unit = 'p';
+  }
+  else if (fabs(amt) < 1e-6) {
+    *unit = 'n';
+    amt *= 1e9;
+  }
+  else {
+    *unit = 'u';
+    amt *= 1e6;
+  }
+  return amt;
+}
 
 int process_timer_constraint (int argc, char **argv)
 {
+  double wns = 0;
+  double tns = 0;
+  int num_errs = 0;
   if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[<net>]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
@@ -1136,18 +1154,8 @@ int process_timer_constraint (int argc, char **argv)
 
 	      slack = min_delay[i] - isofork_delay[i] - margin;
 	      slack *= timer_units;
-	      if (fabs (slack) < 1e-9) {
-		slack *= 1e12;
-		unit = 'p';
-	      }
-	      else if (fabs (slack) < 1e-6) {
-		slack *= 1e9;
-		unit = 'n';
-	      }
-	      else {
-		unit = 'u';
-		slack *= 1e6;
-	      }
+
+	      slack = _time_print (slack, &unit);
 	      printf ("[%g %cs]%s\n", my_round_2 (slack), unit,
 		      slack < 0 ? "*ER" : "");
 	    }
@@ -1225,21 +1233,19 @@ int process_timer_constraint (int argc, char **argv)
 	if (!c->error) {
 	  double amt = agt->getForkSlack (cyc_id)*timer_units;
 	  char unit;
+	  double amt_p;
 
-	  if (fabs(amt) < 1e-9) {
-	    amt *= 1e12;
-	    unit = 'p';
-	  }
-	  else if (fabs(amt) < 1e-6) {
-	    unit = 'n';
-	    amt *= 1e9;
-	  }
-	  else {
-	    unit = 'u';
-	    amt *= 1e6;
-	  }
-	  printf ("  slk: %g %cs%s", my_round_2 (amt), unit,
+	  amt_p = _time_print (amt, &unit);
+	  printf ("  slk: %g %cs%s", my_round_2 (amt_p), unit,
 		  (amt < 0) ? " *ERR" : "");
+
+	  if (amt < 0) {
+	    num_errs++;
+	    if (amt < wns) {
+	      wns = amt;
+	    }
+	    tns += amt;
+	  }
 	}
 
 	printf ("\n");
@@ -1325,18 +1331,7 @@ int process_timer_constraint (int argc, char **argv)
 		double amt = slack*timer_units;
 		char unit;
 
-		if (fabs(amt) < 1e-9) {
-		  amt *= 1e12;
-		  unit = 'p';
-		}
-		else if (fabs(amt) < 1e-6) {
-		  unit = 'n';
-		  amt *= 1e9;
-		}
-		else {
-		  unit = 'u';
-		  amt *= 1e6;
-		}
+		amt = _time_print (amt, &unit);
 		printf ("[%g %cs]%c%c%s", my_round_2 (amt), unit,
 			from_dirs[ii] ? '+' : '-',
 			to_dirs[jj] ? '+' : '-',
@@ -1384,6 +1379,15 @@ int process_timer_constraint (int argc, char **argv)
       agt->queryFree (l[1]);
 #endif      
     }
+  }
+
+  if (num_errs > 0) {
+    char unit;
+    printf ("Summary: %d violation%s\n", num_errs, num_errs > 1 ? "s" : "");
+    wns = _time_print (wns, &unit);
+    printf ("   Worst negative slack: %g %cs\n", wns, unit);
+    tns = _time_print (tns, &unit);
+    printf ("   Total negative slack: %g %cs\n", tns, unit);
   }
   
   save_to_log (argc, argv, "s");
@@ -1568,6 +1572,7 @@ static void get_slow_witness_callback (int constraint,
   cyclone::TimingPath p;
   p = agt->getSlowEndPaths (constraint);
   agt->convertPath (p, path, true);
+  agt->getNextForkPath (constraint, false /* slow end */);
 }
 
 static void get_fast_witness_callback (int constraint,
@@ -1589,6 +1594,7 @@ static void get_fast_witness_callback (int constraint,
   cyclone::TimingPath p;
   p = agt->getFastEndPaths (constraint);
   agt->convertPath (p, path, true);
+  agt->getNextForkPath (constraint, true /* fast end */);
 }
 
 
