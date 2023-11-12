@@ -47,6 +47,11 @@
 #endif
 
 enum design_state {
+		   STATE_ANY,	   /* no requirements: only used for
+				      checking the current state; the
+				      actual state will never be set
+				      to this value. */
+		   
 		   STATE_EMPTY,    /* no act file/design has been
 				      specified */
 		   

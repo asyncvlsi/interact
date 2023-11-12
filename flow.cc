@@ -38,6 +38,10 @@ static const char *get_state_str (void)
   static char buf[1024];
   const char *s = NULL;
   switch (F.s) {
+  case STATE_ANY:
+    s = "[any]";
+    break;
+    
   case STATE_EMPTY:
     s = "[no design]";
     break;
@@ -124,7 +128,7 @@ int std_argcheck (int argc, char **argv, int argnum, const char *usage,
     fprintf (stderr, "Usage: %s %s\n", argv[0], usage);
     return 0;
   }
-  if (F.s == required) {
+  if (required == STATE_ANY || F.s == required) {
     return 1;
   }
 
@@ -172,7 +176,7 @@ void flow_init (void)
   F.sp = NULL;
   F.tp = NULL;
 
-  F.act_design = NULL;
+  F.act_design = new Act ();
   F.act_toplevel = NULL;
 
 #ifdef FOUND_dali

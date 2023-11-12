@@ -107,7 +107,8 @@ static int process_read (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   fclose (fp);
-  F.act_design = new Act (argv[1]);
+  Assert (F.act_design, "What?");
+  F.act_design->Merge (argv[1]);
   F.s = STATE_DESIGN;
   return LISP_RET_TRUE;
 }
@@ -405,12 +406,17 @@ static int process_pass_dyn (int argc, char **argv)
 {
 
   if (!std_argcheck (argc, argv, 4, "<dylib> <pass-name> <prefix>",
-		     STATE_EXPANDED)) {
+		     STATE_ANY)) {
     return LISP_RET_ERROR;
   }
   save_to_log (argc, argv, "s*");
   
+#if 0  
   /* -- special cases here for passes that require other things done -- */
+  /* 
+     We no longer need this as this pass should be automatically
+     called through dependencies.
+  */
   if (strcmp (argv[2], "net2stk") == 0) {
     ActNetlistPass *np = getNetlistPass ();
     if (!np->completed()) {
@@ -418,6 +424,7 @@ static int process_pass_dyn (int argc, char **argv)
       F.ckt_gen = 1;
     }
   }
+#endif
   
   ActDynamicPass *dp =
     new ActDynamicPass (F.act_design, argv[2], argv[1], argv[3]);

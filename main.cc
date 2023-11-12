@@ -274,6 +274,39 @@ int process_read (int argc, char **argv)
   return LISP_RET_STRING;
 }
 
+int process_buildopt (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "");
+  printf ("Build-time options:\n");
+#ifdef FOUND_galois
+  printf ("\tParallel framework (Galois library)\n");
+#endif
+#ifdef FOUND_timing_actpin
+  printf ("\tTiming analysis API\n");
+#endif  
+#ifdef FOUND_dali
+  printf ("\tPlacer (Dali)\n");
+#endif
+#ifdef FOUND_phydb
+  printf ("\tPhysical database (PhyDB)\n");
+#endif
+#ifdef FOUND_pwroute
+  printf ("\tPower detailed router (PWRoute)\n");
+#endif
+#ifdef FOUND_sproute
+  printf ("\tParallel Global Router (SPRoute)\n");
+#endif
+#ifdef FOUND_bipart
+  printf ("\tParallel Hypergraph Partitioner (BiPart)\n");
+#endif
+  return LISP_RET_TRUE;
+}
+
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Basic I/O", NULL },
   { "getopt", "<string> - run getopt", process_getopt },
@@ -286,7 +319,8 @@ struct LispCliCommand Cmds[] = {
   { "prompt", "<str> - change prompt to the specified string", process_prompt },
   { "error", "<str> - report error and abort execution", process_error },
   { "curtime", "- return a pair of elapsed (cputime realtime) in ms since the last call", process_curtime },
-  { "window-width", "<width> - set output window width in characters (min 40)", process_window }
+  { "window-width", "<width> - set output window width in characters (min 40)", process_window },
+  { "build-options", "- display the options used to build interact", process_buildopt }
 };
 
 int main (int argc, char **argv)
