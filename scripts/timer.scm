@@ -25,6 +25,7 @@
  (begin
    (act:pass:load "libacttpass.so" "taggedTG" "tgraph")
    (define timer:print (lambda () (act:pass:run "taggedTG" 1)))
+   (define timer:break-unticked-cycles (lambda () (act:pass:run "taggedTG" 2)))
    (define timer-loaded #t)
    )
  )
