@@ -462,7 +462,7 @@ static void aflat_print_prs (FILE *fp, Scope *s, act_prs_lang_t *p)
   if (!p) return;
   
   while (p) {
-    switch (p->type) {
+    switch (ACT_PRS_LANG_TYPE (p->type)) {
     case ACT_PRS_RULE:
       /* attributes */
       if (p->u.one.label) {
@@ -547,7 +547,7 @@ static void aflat_print_prs (FILE *fp, Scope *s, act_prs_lang_t *p)
       /* this is fine */
       aflat_print_prs (fp, s, p->u.l.p);
       break;
-    case ACT_PRS_CAP:
+    case ACT_PRS_DEVICE:
       /* nothing to do */
       break;
     default:
