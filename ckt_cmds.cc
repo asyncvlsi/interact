@@ -362,7 +362,7 @@ static int process_add_buffer (int argc, char **argv)
   Assert (buftype->isExpanded(), "What?");
 
   const char *nm;
-  if ((nm = proc->addBuffer (argv[2], tmp, buftype))) {
+  if ((nm = proc->addBuffer (argv[2], tmp, buftype, true))) {
     save_to_log (argc, argv, "s*");
     LispSetReturnString (nm);
     F.s = STATE_DIRTY;
