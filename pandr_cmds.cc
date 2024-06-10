@@ -327,6 +327,222 @@ static int process_phydb_read_cluster (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+
+static int process_phydb_get_columns (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  auto &cols = F.phydb->GetClusterColsRef();
+
+  LispSetReturnListStart ();
+
+  for (auto &onecol : cols) {
+    int lx = onecol.GetLX();
+    int ux = onecol.GetUX();
+
+    auto &vly = onecol.GetLY();
+    auto &vuy = onecol.GetUY();
+
+    LispAppendListStart ();
+
+    LispAppendReturnInt (lx);
+    LispAppendReturnInt (ux);
+
+    for (int i = 0; i < vly.size(); i++) {
+      LispAppendListStart ();
+      LispAppendReturnInt (vly[i]);
+      LispAppendReturnInt (vuy[i]);
+      LispAppendListEnd ();
+    }
+
+    LispAppendListEnd ();
+  }
+
+  LispSetReturnListEnd ();
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_LIST;
+}
+
+
+struct component_loc {
+  int x, y;
+  int idx;
+};
+
+int _component_func (char *x, char *y)
+{
+  component_loc *l = (component_loc *)x;
+  component_loc *r = (component_loc *)y;
+
+  if (l->x != r->x) { return l->x - r->x; }
+  return l->y - r->y;
+}
+
+int _component_func2 (char *x, char *y)
+{
+  component_loc *l = (component_loc *)x;
+  component_loc *r = (component_loc *)y;
+
+  if (l->y != r->y) { return l->y - r->y; }
+  return l->x - r->x;
+}
+
+static int process_phydb_get_gaps (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  auto &cols = F.phydb->GetClusterColsRef();
+  auto *design = F.phydb->GetDesignPtr();
+  int micron = F.phydb->tech().GetDatabaseMicron();
+
+  auto &components = design->GetComponentsRef();
+
+  if (components.size() == 0) {
+    return LISP_RET_FALSE;
+  }
+
+  component_loc *x;
+  MALLOC (x, component_loc, sizeof (component_loc)*components.size());
+
+  int len = 0;
+  for (auto &comp : components) {
+    Point2D<int> p = comp.GetLocation();
+    CompOrient orient = comp.GetOrientation();
+    double width = comp.GetMacro()->GetWidth();
+
+    x[len].x = p.x;
+    x[len].y = p.y;
+    x[len].idx = len;
+    len++;
+  }
+
+  // Sort components in the x direction to group them into columns
+  mygenmergesort ((char *)x, sizeof (component_loc), len, _component_func);
+#if 0
+  for (int j=0; j < len; j++) {
+    printf ("%d: %d %d (w=%d)\n", j, x[j].x, x[j].y,
+	    (int)(micron*components[x[j].idx].GetMacro()->GetWidth()));
+  }
+#endif
+
+  int startpos = 0;
+  int endpos = -1;
+
+  LispSetReturnListStart();
+
+  for (auto &onecol : cols) {
+    int lx = onecol.GetLX();
+    int ux = onecol.GetUX();
+
+
+    /*-- get range of x[..] that corresponds to this column --*/
+    startpos = endpos+1;
+
+    /* skip cover cells */
+    while (startpos < len &&
+	(x[startpos].x + (int)(micron*components[x[startpos].idx].GetMacro()->GetWidth()) < lx) ||
+	(components[x[startpos].idx].GetMacro()->GetClass() == MacroClass::COVER)) {
+      startpos++;
+    }
+
+    endpos = startpos;
+    while (endpos < len && x[endpos].x < ux) {
+      endpos++;
+    }
+    endpos--;
+
+    //printf ("COL [%d, %d]: %d .. %d\n", lx, ux, startpos, endpos);
+
+    if (endpos < startpos) {
+      // empty test
+      continue;
+    }
+
+    /*-- sort in y to group the cells from this column into mini rows --*/
+
+    mygenmergesort ((char *)(x + startpos), sizeof (component_loc),
+		    (endpos-startpos+1), _component_func2);
+
+#if 0
+    for (int j=startpos; j <= endpos; j++) {
+      printf ("%d: %d %d (w=%d)\n", j, x[j].x, x[j].y,
+	      (int)(micron*components[x[j].idx].GetMacro()->GetWidth()));
+    }
+#endif
+
+    auto &vly = onecol.GetLY();
+    auto &vuy = onecol.GetUY();
+
+    int ystart, yend;
+
+    yend = startpos-1;
+    for (int i = 0; i < vly.size(); i++) {
+      ystart = yend+1;
+
+      while (ystart <= endpos && x[ystart].y < vly[i]) {
+	ystart++;
+      }
+      yend = ystart;
+
+      while (yend <= endpos && x[yend].y < vuy[i]) {
+	yend++;
+      }
+      yend--;
+
+#if 0
+      printf ("  > ROW %d: %d .. %d\n", i, ystart, yend);
+#endif
+
+      // empty test
+      if (yend < ystart) continue;
+
+      /*-- now we have found the cells in the current minirow, sort in
+	   x again to find gaps --*/
+
+      mygenmergesort ((char *)(x + ystart), sizeof (component_loc),
+		      (yend-ystart+1), _component_func);
+
+      /* now they are sorted! */
+      int poslx = lx;
+      for (int j=ystart; j <= yend; j++) {
+	if (poslx < x[j].x) {
+	  LispAppendListStart();
+	  LispAppendReturnInt (poslx);
+	  LispAppendReturnInt (vly[i]);
+	  LispAppendReturnInt (x[j].x);
+	  LispAppendReturnInt (vuy[i]);
+	  LispAppendListEnd();
+
+	  poslx = x[j].x + (int)(micron*components[x[j].idx].GetMacro()->GetWidth());
+	}
+      }
+    }
+  }
+
+  LispSetReturnListEnd();
+
+  FREE (x);
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_LIST;
+}
+
 static int process_phydb_write_def (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<file>", STATE_EXPANDED)) {
@@ -598,6 +814,12 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_read_techconfig },
   { "read-cluster", "<file> - read Cluster file and populate database", 
     process_phydb_read_cluster },
+
+  { "get-columns", "- return a list of coordinates of columns in grid point coords",
+    process_phydb_get_columns },
+
+  { "get-gaps", "- return a list of coordinates of gaps in the minirows",
+    process_phydb_get_gaps },
 
   { "place-cell", "<cell-type> <llx> <lly> <N|FS> - add a new cell to a fixed location",
     process_phydb_place_cell },
