@@ -446,10 +446,11 @@ static int process_phydb_get_gaps (int argc, char **argv)
 
   LispSetReturnListStart();
 
+  int colcount = 0;
+
   for (auto &onecol : cols) {
     int lx = onecol.GetLX();
     int ux = onecol.GetUX();
-
 
     /*-- get range of x[..] that corresponds to this column --*/
     startpos = endpos+1;
@@ -521,6 +522,15 @@ static int process_phydb_get_gaps (int argc, char **argv)
       /* now they are sorted! */
       int poslx = lx;
       for (int j=ystart; j <= yend; j++) {
+#if 0
+	auto &cref = components[x[j].idx];
+	printf ("ROW %d: cell %d: %s @ (%d,%d) w=%d\n",
+		i, j, cref.GetName().c_str(),
+		cref.GetLocation().x, cref.GetLocation().y,
+		(int)(micron*cref.GetMacro()->GetWidth()));
+	printf ("poslx = %d\n", poslx);
+#endif	
+	
 	if (poslx < x[j].x) {
 	  LispAppendListStart();
 	  LispAppendReturnInt (poslx);
@@ -531,8 +541,15 @@ static int process_phydb_get_gaps (int argc, char **argv)
 
 	  poslx = x[j].x + (int)(micron*components[x[j].idx].GetMacro()->GetWidth());
 	}
+	else if (poslx == x[j].x) {
+	  poslx = x[j].x + (int)(micron*components[x[j].idx].GetMacro()->GetWidth());
+	}
+	else {
+	  warning ("COL=%d: ROW %d has overlaps?\n", colcount, i);
+	}
       }
     }
+    colcount++;
   }
 
   LispSetReturnListEnd();
