@@ -423,8 +423,6 @@ static int process_phydb_get_gaps (int argc, char **argv)
   int len = 0;
   for (auto &comp : components) {
     Point2D<int> p = comp.GetLocation();
-    CompOrient orient = comp.GetOrientation();
-    double width = comp.GetMacro()->GetWidth();
 
     x[len].x = p.x;
     x[len].y = p.y;
@@ -519,6 +517,36 @@ static int process_phydb_get_gaps (int argc, char **argv)
       mygenmergesort ((char *)(x + ystart), sizeof (component_loc),
 		      (yend-ystart+1), _component_func);
 
+      
+      LispAppendListStart ();
+
+      
+      int pedge = -1;
+      for (int j=ystart; j <= yend; j++) {
+	CompOrient orient = components[x[j].idx].GetOrientation();
+
+	if (j > ystart && j < yend) {
+	  if (orient == CompOrient::N) {
+	    pedge = x[j].y + 
+	      (int)(micron*components[x[j].idx].GetMacro()->GetWellPNEdge());
+	  }
+	  else {
+	    pedge = x[j].y + 
+	      (int)(micron*(components[x[j].idx].GetMacro()->GetHeight() - 
+			    components[x[j].idx].GetMacro()->GetWellPNEdge()));
+	  }
+	  break;
+	}
+      }
+
+      LispAppendListStart ();
+      LispAppendReturnInt (lx);
+      LispAppendReturnInt (vly[i]);
+      LispAppendReturnInt (ux);
+      LispAppendReturnInt (vuy[i]);
+      LispAppendReturnInt (pedge);
+      LispAppendListEnd ();
+
       /* now they are sorted! */
       int poslx = lx;
       for (int j=ystart; j <= yend; j++) {
@@ -548,6 +576,8 @@ static int process_phydb_get_gaps (int argc, char **argv)
 	  warning ("COL=%d: ROW %d has overlaps?\n", colcount, i);
 	}
       }
+
+      LispAppendListEnd();
     }
     colcount++;
   }
