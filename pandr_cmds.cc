@@ -522,15 +522,18 @@ static int process_phydb_get_gaps (int argc, char **argv)
 
       
       int pedge = -1;
+      int type = 0;
       for (int j=ystart; j <= yend; j++) {
 	CompOrient orient = components[x[j].idx].GetOrientation();
 
 	if (j > ystart && j < yend) {
 	  if (orient == CompOrient::N) {
+	    type = 0;
 	    pedge = x[j].y + 
 	      (int)(micron*components[x[j].idx].GetMacro()->GetWellPNEdge());
 	  }
 	  else {
+	    type = 1; // flip
 	    pedge = x[j].y + 
 	      (int)(micron*(components[x[j].idx].GetMacro()->GetHeight() - 
 			    components[x[j].idx].GetMacro()->GetWellPNEdge()));
@@ -545,6 +548,7 @@ static int process_phydb_get_gaps (int argc, char **argv)
       LispAppendReturnInt (ux);
       LispAppendReturnInt (vuy[i]);
       LispAppendReturnInt (pedge);
+      LispAppendReturnBool (type);
       LispAppendListEnd ();
 
       /* now they are sorted! */
