@@ -25,6 +25,7 @@
 #include "all_cmds.h"
 #include "flow.h"
 
+static ActCellPass *getCellPass();
 
 /*************************************************************************
  *
@@ -91,6 +92,41 @@ int process_ckt_save_sp (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   np->Print (fp, F.act_toplevel);
+  std_close_output (fp);
+  return LISP_RET_TRUE;
+}
+
+int process_ckt_save_flatsp (int argc, char **argv)
+{
+  FILE *fp;
+  
+  if (!std_argcheck (argc, argv, 2, "<file>",
+		     F.ckt_gen ? STATE_EXPANDED : STATE_ERROR)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  if (!F.act_toplevel) {
+    fprintf (stderr, "%s: needs a top-level process specified", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  ActNetlistPass *np = getNetlistPass();
+  Assert (np->completed(), "What?");
+
+  ActCellPass *cp = getCellPass();
+  Assert (cp, "What?");
+  if (!cp->completed()) {
+    fprintf (stderr, "%s: flat spice output is only used after cell mapping\n",
+	     argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  fp = std_open_output (argv[0], argv[1]);
+  if (!fp) {
+    return LISP_RET_ERROR;
+  }
+  np->printFlat (fp);
   std_close_output (fp);
   return LISP_RET_TRUE;
 }
@@ -995,6 +1031,9 @@ static struct LispCliCommand ckt_cmds[] = {
     process_ckt_map },
   { "save-sp", "<file> - save SPICE netlist to <file>",
     process_ckt_save_sp },
+
+  { "save-flatsp", "<file> - save flattened spice netlist to file after cell mapping", process_ckt_save_flatsp },
+  
   { "mk-nets", "- preparation for DEF generation",
     process_ckt_mknets },
   { "save-prs", "<file> - save flat production rule set to <file> for simulation",
