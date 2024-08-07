@@ -23,7 +23,7 @@ include $(ACT_HOME)/scripts/Makefile.std
 install_conf: scm-install
 
 SCM_FILES=prs2net.scm act-opt.scm stk-pass.scm act2lef.scm \
-	phydb.scm more-string.scm timer.scm
+	phydb.scm more-string.scm timer.scm annotate.scm
 
 scm-install: $(SCM_FILES)
 	@if [ ! -d $(INSTALLLIB)/scm ]; then mkdir $(INSTALLLIB)/scm; fi
