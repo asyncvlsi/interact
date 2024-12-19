@@ -61,13 +61,13 @@ endif
 endif
 
 ifdef dali_INCLUDE
-DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log
+DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
 EXTRALIBDEPEND+=$(ACT_HOME)/lib/libdalilib.a
 
 ifeq ($(BASEOS),darwin)
+ifeq ($(shell ./have_boost_mt),1)
 DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
-else
-DALI_PIECES+=-lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
+endif
 endif
 
 ifdef NEED_LIBCXXFS

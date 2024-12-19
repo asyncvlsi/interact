@@ -1,0 +1,23 @@
+#!/bin/sh
+
+res=`grep boost_LIBDIR config.mk | sed 's/^.*=-L\(.*\)$/\1/'`
+if [ "x$res" = "x" ]
+then
+	echo 0
+	exit 0
+fi
+
+if [ ! -d $res ]
+then
+	echo 0
+	exit 0
+fi
+
+if [ -f $res/libboost_log-mt.a ]
+then
+	echo 1
+else
+	echo 0
+fi
+
+exit 0
