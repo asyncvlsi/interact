@@ -297,6 +297,17 @@ static int process_cell_map (int argc, char **argv)
   else {
     printf ("%s: cell pass already executed; skipped\n", argv[0]);
   }
+  // display cell stats both on a fresh run and when called again
+  list_t *l;
+  l = cp->getUsedCells ();
+  if (list_length (l) > 0) {
+    printf ("INFO: the following cells are used in the design:\n");
+    for (listitem_t *li = list_first (l); li; li = list_next (li)) {
+	  printf ("   %s\n", ((Process *)list_value (li))->getName());
+    }
+  }
+  printf ("   Number of unique cells: %d ", list_length (l));
+
   F.cell_map = 1;
   return LISP_RET_TRUE;
 }
