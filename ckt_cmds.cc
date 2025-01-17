@@ -277,11 +277,20 @@ static ActCellPass *getCellPass()
 
 static int process_cell_map (int argc, char **argv)
 {
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+  bool list_cells = false;
+  if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[-l]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
-  save_to_log (argc, argv, NULL);
+  if (argc == 2) {
+    if (strcmp (argv[1], "-l") != 0) {
+      fprintf (stderr, "%s: only -l supported as an argument", argv[0]);
+      return LISP_RET_ERROR;
+    }
+    list_cells = true;
+  }
   
+  save_to_log (argc, argv, NULL);
+
   ActCellPass *cp = getCellPass();
   if (!cp->completed()) {
     list_t *l;
@@ -297,16 +306,19 @@ static int process_cell_map (int argc, char **argv)
   else {
     printf ("%s: cell pass already executed; skipped\n", argv[0]);
   }
-  // display cell stats both on a fresh run and when called again
-  list_t *l;
-  l = cp->getUsedCells ();
-  if (list_length (l) > 0) {
-    printf ("INFO: the following cells are used in the design:\n");
-    for (listitem_t *li = list_first (l); li; li = list_next (li)) {
-	  printf ("   %s\n", ((Process *)list_value (li))->getName());
+
+  if (list_cells) {
+    // display cell stats both on a fresh run and when called again
+    list_t *l;
+    l = cp->getUsedCells ();
+    if (list_length (l) > 0) {
+      printf ("INFO: the following cells are used in the design:\n");
+      for (listitem_t *li = list_first (l); li; li = list_next (li)) {
+	printf ("   %s\n", ((Process *)list_value (li))->getName());
+      }
     }
+    printf ("   Number of unique cells: %d ", list_length (l));
   }
-  printf ("   Number of unique cells: %d ", list_length (l));
 
   F.cell_map = 1;
   return LISP_RET_TRUE;
@@ -1058,7 +1070,7 @@ static struct LispCliCommand ckt_cmds[] = {
   
 
   { NULL, "ACT cell mapping and editing", NULL },
-  { "cell-map", "- map gates to cell library", process_cell_map },
+  { "cell-map", "[-l] - map gates to cell library; -l lists used cells", process_cell_map },
   { "cell-save", "<file> - save cells to file", process_cell_save },
   { "cell-addbuf", "<proc> <inst> <pin> <buf> - add buffer to the pin within the process",
     process_add_buffer },
