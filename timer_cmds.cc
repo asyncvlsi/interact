@@ -423,12 +423,12 @@ int process_timer_init (int argc, char **argv)
   }
 
   /* -- add cell library -- */
-  galois::eda::liberty::CellLib **libs;
+  galois::eda::model::CellLib **libs;
 
-  MALLOC (libs, galois::eda::liberty::CellLib *, argc-1);
+  MALLOC (libs, galois::eda::model::CellLib *, argc-1);
   
   for (int i=1; i < argc; i++) {
-    libs[i-1] = (galois::eda::liberty::CellLib *) ptr_get ("liberty", atoi(argv[i]));
+    libs[i-1] = (galois::eda::model::CellLib *) ptr_get ("liberty", atoi(argv[i]));
     if (!libs[i-1]) {
       fprintf (stderr, "%s: timing lib file #%d (`%s') not found\n", argv[0],
 	       i-1, argv[i]);
