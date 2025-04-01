@@ -32,6 +32,7 @@
 #ifdef FOUND_timing_actpin
 
 #include <act/timing/galois_api.h>
+#include "galois/eda/liberty/NldmDelayCalculator.h"
 
 static double act_delay_units = -1.0;
 
@@ -440,8 +441,15 @@ int process_timer_init (int argc, char **argv)
   if (agt) {
     delete agt;
   }
+
+  // allocate Nldm model delay calculator
+  auto fn = [](galois::eda::sta::TimingEngine *te) {
+    return new galois::eda::liberty::NldmDelayCalculator (te);
+  };
+  
   agt = new ActGaloisTiming (F.act_design,
 			     F.act_toplevel,
+			     fn,
 			     argc-1, libs);
 
   if (agt->tgError()) {
