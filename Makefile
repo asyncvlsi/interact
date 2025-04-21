@@ -55,7 +55,7 @@ EXTRALIBDEPEND+=$(ACT_HOME)/lib/libgalois_shmem.a
 OMPFLAG=-fopenmp
 
 ifeq ($(BASEOS),linux)
-GALOIS_EDA_PIECES+=-lnuma
+GALOIS_EDA_PIECES+=-lnuma -latomic
 endif
 
 endif
