@@ -36,6 +36,9 @@ int output_window_width;
 static const char *get_state_str (void)
 {
   static char buf[1024];
+  int sz = 1024;
+  int pos = 0;
+  int len;
   const char *s = NULL;
   switch (F.s) {
   case STATE_ANY:
@@ -63,51 +66,74 @@ static const char *get_state_str (void)
     break;
     
   }
-  snprintf (buf, 1024, "%s\n  ", s);
+  snprintf (buf + pos, sz, "%s\n  ", s);
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
   if (F.ckt_gen) {
-    snprintf (buf + strlen (buf), 1000, " ckt:yes");
+    snprintf (buf + pos, sz, " ckt:yes");
   }
   else {
-    snprintf (buf + strlen (buf), 1000, " ckt:no");
+    snprintf (buf + pos, sz, " ckt:no");
   }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
 
   if (F.cell_map) {
-    snprintf (buf + strlen (buf), 1000, " cells:yes");
+    snprintf (buf + pos, sz, " cells:yes");
   }
   else {
-    snprintf (buf + strlen (buf), 1000, " cells:no");
+    snprintf (buf + pos, sz, " cells:no");
   }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
 
   if (F.act_toplevel) {
-    snprintf (buf + strlen (buf), 1000, " top:set");
+    snprintf (buf + pos, sz, " top:set");
   }
   else {
-    snprintf (buf + strlen (buf), 1000, " top:unset");
+    snprintf (buf + pos, sz, " top:unset");
   }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
+  
   if (F.timer == 0) {
-    snprintf (buf + strlen (buf), 1000, " timer:none");
+    snprintf (buf + pos, sz, " timer:none");
   }
   else if (F.timer == TIMER_INIT) {
-    snprintf (buf + strlen (buf), 1000, " timer:init");
+    snprintf (buf + pos, sz, " timer:init");
   }
   else if (F.timer == TIMER_RUN) {
-    snprintf (buf + strlen (buf), 1000, " timer:run");
+    snprintf (buf + pos, sz, " timer:run");
   }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
+
 #ifdef FOUND_dali
   if (F.dali) {
-    snprintf (buf + strlen (buf), 1000, " placer:init");
-  } 
-  else {
-    snprintf (buf + strlen (buf), 1000, " placer:none");
+    snprintf (buf + pos, sz, " placer:init");
   }
+  else {
+    snprintf (buf + pos, sz, " placer:none");
+  }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
 #endif
 #ifdef FOUND_phydb
   if (F.phydb) {
-    snprintf (buf + strlen (buf), 1000, " phydb:init");
+    snprintf (buf + pos, sz, " phydb:init");
   } 
   else {
-    snprintf (buf + strlen (buf), 1000, " phydb:none");
+    snprintf (buf + pos, sz, " phydb:none");
   }
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
 #endif
      
   return buf;
