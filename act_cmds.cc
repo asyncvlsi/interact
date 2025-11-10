@@ -168,6 +168,52 @@ static int process_set_mangle (int argc, char **argv)
 }
 
 
+static int process_mangle_print (int argc, char **argv)
+{
+  if (!std_argcheck (argc == 3 ? 2 : argc, argv, 2, "<string> [#f]", F.s)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  int len = strlen (argv[1]);
+  char *buf;
+  MALLOC (buf, char, 2*len+1);
+  buf[0] = '\0';
+
+  F.act_design->msnprintf (buf, 2*len+1, "%s", argv[1]);
+  LispSetReturnString (buf);
+
+  if (argc == 2) {
+    printf ("`%s' is mangled to `%s'\n", argv[1], buf);
+  }
+  FREE (buf);
+  return LISP_RET_STRING;
+}
+
+static int process_unmangle_print (int argc, char **argv)
+{
+  if (!std_argcheck (argc == 3 ? 2 : argc, argv, 2, "<string> [#f]", F.s)) {
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s");
+
+  int len = strlen (argv[1]);
+  char *buf;
+  MALLOC (buf, char, len+1);
+  buf[0] = '\0';
+
+  F.act_design->usnprintf (buf, len+1, "%s", argv[1]);
+  LispSetReturnString (buf);
+
+  if (argc == 2) {
+    printf ("`%s' is unmangled to `%s'\n", argv[1], buf);
+  }
+  FREE (buf);
+  return LISP_RET_STRING;
+}
+
+
+
 /*------------------------------------------------------------------------
  *
  *  Expand design & specify top level
@@ -923,6 +969,11 @@ static struct LispCliCommand act_cmds[] = {
     process_get_top },
   { "mangle", "<string> - set characters to be mangled on output",
     process_set_mangle },
+
+  { "mangle-print", "<str> [#f] - return+display mangled version of <str>",
+    process_mangle_print },
+  { "unmangle-print", "<str> [#f] - return+display unmangled version of <str>",
+    process_unmangle_print },
 
   { NULL, "ACT design query API", NULL },
   { "save-insts", "<file> - save circuit instance hierarchy to file",
