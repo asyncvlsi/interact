@@ -75,6 +75,23 @@
 	  )
 	)
 
+	(define act:layout:def_bb
+	(lambda (def pins? x y)
+	  (let ((f (sys:open def "w")))
+	    (begin
+	      (ckt:mk-nets)
+	      (act:pass:set_file "stk2layout" "def_file" f)
+	      (act:pass:set_int "stk2layout" "do_pins" (if pins? 1 0))
+		  (act:pass:set_int "stk2layout" "is_bb" 1)
+	      (act:pass:set_real "stk2layout" "bb_x" x)
+	      (act:pass:set_real "stk2layout" "bb_y" y)
+	      (act:layout:run 5)
+	      (sys:close f)
+	      )
+	    )
+	  )
+	)
+
       (define round3 (lambda (x) (/ (truncate (+ (* x 1000) 0.5)) 1000.0)))
       
       (define act:layout:report
@@ -163,6 +180,21 @@
 	    )
 	   )
 	  )
+(help-add "act:layout:def_bb"
+    "Generate DEF file with defined size with ACT netlist in DEF format"
+	  (string-multiappend
+	   (list
+	    ">  Usage: (act:layout:def def-file pins? x y)"
+	    ">    def-file - the output file name"
+	    ">       pins? - #t or #f if pins should be generated"
+	    ">   x - the x dimension in lambda of the bounding box to be created (it will snap the the next smaller track definition)"
+	    ">    y - the y dimension in lambda of the bounding box to be created (it will snap the the next smaller track definition)"
+	    "|    act:layout:create must be called before this function can be used."
+	    "|    Normally this function is called by phydb:create_bb rather than directly."
+	    ""
+	    )
+	   )
+	  )  
 
 (help-add "act:layout:report"
     "Print out area report and break-down"

@@ -40,6 +40,22 @@
        )
      )
 
+	(define phydb:create_bb			; populate phydb
+     (lambda (bb_x bb_y lefout)
+       (begin
+	 (phydb:init)
+	 (act:layout:create)
+	 (act:layout:lef "_out.lef" "_out.cell")
+	 (act:layout:def_bb "_out.def" #t bb_x bb_y)
+	 (phydb:read-lef "_out.lef")
+	 (phydb:read-cell "_out.cell")
+	 (phydb:read-def "_out.def")
+	 (system "rm _out.def _out.cell")
+	 (system (string-append "mv _out.lef " lefout))
+	 )
+       )
+     )
+
    (define phydb:create-stdcell		; populate phydb
      (lambda (area ratio lef_list)
        (begin
