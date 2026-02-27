@@ -60,6 +60,7 @@ ActDynamicPass *getSynthPass ()
 
 bool _set_synth_defaults (ActDynamicPass *dp, const char *family)
 {
+  const char *nm = (const char *) dp->getPtrParam ("engine_name");
   if (strcmp (family , "qdi") == 0) {
     if (dp->getPtrParam ("engine") == (void *) gen_ring_engine) {
       warning ("qdi synthesis is a work-in-progress for maelstrom.");
@@ -78,6 +79,10 @@ bool _set_synth_defaults (ActDynamicPass *dp, const char *family)
     dp->setParam ("ditest_dpath", false);
   }
   else if (strcmp (family, "bd2") == 0) {
+    if (strcmp (nm, "sdt") == 0) {
+      fprintf (stderr, "bd2 family not supported with sdt engine.\n");
+      return false;
+    }
     dp->setParam ("bundled_dpath", true);
     dp->setParam ("bundled_dpath_2phase", true);
     dp->setParam ("bundled_dpath_pulsed", false);
@@ -85,6 +90,10 @@ bool _set_synth_defaults (ActDynamicPass *dp, const char *family)
     dp->setParam ("ditest_dpath", false);
   }
   else if (strcmp (family, "bdp") == 0) {
+    if (strcmp (nm, "sdt") == 0) {
+      fprintf (stderr, "bdp family not supported with sdt engine.\n");
+      return false;
+    }
     dp->setParam ("bundled_dpath", true);
     dp->setParam ("bundled_dpath_2phase", false);
     dp->setParam ("bundled_dpath_pulsed", true);
@@ -92,6 +101,10 @@ bool _set_synth_defaults (ActDynamicPass *dp, const char *family)
     dp->setParam ("ditest_dpath", false);
   }
   else if (strcmp (family, "di") == 0) {
+    if (strcmp (nm, "sdt") == 0) {
+      fprintf (stderr, "di family not supported with sdt engine.\n");
+      return false;
+    }
     dp->setParam ("bundled_dpath", false);
     dp->setParam ("bundled_dpath_2phase", false);
     dp->setParam ("bundled_dpath_pulsed", false);
@@ -99,6 +112,10 @@ bool _set_synth_defaults (ActDynamicPass *dp, const char *family)
     dp->setParam ("ditest_dpath", false);
   }
   else if (strcmp (family, "ditest") == 0) {
+    if (strcmp (nm, "sdt") == 0) {
+      fprintf (stderr, "ditest family not supported with sdt engine.\n");
+      return false;
+    }
     dp->setParam ("bundled_dpath", false);
     dp->setParam ("bundled_dpath_2phase", false);
     dp->setParam ("bundled_dpath_pulsed", false);
@@ -221,7 +238,7 @@ int process_synth_init (int argc, char **argv)
 int process_synth_engine (int argc, char **argv)
 {
   ActDynamicPass *dp;
-  if (!std_argcheck (argc, argv, 2, "<name>", STATE_EXPANDED)) {
+  if (!std_argcheck (argc, argv, 3, "<name> <family>", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   dp = getSynthPass ();
@@ -230,8 +247,12 @@ int process_synth_engine (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   if (_set_engine (dp, argv[1])) {
-    _set_synth_defaults (dp, "qdi");
-    return LISP_RET_TRUE;
+    if (_set_synth_defaults (dp, argv[2])) {
+       return LISP_RET_TRUE;
+    }
+    fprintf (stderr, "%s: unknown circuit family `%s'.\n", argv[0],
+	     argv[2]);
+    return LISP_RET_ERROR;
   }
   else {
     fprintf (stderr, "%s: unknown synthesis engine `%s'.\n", argv[0],
@@ -274,7 +295,7 @@ int process_synth_expropt (int argc, char **argv)
     dp->setParam ("external_opt", 1);
   }
   else {
-    fprintf (stderr, "%s: could not find logic optimization library for `%s'",
+    fprintf (stderr, "%s: could not find logic optimization library for `%s'\n",
 	     argv[0], argv[1]);
     return LISP_RET_ERROR;
   }
@@ -299,9 +320,8 @@ int process_synth_exprfile (int argc, char **argv)
  
 struct LispCliCommand synth_cmds[] = {
   { NULL, "ACT logic synthesis", NULL },
-  { "init", "[engine] - initialize synthesis engine", process_synth_init },
-  { "engine", "<name> - set synthesis engine to <name>", process_synth_engine },
-  { "family", "<name> - set target circuit family to <name>", process_synth_family },
+  { "init", "[engine] - initialize synthesis engine; default circuit family is qdi", process_synth_init },
+  { "engine", "<name> <family> - set synthesis engine to <name>, circuit family to <family>", process_synth_engine },
   { "expropt", "<name> - set name of external combinational logic optimization engine",
     process_synth_expropt },
   { "exprfile", "<name> - set name of ACT file for synthesized expressions",
