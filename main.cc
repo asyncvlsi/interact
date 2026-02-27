@@ -370,6 +370,7 @@ int main (int argc, char **argv)
   flow_init ();
   conf_cmds_init ();
   act_cmds_init ();
+  synth_cmds_init ();
   ckt_cmds_init ();
   pandr_cmds_init ();
   misc_cmds_init ();

@@ -25,6 +25,7 @@
 #include "config_pkg.h"
 
 void act_cmds_init (void);
+void synth_cmds_init (void);
 void ckt_cmds_init (void);
 void timer_cmds_init (void);
 void pandr_cmds_init (void);
