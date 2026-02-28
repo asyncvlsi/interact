@@ -316,6 +316,40 @@ int process_synth_exprfile (int argc, char **argv)
   dp->setParam ("expr", (void *) Strdup (argv[1]));
   return LISP_RET_TRUE;
 }
+
+int process_synth_outfile (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  if (!std_argcheck (argc, argv, 2, "<name>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  dp = getSynthPass ();
+  if (!dp) {
+    fprintf (stderr, "%s: could not initialize synthesis pass.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  dp->setParam ("out", (void *) Strdup (argv[1]));
+  return LISP_RET_TRUE;
+}
+
+int process_synth_run (int argc, char **argv)
+{
+  ActDynamicPass *dp;
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  dp = getSynthPass ();
+  if (!dp) {
+    fprintf (stderr, "%s: could not initialize synthesis pass.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (F.act_toplevel == NULL) {
+    fprintf (stderr, "%s: no top-level process specified\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  dp->run (F.act_toplevel);
+  return LISP_RET_TRUE;
+}
  
  
 struct LispCliCommand synth_cmds[] = {
@@ -325,8 +359,10 @@ struct LispCliCommand synth_cmds[] = {
   { "expropt", "<name> - set name of external combinational logic optimization engine",
     process_synth_expropt },
   { "exprfile", "<name> - set name of ACT file for synthesized expressions",
-    process_synth_exprfile }
-  
+    process_synth_exprfile },
+  { "outfile", "<name> - set name of ACT output file", process_synth_outfile },
+  { "run", "- run sythesis pass", process_synth_run }
+
 };
 
 }
