@@ -317,25 +317,10 @@ int process_synth_exprfile (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_synth_outfile (int argc, char **argv)
-{
-  ActDynamicPass *dp;
-  if (!std_argcheck (argc, argv, 2, "<name>", STATE_EXPANDED)) {
-    return LISP_RET_ERROR;
-  }
-  dp = getSynthPass ();
-  if (!dp) {
-    fprintf (stderr, "%s: could not initialize synthesis pass.\n", argv[0]);
-    return LISP_RET_ERROR;
-  }
-  dp->setParam ("out", (void *) Strdup (argv[1]));
-  return LISP_RET_TRUE;
-}
-
 int process_synth_run (int argc, char **argv)
 {
   ActDynamicPass *dp;
-  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+  if (!std_argcheck ((argc == 2 ? 1 : argc), argv, 1, "[outfile]", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   dp = getSynthPass ();
@@ -346,6 +331,12 @@ int process_synth_run (int argc, char **argv)
   if (F.act_toplevel == NULL) {
     fprintf (stderr, "%s: no top-level process specified\n", argv[0]);
     return LISP_RET_ERROR;
+  }
+  if (argc == 2) {
+    dp->setParam ("out", (void *) Strdup (argv[1]));
+  }
+  else {
+   dp->setParam ("out", (void *) NULL);
   }
   dp->run (F.act_toplevel);
   return LISP_RET_TRUE;
@@ -360,8 +351,7 @@ struct LispCliCommand synth_cmds[] = {
     process_synth_expropt },
   { "exprfile", "<name> - set name of ACT file for synthesized expressions",
     process_synth_exprfile },
-  { "outfile", "<name> - set name of ACT output file", process_synth_outfile },
-  { "run", "- run sythesis pass", process_synth_run }
+  { "run", "[outfile] - run sythesis pass, saving the results in the specified output", process_synth_run }
 
 };
 
