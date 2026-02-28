@@ -46,6 +46,7 @@ ActDynamicPass *getSynthPass ()
   ActPass *p = F.act_design->pass_find ("synth");
   ActDynamicPass *dp;
   if (!p) {
+    config_read ("synth.conf");
     dp = new ActDynamicPass (F.act_design, "synth",
 			     "libactchp2prspass.so", "synthesis");
   }
