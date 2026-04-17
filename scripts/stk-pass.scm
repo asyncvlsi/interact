@@ -122,6 +122,20 @@
 	  )
 	)
 
+      (define act:layout:report-hier
+	(lambda (proc)
+	  (let ((a (* (tech:uscale) (* (tech:uscale)
+			 (act:pass:get_real "stk2layout" "total_area"))
+		      )
+		   ))
+	    (begin
+	      (act:pass:set_string "stk2layout" "hier_report" proc)
+	      (act:layout:run 2)
+	      )
+	    )
+	  )
+	)
+
       (define stk-pass-loaded #t)
       )
     )
