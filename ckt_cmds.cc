@@ -24,6 +24,7 @@
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "flow.h"
+#include <vnet.h>
 
 static ActCellPass *getCellPass();
 
