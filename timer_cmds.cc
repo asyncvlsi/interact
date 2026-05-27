@@ -38,6 +38,8 @@ static double act_delay_units = -1.0;
 
 static ActGaloisTiming *agt = NULL;
 
+static double act_clock_period = -1.0;
+
 static void init (int mode = 0)
 {
   static int first = 1;
@@ -407,6 +409,26 @@ static int process_timer_tick (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_timer_clock (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<period>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (!F.act_toplevel) {
+    fprintf (stderr, "%s: need top level of design set\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (agt) {
+    fprintf (stderr, "%s: timer already initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  act_clock_period = atof (argv[1]);
+  if (act_clock_period <= 0) {
+    act_clock_period = -1;
+  }
+  return LISP_RET_TRUE;
+}
+
 /*------------------------------------------------------------------------
  *
  *  Create timing graph and push it to the timing analysis engine
@@ -450,7 +472,7 @@ int process_timer_init (int argc, char **argv)
   agt = new ActGaloisTiming (F.act_design,
 			     F.act_toplevel,
 			     fn,
-			     argc-1, libs);
+			     argc-1, libs, act_clock_period);
 
   if (agt->tgError()) {
     fprintf (stderr, "%s: failed to initialize timer.\n", argv[0]);
@@ -653,6 +675,56 @@ int process_timer_info (int argc, char **argv)
 
   return LISP_RET_TRUE;
 }
+
+
+int process_timer_info_fo0 (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  Assert (tg, "What?");
+  Assert (agt, "What?!");
+
+  LispSetReturnListStart ();
+  
+  double p = 0;
+  int M = 0;
+  agt->getPeriod (&p, &M);
+
+  for (int i=0; i < tg->numVertices(); i += 2) {
+    char buf[10240];
+    AGvertex *v = tg->getVertex (i);
+    if (!v->hasFanout() && v->hasFanin()) {
+      list_t *l = agt->queryDriver (v->vid);
+      timing_info *tlo = timer_query_extract_fall (l);
+      timing_info *thi = timer_query_extract_rise (l);
+      LispAppendListStart ();
+      tlo->getTrans()->sPrintFullName (buf, 10240);
+      LispAppendReturnString (buf);
+      for (int j=0; j < M; j++) {
+	LispAppendReturnFloat (tlo->getArrv (j));
+	LispAppendReturnFloat (tlo->getReq (j));
+	LispAppendReturnFloat (thi->getArrv (j));
+	LispAppendReturnFloat (thi->getReq (j));
+      }
+      LispAppendListEnd ();
+    }
+  }
+    
+  LispSetReturnListEnd ();
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_LIST;
+}
+
 
 
 int process_timer_cycle (int argc, char **argv)
@@ -2235,6 +2307,8 @@ static int process_fall_violations (int argc, char **argv)
 {
   return process_rise_fall_violations (argc, argv, 0);
 }
+
+  
   
 
 static struct LispCliCommand timer_cmds[] = {
@@ -2254,6 +2328,8 @@ static struct LispCliCommand timer_cmds[] = {
   { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
 
   { "add-constraint", "<root>+/- [*]<fast>[+/-] [*]<slow>[+/-] [margin] - add a timing fork constraint", process_timer_addconstraint },
+
+  { "clock", "<period> - clocked analysis mode; primary inputs are attached to a clock", process_timer_clock },
   
   { "init", "<l1> <l2> ... - initialize analysis engine with specified liberty handles",
     process_timer_init },
@@ -2275,6 +2351,10 @@ static struct LispCliCommand timer_cmds[] = {
 
   { "info", "<net> - display information about the net",
     process_timer_info },
+
+  { "info-fo0", "- return list of rise and fall times for signals with fanout 0 (outputs)",
+    process_timer_info_fo0 },
+  
   { "constraint", "[<net>] - display information about all timing forks that involve <net>",
     process_timer_constraint },
 
