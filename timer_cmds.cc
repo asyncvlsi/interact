@@ -715,6 +715,7 @@ int process_timer_info_fo0 (int argc, char **argv)
 	LispAppendReturnFloat (thi->getReq (j));
       }
       LispAppendListEnd ();
+      agt->queryFree (l);
     }
   }
     
