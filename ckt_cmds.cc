@@ -382,28 +382,29 @@ static int process_add_buffer (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  ActId *tmp = my_parse_id (argv[2]);
-  if (!tmp) {
+  ActId *name = my_parse_id (argv[2]);
+  if (!name) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[2]);
     return LISP_RET_ERROR;
   }
 
-  if (tmp->Rest() || tmp->arrayInfo()) {
-    delete tmp;
+  if (name->Rest()) {
+    delete name;
     fprintf (stderr, "%s: `%s' needs to be a simple instance name\n",
 	     argv[0], argv[2]);
     return LISP_RET_ERROR;
   }
-  delete tmp;
 
-  tmp = my_parse_id (argv[3]);
+  ActId *tmp = my_parse_id (argv[3]);
   if (!tmp) {
     fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[3]);
+    delete name;
     return LISP_RET_ERROR;
   }
 
   if (tmp->Rest()) {
     delete tmp;
+    delete name;
     fprintf (stderr, "%s: `%s' needs to be a simple pin name\n",
 	     argv[0], argv[3]);
     return LISP_RET_ERROR;
@@ -412,6 +413,8 @@ static int process_add_buffer (int argc, char **argv)
   Process *buftype = F.act_design->findProcess (argv[4], true);
   if (!buftype) {
     fprintf (stderr, "%s: could not find buffer type `%s'\n", argv[0], argv[4]);
+    delete tmp;
+    delete name;
     return LISP_RET_ERROR;
   }
 
@@ -422,13 +425,128 @@ static int process_add_buffer (int argc, char **argv)
   Assert (buftype->isExpanded(), "What?");
 
   const char *nm;
-  if ((nm = proc->addBuffer (argv[2], tmp, buftype, true))) {
+  if ((nm = proc->addBuffer (name, tmp, buftype, true))) {
     save_to_log (argc, argv, "s*");
     LispSetReturnString (nm);
     F.s = STATE_DIRTY;
+    delete tmp;
+    delete name;
     return LISP_RET_STRING;
   }
   else {
+    delete tmp;
+    delete name;
+    return LISP_RET_ERROR;
+  }
+}
+
+static int process_add_buffers (int argc, char **argv)
+{
+  FILE *fp;
+  design_state tmp_s;
+
+  tmp_s = F.s;
+  if (F.s == STATE_DIRTY) {
+    F.s = STATE_EXPANDED;
+  }
+
+  if (!std_argcheck ((argc > 5 ? 5 : argc), argv, 5, "<proc> <buf> <inst1> <pin1> <inst2> <pin2> ...",
+		     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    F.s = tmp_s;
+    return LISP_RET_ERROR;
+  }
+
+  if ((argc - 3) % 2 == 1) {
+    fprintf (stderr, "%s: we need <inst> <pin> pairs in the arg list.",
+	     argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  F.s = tmp_s;
+
+  ActCellPass *cp = getCellPass();
+  Assert (cp && cp->completed(), "What?");
+
+  Process *proc = F.act_design->findProcess (argv[1]);
+  if (!proc) {
+    fprintf (stderr, "%s: could not find process `%s'\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!proc->isExpanded()) {
+    fprintf (stderr, "%s: Process `%s' is not expanded\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  Process *buftype = F.act_design->findProcess (argv[2], true);
+  if (!buftype) {
+    fprintf (stderr, "%s: could not find buffer type `%s'\n", argv[0], argv[2]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!buftype->isExpanded()) {
+    buftype = buftype->Expand (ActNamespace::Global(),
+			       buftype->CurScope(), 0, NULL);
+  }
+  Assert (buftype->isExpanded(), "What?");
+
+  list_t *l = list_new ();
+
+#define FREE_LIST							\
+  do {									\
+    for (listitem_t *li = list_first (l); li; li = list_next (li)) {	\
+      ActId *t = (ActId *) list_value (li);				\
+      delete t;								\
+    }									\
+    list_free (l);							\
+  } while (0)
+
+  for (int i = 3; i < argc; i+= 2) {
+    ActId *name = my_parse_id (argv[i]);
+    if (!name) {
+      fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[i]);
+      FREE_LIST;
+      return LISP_RET_ERROR;
+    }
+
+    if (name->Rest()) {
+      delete name;
+      fprintf (stderr, "%s: `%s' needs to be a simple instance name\n",
+	       argv[0], argv[2]);
+      FREE_LIST;
+      return LISP_RET_ERROR;
+    }
+
+    list_append (l, name);
+
+    ActId *tmp = my_parse_id (argv[i+1]);
+    if (!tmp) {
+      fprintf (stderr, "%s: could not parse identifier `%s'\n", argv[0], argv[i+1]);
+      FREE_LIST;
+      return LISP_RET_ERROR;
+    }
+
+    if (tmp->Rest()) {
+      delete tmp;
+      FREE_LIST;
+      fprintf (stderr, "%s: `%s' needs to be a simple pin name\n",
+	       argv[0], argv[i+1]);
+      return LISP_RET_ERROR;
+    }
+    list_append (l, tmp);
+  }
+
+  const char *nm;
+  if ((nm = proc->addBuffer (buftype, l))) {
+    save_to_log (argc, argv, "s*");
+    LispSetReturnString (nm);
+    F.s = STATE_DIRTY;
+    FREE_LIST;
+    return LISP_RET_STRING;
+  }
+  else {
+    printf ("failed!\n");
+    FREE_LIST;
     return LISP_RET_ERROR;
   }
 }
@@ -1075,6 +1193,8 @@ static struct LispCliCommand ckt_cmds[] = {
   { "cell-save", "<file> - save cells to file", process_cell_save },
   { "cell-addbuf", "<proc> <inst> <pin> <buf> - add buffer to the pin within the process",
     process_add_buffer },
+  { "cell-addbufs", "<proc> <buf> <inst1> <pin1> <inst2> <pin2> ... - add shared buffer to pins within the process",
+    process_add_buffers },
   { "cell-edit", "<proc> <inst> <newcell> - replace cell for instance within <proc>",
     process_edit_cell },
 
