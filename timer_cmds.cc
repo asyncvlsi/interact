@@ -33,6 +33,9 @@
 
 #include <act/timing/galois_api.h>
 #include "galois/eda/liberty/NldmDelayCalculator.h"
+#include <cmath>
+#include <cfloat>
+#include <limits>
 
 static double act_delay_units = -1.0;
 
@@ -663,7 +666,9 @@ int process_timer_info (int argc, char **argv)
       for (int i=0; i < M; i++) {
 	printf ("\titer %2d: arr: %g; req: %g; slk: %g\n", i,
 		ti->getArrv (i), ti->getReq (i),
-		my_round (ti->getReq(i) - ti->getArrv(i)));
+		std::isinf(ti->getReq (i)) ? INFINITY :
+		(std::isinf(ti->getArrv (i)) ? -INFINITY :
+		 my_round (ti->getReq(i) - ti->getArrv(i))));
       }
       count++;
     }
@@ -701,20 +706,35 @@ int process_timer_info_fo0 (int argc, char **argv)
   for (int i=0; i < tg->numVertices(); i += 2) {
     char buf[10240];
     AGvertex *v = tg->getVertex (i);
-    if (!v->hasFanout() && v->hasFanin()) {
+    AGvertex *v2 = tg->getVertex (i+1);
+    if (!v->hasFanout() && !v2->hasFanout() &&
+	(v->hasFanin() || v2->hasFanin())) {
       list_t *l = agt->queryDriver (v->vid);
       timing_info *tlo = timer_query_extract_fall (l);
       timing_info *thi = timer_query_extract_rise (l);
-      LispAppendListStart ();
-      tlo->getTrans()->sPrintFullName (buf, 10240);
-      LispAppendReturnString (buf);
-      for (int j=0; j < M; j++) {
-	LispAppendReturnFloat (tlo->getArrv (j));
-	LispAppendReturnFloat (tlo->getReq (j));
-	LispAppendReturnFloat (thi->getArrv (j));
-	LispAppendReturnFloat (thi->getReq (j));
+
+      // could have a floating island of signals; those will have inf
+      // for all arrival times
+      bool is_inf = true;
+      for (int j=0; is_inf && j < M; j++) {
+	if (!std::isinf (tlo->getArrv (j)) || !std::isinf (thi->getArrv (j))) {
+	  is_inf = false;
+	}
       }
-      LispAppendListEnd ();
+
+      if (!is_inf) {
+	LispAppendListStart ();
+	tlo->getTrans()->sPrintFullName (buf, 10240);
+	LispAppendReturnString (buf);
+	for (int j=0; j < M; j++) {
+	  LispAppendReturnFloat (tlo->getArrv (j));
+	  LispAppendReturnFloat (tlo->getReq (j));
+	  LispAppendReturnFloat (thi->getArrv (j));
+	  LispAppendReturnFloat (thi->getReq (j));
+	}
+	LispAppendListEnd ();
+      }
+      
       agt->queryFree (l);
     }
   }
@@ -726,6 +746,76 @@ int process_timer_info_fo0 (int argc, char **argv)
   return LISP_RET_LIST;
 }
 
+int process_timer_get_fo0 (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_INIT && F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be at least initialized\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  Assert (tg, "What?");
+  Assert (agt, "What?!");
+
+  LispSetReturnListStart ();
+  
+  for (int i=0; i < tg->numVertices(); i += 2) {
+    char buf[10240];
+    AGvertex *v = tg->getVertex (i);
+    AGvertex *v2 = tg->getVertex (i+1);
+    if (!v->hasFanout() && !v2->hasFanout() &&
+	(v->hasFanin() || v2->hasFanin())) {
+      int l;
+      ActPin *p = agt->tgVertexToPin (v->vid);
+      p->sPrintFullName (buf, 10240);
+      l = strlen (buf)-1;
+      while (l > 0) {
+	if (buf[l] == ':') {
+	  buf[l] = '.';
+	  break;
+	}
+	l--;
+      }
+      LispAppendReturnString (buf);
+    }
+  }
+  LispSetReturnListEnd ();
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_LIST;
+}
+
+int process_timer_setcap (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 3, "<net> <val>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_INIT && F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be at least initialized\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  Assert (tg, "What?");
+  Assert (agt, "What?!");
+
+  int vid;
+  if (!get_net_to_timing_vertex (argv[0], argv[1], &vid)) {
+    return LISP_RET_ERROR;
+  }
+
+  agt->setCap (vid, atof (argv[2]));
+
+  save_to_log (argc, argv, "s");
+
+  return LISP_RET_LIST;
+}
 
 
 int process_timer_cycle (int argc, char **argv)
@@ -2349,6 +2439,12 @@ static struct LispCliCommand timer_cmds[] = {
     process_timer_run },
 
   { "crit", "- show critical cycle", process_timer_cycle },
+
+  { "get-fo0", "- return list of nets that have drivers but no fanout",
+    process_timer_get_fo0 },
+
+  { "set-cap", "<net> <val> - add capacitance to the specified net",
+    process_timer_setcap },
 
   { "info", "<net> - display information about the net",
     process_timer_info },
