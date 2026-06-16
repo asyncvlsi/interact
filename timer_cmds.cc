@@ -412,6 +412,91 @@ static int process_timer_tick (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static int process_timer_cut (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 3, "<net1>+/- <net2>+/-", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (!F.tp) {
+    fprintf (stderr, "%s: need to build timing graph first.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (F.timer == TIMER_RUN) {
+    fprintf (stderr, "%s: need to edit edges before running the timer.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int dir1, dir2;
+  int len1, len2;
+  len1 = strlen (argv[1]);
+  len2 = strlen (argv[2]);
+  if (argv[1][len1-1] == '+') {
+    dir1 = 1;
+  }
+  else if (argv[1][len1-1] == '-') {
+    dir1 = 0;
+  }
+  else {
+    fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  if (argv[2][len2-1] == '+') {
+    dir2 = 1;
+  }
+  else if (argv[2][len2-1] == '-') {
+    dir2 = 0;
+  }
+  else {
+    fprintf (stderr, "%s: need a direction (+/-) for %s\n", argv[0], argv[2]);
+    return LISP_RET_ERROR;
+  }
+  argv[1][len1-1] = '\0';
+  argv[2][len2-1] = '\0';
+
+  char *tmp1 = Strdup (argv[1]);
+  char *tmp2 = Strdup (argv[2]);
+
+  argv[1][len1-1] = dir1 ? '+' : '-';
+  argv[2][len2-1] = dir2 ? '+' : '-';
+
+  int vid1, vid2;
+
+  if (!get_net_to_timing_vertex (argv[0], tmp1, &vid1) ||
+      !get_net_to_timing_vertex (argv[0], tmp2, &vid2)) {
+    FREE (tmp1);
+    FREE (tmp2);
+    return LISP_RET_ERROR;
+  }
+  FREE (tmp1);
+  FREE (tmp2);
+  vid1 += dir1;
+  vid2 += dir2;
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+
+
+  /* find *all* edges from vid1 to vid2 */
+  AGvertexFwdIter fw(tg, vid1);
+  int found = 0;
+  for (fw = fw.begin(); fw != fw.end(); fw++) {
+    AGedge *e = (*fw);
+    if (e->dst != vid2) {
+      continue;
+    }
+    TimingEdgeInfo *te = (TimingEdgeInfo *)e->getInfo();
+    te->pruneEdge();
+    found = 1;
+  }
+  if (found == 0) {
+    fprintf (stderr, "%s: could not find timing edge %s -> %s\n", argv[0],
+	     argv[1], argv[2]);
+    return LISP_RET_ERROR;
+  }
+  save_to_log (argc, argv, "s*");
+  
+  return LISP_RET_TRUE;
+}
+
 static int process_timer_clock (int argc, char **argv)
 {
   if (!std_argcheck (argc, argv, 2, "<period>", STATE_EXPANDED)) {
@@ -2417,6 +2502,8 @@ static struct LispCliCommand timer_cmds[] = {
   { "build-graph", "- build timing graph", process_timer_build },
 
   { "tick", "<net1>+/- <net2>+/- - add a tick (iteration boundary) to the timing graph", process_timer_tick },
+
+  { "cut", "<net1>+/- <net2>+/- - cut an edge from the timing graph", process_timer_cut },
 
   { "add-constraint", "<root>+/- [*]<fast>[+/-] [*]<slow>[+/-] [margin] - add a timing fork constraint", process_timer_addconstraint },
 
