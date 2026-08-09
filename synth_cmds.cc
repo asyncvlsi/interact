@@ -231,8 +231,8 @@ int process_synth_init (int argc, char **argv)
 	       argv[0]);
       return LISP_RET_ERROR;
     }
+    _set_synth_defaults (dp, "bd");
   }
-  _set_synth_defaults (dp, "qdi");
   return LISP_RET_TRUE;
 }
 
@@ -321,7 +321,7 @@ int process_synth_exprfile (int argc, char **argv)
 int process_synth_run (int argc, char **argv)
 {
   ActDynamicPass *dp;
-  if (!std_argcheck ((argc == 2 ? 1 : argc), argv, 1, "[outfile]", STATE_EXPANDED)) {
+  if (!std_argcheck ((argc == 4 ? 2 : argc), argv, 2, "[-i import] outfile", STATE_EXPANDED)) {
     return LISP_RET_ERROR;
   }
   dp = getSynthPass ();
@@ -333,11 +333,24 @@ int process_synth_run (int argc, char **argv)
     fprintf (stderr, "%s: no top-level process specified\n", argv[0]);
     return LISP_RET_ERROR;
   }
+  char *ofile, *ifile;
+  ifile = NULL;
   if (argc == 2) {
-    dp->setParam ("out", (void *) Strdup (argv[1]));
+    ofile = Strdup (argv[1]);
+    ifile = NULL;
   }
   else {
-   dp->setParam ("out", (void *) NULL);
+    Assert (argc == 4, "what?");
+    if (strcmp (argv[1], "-i") != 0) {
+      fprintf (stderr, "%s: error in arguments\n", argv[0]);
+      return LISP_RET_ERROR;
+    }
+    ofile = Strdup (argv[3]);
+    ifile = Strdup (argv[2]);
+  }
+  dp->setParam ("out", (void *) ofile);
+  if (ifile) {
+    dp->setParam ("in", (void *)ifile);
   }
   dp->run (F.act_toplevel);
   return LISP_RET_TRUE;
@@ -352,7 +365,7 @@ struct LispCliCommand synth_cmds[] = {
     process_synth_expropt },
   { "exprfile", "<name> - set name of ACT file for synthesized expressions",
     process_synth_exprfile },
-  { "run", "[outfile] - run sythesis pass, saving the results in the specified output", process_synth_run }
+  { "run", "[-i src] outfile - run sythesis pass, saving the results in the specified output file.", process_synth_run }
 
 };
 
