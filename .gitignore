@@ -5,6 +5,7 @@
 .act_history
 Makefile.deps
 interact.*
+interact-p2b-test.*
 *~
 
 config.mk

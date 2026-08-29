@@ -22,6 +22,8 @@
 #ifndef __INTERACT_FLOW_H__
 #define __INTERACT_FLOW_H__
 
+#include <string>
+#include <vector>
 #include <act/act.h>
 #include <act/passes.h>
 #include "config_pkg.h"
@@ -73,6 +75,11 @@ enum design_state {
 #define TIMER_INIT 1
 #define TIMER_RUN  2
 
+struct flow_delay_site_replacement {
+  std::string instance_name;
+  std::string expanded_process_name;
+};
+
 struct flow_state {
   design_state s;		/* current design state */
 
@@ -122,6 +129,30 @@ int std_argcheck (int argc, char **argv, int argnum, const char *usage,
 FILE *std_open_output (const char *cmd, const char *s);
 void std_close_output (FILE *fp);
 void flow_init (void);
+
+/*
+ * Applies a complete delay-site map and refreshes all derived state. A false
+ * result may follow partial ACT mutation; the transactional caller must
+ * immediately restore its committed map before rebuilding derived state.
+ */
+bool flow_apply_delay_site_map (
+    const std::vector<flow_delay_site_replacement> &replacements);
+
+/*
+  Re-elaborate the same delay-site replacements while leaving Dali alive.
+
+  flow_apply_delay_site_map tears down every derived object, Dali included,
+  because it is used by the epoch flow that rebuilds the design from scratch. A
+  checkpointed placement cannot afford that: the whole point is that one Dali
+  instance keeps its placement across the topology change. PhyDB and the timer
+  are still destroyed and rebuilt, which they must be, and the caller is
+  responsible for rebinding Dali to the new PhyDB afterwards.
+*/
+bool flow_apply_delay_site_map_keep_dali (
+    const std::vector<flow_delay_site_replacement> &replacements);
+
+/* Destroy Dali/timer/router/PhyDB objects before a typed rebuild or restore. */
+void flow_reset_derived_state_direct (void);
 
 extern int output_window_width;
 

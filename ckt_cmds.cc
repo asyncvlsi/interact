@@ -25,6 +25,7 @@
 #include "all_cmds.h"
 #include "flow.h"
 #include <vnet.h>
+#include <string>
 
 static ActCellPass *getCellPass();
 
@@ -46,6 +47,31 @@ ActNetlistPass *getNetlistPass()
     np = new ActNetlistPass (F.act_design);
   }
   return np;
+}
+
+bool flow_rebuild_cell_and_netlist (const std::string &cell_file)
+{
+  if (!F.act_design || !F.act_toplevel) {
+    return false;
+  }
+  ActCellPass *cp = getCellPass ();
+  if (!cp) return false;
+  if (!cp->completed()) cp->run (F.act_toplevel);
+  if (!cp->completed()) return false;
+  FILE *cell_fp = fopen (cell_file.c_str (), "w");
+  if (!cell_fp) {
+    return false;
+  }
+  cp->Print (cell_fp);
+  fclose (cell_fp);
+  F.cell_map = 1;
+
+  ActNetlistPass *np = getNetlistPass ();
+  if (!np) return false;
+  if (!np->completed()) np->run (F.act_toplevel);
+  if (!np->completed()) return false;
+  F.ckt_gen = 1;
+  return true;
 }
 
 
@@ -618,6 +644,63 @@ static int process_edit_cell (int argc, char **argv)
   }
 }
 
+/*
+ * Replace one source-level instance with a compatible expanded process.
+ *
+ * Unlike cell-edit, this is intentionally not restricted to mapped cells: a
+ * parameterized composite process can preserve its interface while changing
+ * its elaborated contents. cell-update refreshes all dependent ACT passes.
+ */
+static int process_reelaborate_instance (int argc, char **argv)
+{
+  design_state tmp_s;
+
+  tmp_s = F.s;
+  if (F.s == STATE_DIRTY) {
+    F.s = STATE_EXPANDED;
+  }
+
+  if (!std_argcheck (argc, argv, 3,
+                     "<inst> <expanded-process>",
+                     F.cell_map ? STATE_EXPANDED : STATE_ERROR)) {
+    F.s = tmp_s;
+    return LISP_RET_ERROR;
+  }
+  F.s = tmp_s;
+
+  Process *proc = F.act_toplevel;
+  if (!proc || !proc->isExpanded()) {
+    fprintf (stderr, "%s: no expanded top-level process\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  ActId *instance_name = my_parse_id (argv[1]);
+  if (!instance_name || instance_name->Rest() || instance_name->arrayInfo()) {
+    delete instance_name;
+    fprintf (stderr, "%s: `%s' needs to be a simple instance name\n",
+             argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  delete instance_name;
+
+  Process *replacement = F.act_design->findProcess (argv[2], true);
+  if (!replacement || !replacement->isExpanded()) {
+    fprintf (stderr, "%s: expanded replacement `%s' not found\n", argv[0],
+             argv[2]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!proc->updateInst (argv[1], replacement)) {
+    fprintf (stderr, "%s: `%s' is not interface-compatible with `%s'\n",
+             argv[0], argv[1], argv[2]);
+    return LISP_RET_ERROR;
+  }
+
+  F.s = STATE_DIRTY;
+  save_to_log (argc, argv, "s*");
+  return LISP_RET_TRUE;
+}
+
 static int process_update_cell (int argc, char **argv)
 {
   design_state tmp_s;
@@ -635,6 +718,10 @@ static int process_update_cell (int argc, char **argv)
   F.s = tmp_s;
 
   if (tmp_s == STATE_DIRTY) {
+    ActPass *pass = F.act_design->pass_find ("booleanize");
+    ActBooleanizePass *booleanize = dynamic_cast<ActBooleanizePass *> (pass);
+    Assert (booleanize, "Missing Boolean netlist pass after a circuit edit");
+    booleanize->invalidateNets ();
     ActPass::refreshAll (F.act_design, F.act_toplevel);
   }
   save_to_log (argc, argv, "s");
@@ -1197,6 +1284,8 @@ static struct LispCliCommand ckt_cmds[] = {
     process_add_buffers },
   { "cell-edit", "<proc> <inst> <newcell> - replace cell for instance within <proc>",
     process_edit_cell },
+  { "reelaborate-instance", "<inst> <expanded-process> - replace a compatible instance in the top-level process",
+    process_reelaborate_instance },
 
   { "cell-update", "- take the design back to the clean state",
     process_update_cell },

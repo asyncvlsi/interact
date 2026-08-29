@@ -21,6 +21,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include "all_cmds.h"
 #include "flow.h"
 
 int output_window_width;
@@ -224,4 +225,136 @@ void flow_init (void)
   F.phydb_def = 0;
 #endif  
   
+}
+
+static void flow_reset_derived_state (void)
+{
+#ifdef FOUND_dali
+  if (F.dali) {
+    F.dali->Close();
+    delete F.dali;
+    F.dali = NULL;
+  }
+#endif
+
+  timer_reset_for_reelaboration ();
+
+#ifdef FOUND_pwroute
+  if (F.pwroute) {
+    delete F.pwroute;
+    F.pwroute = NULL;
+  }
+#endif
+
+#ifdef FOUND_sproute
+  if (F.sproute) {
+    delete F.sproute;
+    F.sproute = NULL;
+  }
+#endif
+
+#ifdef FOUND_phydb
+  if (F.phydb) {
+    delete F.phydb;
+    F.phydb = NULL;
+  }
+  F.phydb_lef = 0;
+  F.phydb_def = 0;
+  F.phydb_cell = 0;
+  F.phydb_cluster = 0;
+#endif
+}
+
+void flow_reset_derived_state_direct (void)
+{
+  flow_reset_derived_state ();
+}
+
+/*
+  The ACT half of a delay-site replacement: swap each instance's process,
+  invalidate the cached nets, and refresh every pass. Expects the caller to have
+  already torn down whatever derived state it intends to rebuild.
+*/
+static bool flow_reelaborate_delay_sites (
+    const std::vector<flow_delay_site_replacement> &replacements)
+{
+
+  ActPass *layout_pass = F.act_design->pass_find ("stk2layout");
+  if (layout_pass) {
+    ActDynamicPass *layout = dynamic_cast<ActDynamicPass *> (layout_pass);
+    if (!layout || layout->runcmd ("design_refresh") != 1) {
+      fprintf (stderr, "flow_apply_delay_site_map: layout design_refresh failed\n");
+      return false;
+    }
+  }
+
+  for (size_t i = 0; i < replacements.size(); ++i) {
+    Process *replacement = F.act_design->findProcess (
+        replacements[i].expanded_process_name.c_str(), true);
+    if (!replacement || !replacement->isExpanded()) {
+      fprintf (stderr, "flow_apply_delay_site_map: process lookup failed for %s\n",
+               replacements[i].expanded_process_name.c_str());
+      return false;
+    }
+    std::string instance_name = replacements[i].instance_name;
+    if (!F.act_toplevel->updateInst (instance_name.data(), replacement)) {
+      fprintf (stderr, "flow_apply_delay_site_map: instance update failed for %s\n",
+               instance_name.c_str());
+      return false;
+    }
+    F.s = STATE_DIRTY;
+  }
+
+  ActPass *pass = F.act_design->pass_find ("booleanize");
+  ActBooleanizePass *booleanize = dynamic_cast<ActBooleanizePass *> (pass);
+  if (!booleanize) {
+    fprintf (stderr, "flow_apply_delay_site_map: booleanize pass missing\n");
+    return false;
+  }
+  booleanize->invalidateNets ();
+  ActPass::refreshAll (F.act_design, F.act_toplevel);
+  F.s = STATE_EXPANDED;
+  return true;
+}
+
+bool flow_apply_delay_site_map (
+    const std::vector<flow_delay_site_replacement> &replacements)
+{
+  if (!F.act_design || !F.act_toplevel || replacements.empty()) {
+    fprintf (stderr, "flow_apply_delay_site_map: invalid design/top/replacements\n");
+    return false;
+  }
+  flow_reset_derived_state ();
+  return flow_reelaborate_delay_sites (replacements);
+}
+
+bool flow_apply_delay_site_map_keep_dali (
+    const std::vector<flow_delay_site_replacement> &replacements)
+{
+  if (!F.act_design || !F.act_toplevel || replacements.empty()) {
+    fprintf (stderr,
+             "flow_apply_delay_site_map_keep_dali: invalid design/top/replacements\n");
+    return false;
+  }
+
+  /*
+    Everything flow_reset_derived_state drops, except Dali. Dali is holding the
+    placement this checkpoint exists to preserve, and it is rebound to the new
+    PhyDB by the caller once one exists.
+  */
+  timer_reset_for_reelaboration ();
+#ifdef FOUND_pwroute
+  if (F.pwroute) { delete F.pwroute; F.pwroute = NULL; }
+#endif
+#ifdef FOUND_sproute
+  if (F.sproute) { delete F.sproute; F.sproute = NULL; }
+#endif
+#ifdef FOUND_phydb
+  if (F.phydb) { delete F.phydb; F.phydb = NULL; }
+  F.phydb_lef = 0;
+  F.phydb_def = 0;
+  F.phydb_cell = 0;
+  F.phydb_cluster = 0;
+#endif
+  return flow_reelaborate_delay_sites (replacements);
 }

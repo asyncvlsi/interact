@@ -29,17 +29,29 @@
 #include "flow.h"
 #include <act/tech.h>
 
+#ifdef FOUND_dali
+#include <dali/timing/timing_driven_placement_controller.h>
+#endif
+
 #ifdef FOUND_timing_actpin
 
 #include <act/timing/galois_api.h>
 #include "galois/eda/liberty/NldmDelayCalculator.h"
 #include <cmath>
+#include <algorithm>
 #include <cfloat>
 #include <limits>
 
 static double act_delay_units = -1.0;
 
 static ActGaloisTiming *agt = NULL;
+
+static galois::eda::liberty::CellLib *p2b_lib = NULL;
+static galois::eda::model::CellLib *p2b_libs[1] = { NULL };
+static void *read_lib_file (const char *file);
+#ifdef FOUND_phydb
+void timer_phydb_link (phydb::PhyDB *phydb);
+#endif
 
 static double act_clock_period = -1.0;
 
@@ -61,6 +73,105 @@ static void init (int mode = 0)
   }
   init_galois_shmemsys (mode);
 }
+
+void timer_reset_for_reelaboration (void)
+{
+  if (agt) {
+    delete agt;
+    agt = NULL;
+  }
+  p2b_libs[0] = NULL;
+  F.timer = TIMER_NONE;
+  F.tp = NULL;
+  F.sp = NULL;
+  if (p2b_lib) {
+    delete p2b_lib;
+    p2b_lib = NULL;
+  }
+}
+
+bool timer_build_graph_direct (void)
+{
+  if (!F.act_design || !F.act_toplevel) return false;
+  ActPass *ap = F.act_design->pass_find ("taggedTG");
+  if (!ap) return false;
+  F.tp = dynamic_cast<ActDynamicPass *> (ap);
+  if (!F.tp) return false;
+  if (!F.tp->completed()) F.tp->run (F.act_toplevel);
+  return F.tp->completed();
+}
+
+bool timer_initialize_liberty_path (const std::string &path)
+{
+  if (!F.act_design || !F.act_toplevel || agt || p2b_lib) return false;
+  p2b_lib = static_cast<galois::eda::liberty::CellLib *>
+      (read_lib_file (path.c_str ()));
+  if (!p2b_lib) return false;
+  p2b_libs[0] = p2b_lib;
+  auto fn = [](galois::eda::sta::TimingEngine *te) {
+    return new galois::eda::liberty::NldmDelayCalculator (te);
+  };
+  agt = new ActGaloisTiming (F.act_design, F.act_toplevel, fn, 1, p2b_libs,
+                             act_clock_period);
+  if (agt->tgError()) {
+    delete agt;
+    agt = NULL;
+    delete p2b_lib;
+    p2b_lib = NULL;
+    p2b_libs[0] = NULL;
+    return false;
+  }
+  F.timer = TIMER_INIT;
+  return true;
+}
+
+#ifdef DALI_P2B_TEST_HARNESS
+void timer_test_clobber_library_stack (void)
+{
+  volatile unsigned char poison[32768];
+  for (unsigned int i = 0; i < sizeof (poison); ++i) {
+    poison[i] = static_cast<unsigned char> (i);
+  }
+}
+#endif
+
+#ifdef FOUND_dali
+bool timer_run_and_capture (dali::TimingDrivenPlacementMeasurement *measurement)
+{
+  if (!measurement || !agt) return false;
+  if (!agt->runFullTiming()) return false;
+  F.timer = TIMER_RUN;
+  double period = 0.0;
+  int unroll = 0;
+  agt->getPeriod (&period, &unroll);
+  const double units = agt->getTimeUnits();
+  measurement->period_ps = period * units * 1e12;
+  measurement->constraint_count = agt->getNumConstraints();
+  measurement->constraints.clear();
+  measurement->constraints.reserve(measurement->constraint_count);
+  measurement->wns_ps = std::numeric_limits<double>::infinity();
+  measurement->tns_ps = 0.0;
+  for (int id = 0; id < measurement->constraint_count; ++id) {
+    const double slack_ps = agt->getForkSlack(id) * units * 1e12;
+    measurement->constraints.push_back({id, std::to_string(id), slack_ps});
+    measurement->wns_ps = std::min(measurement->wns_ps, slack_ps);
+    if (slack_ps < 0.0) measurement->tns_ps += slack_ps;
+  }
+  if (measurement->constraints.empty()) measurement->wns_ps = 0.0;
+  return std::isfinite(measurement->period_ps) &&
+         std::isfinite(measurement->wns_ps) &&
+         std::isfinite(measurement->tns_ps);
+}
+
+#ifdef FOUND_phydb
+bool timer_link_phydb_direct (phydb::PhyDB *phydb)
+{
+  if (!phydb || !agt) return false;
+  timer_phydb_link (phydb);
+  return true;
+}
+#endif
+#endif
 
 static ActId *my_parse_id (const char *name)
 {
@@ -1693,6 +1804,7 @@ static double get_perf_slack (int id)
   return 0.0;
 }
 
+/* Convert Cyclone's latest critical cycle for placement-side inspection. */
 static void get_violated_perf (std::vector<int> &v)
 {
   v.clear();
@@ -1700,7 +1812,26 @@ static void get_violated_perf (std::vector<int> &v)
 
 static void get_violated_perf_witness (int id, std::vector<phydb::ActEdge> &path)
 {
-  
+  path.clear ();
+  if (id != 0 || !agt || F.timer != TIMER_RUN) {
+    return;
+  }
+  cyclone::TimingPath cycle = agt->getCritCycle ();
+  agt->convertPath (cycle, path, true);
+}
+
+static bool get_critical_cycle (double *period, int *unroll_factor)
+{
+  if (!period || !unroll_factor) {
+    return false;
+  }
+  *period = 0.0;
+  *unroll_factor = 0;
+  if (!agt || F.timer != TIMER_RUN) {
+    return false;
+  }
+  agt->getPeriod (period, unroll_factor);
+  return *period >= 0.0 && *unroll_factor > 0;
 }
 
 
@@ -1725,21 +1856,16 @@ static void incremental_update_timer (void)
  */
 static double get_worst_slack (int constraint_id)
 {
-  double timer_units;
-  TaggedTG *tg;
   cyclone_constraint *cyc;
-
-  _set_delay_units ();
-  timer_units = agt->getTimeUnits ();
-  tg = agt->getTaggedTG ();
 
   cyc = agt->_getConstraint (constraint_id);
   if (!cyc) {
     return 0.0;
   }
 
-  // XXX: should this be in timer units?
-  return agt->getForkSlack (constraint_id)/timer_units;
+  // Cyclone reports fork slack in the Liberty timer unit, matching cycle
+  // period and path-delay values exposed through the rest of this API.
+  return agt->getForkSlack (constraint_id);
 }
 
 static std::vector<double> get_slack_callback (const std::vector<int> &ids)
@@ -1750,7 +1876,6 @@ static std::vector<double> get_slack_callback (const std::vector<int> &ids)
   
   for (int i=0; i < ids.size(); i++) {
     slk.push_back (get_worst_slack (ids[i]));
-    agt->addCheck (ids[i]);
   }
   return slk;
 }
@@ -1851,6 +1976,31 @@ static void get_fast_witness_callback (int constraint,
   p = agt->getFastEndPaths (constraint);
   agt->convertPath (p, path, true);
   agt->getNextForkPath (constraint, true /* fast end */);
+}
+
+static bool get_constraint_endpoints_callback (
+    int constraint, phydb::PhydbPin &root, phydb::PhydbPin &fast_terminal,
+    phydb::PhydbPin &slow_terminal)
+{
+  if (!agt || !F.phydb) return false;
+  cyclone_constraint *cyc = agt->_getConstraint (constraint);
+  if (!cyc) return false;
+  TaggedTG *tg = agt->getTaggedTG ();
+  TaggedTG::constraint *fork = tg->getConstraint (cyc->tg_id);
+  ActPin *root_pin = agt->tgVertexToPin (fork->root);
+  ActPin *fast_pin = agt->tgVertexToPin (fork->from);
+  ActPin *slow_pin = agt->tgVertexToPin (fork->to);
+  if (!root_pin || !fast_pin || !slow_pin) return false;
+  phydb::ActPhyDBTimingAPI &api = F.phydb->GetTimingApi ();
+  if (!api.IsActComPinPtrExisting (root_pin) ||
+      !api.IsActComPinPtrExisting (fast_pin) ||
+      !api.IsActComPinPtrExisting (slow_pin)) {
+    return false;
+  }
+  root = api.ActCompPinPtr2Id (root_pin);
+  fast_terminal = api.ActCompPinPtr2Id (fast_pin);
+  slow_terminal = api.ActCompPinPtr2Id (slow_pin);
+  return true;
 }
 
 
@@ -1990,6 +2140,24 @@ int process_timer_get_violations (int argc, char **argv)
   LispSetReturnListEnd ();
   
   return LISP_RET_LIST;
+}
+
+/** Return the number of currently violated relative-timing constraints. */
+int process_timer_num_violations (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 1, "", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  std::vector<std::pair<int,float>> violations;
+  get_violated_constraints2 (violations);
+  LispSetReturnInt (violations.size ());
+  return LISP_RET_INT;
 }
 
 
@@ -2227,6 +2395,193 @@ int process_timer_check_constraint (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+
+
+/*
+ * Reachable tick counts from `root` to `target`, as a bitmask over 0..limit.
+ *
+ * `_path_search` keeps one tick count per vertex and takes the max on conflict,
+ * so it answers "is the endpoint reachable at exactly N ticks" with a single
+ * candidate and can report a mismatch where another path would have matched.
+ * Classifying a constraint needs the full set, so this explores (vertex, ticks)
+ * pairs instead of vertices.
+ */
+static unsigned int _tick_set (TaggedTG *tg, AGvertex *root, AGvertex *target,
+			       int limit)
+{
+  if (limit > 24) limit = 24;
+  int nv = tg->numVertices ();
+  int states = limit + 1;
+  char *seen = (char *) calloc ((size_t)nv * states, 1);
+  if (!seen) return 0;
+  unsigned int mask = 0;
+
+  int *stack = (int *) malloc (sizeof (int) * (size_t)nv * states);
+  int sp = 0;
+  seen[(size_t)root->vid * states] = 1;
+  stack[sp++] = root->vid * states;
+
+  while (sp > 0) {
+    int code = stack[--sp];
+    int vid = code / states;
+    int tk = code % states;
+    if (vid == target->vid) {
+      mask |= (1u << tk);
+      /* keep exploring: a longer path may reach it at another count */
+    }
+    AGvertexFwdIter fw (tg, vid);
+    for (fw = fw.begin(); fw != fw.end(); fw++) {
+      AGedge *e = (*fw);
+      TimingEdgeInfo *ei = (TimingEdgeInfo *) e->getInfo();
+      int ntk = tk + (ei->isTicked() ? 1 : 0);
+      if (ntk > limit) continue;
+      int ncode = e->dst * states + ntk;
+      if (!seen[ncode]) {
+	seen[ncode] = 1;
+	stack[sp++] = ncode;
+      }
+    }
+  }
+  free (seen);
+  free (stack);
+  return mask;
+}
+
+
+/*
+ * Export every timing fork in one pass, machine-readable.
+ *
+ * Read-only: it runs the same path search `check-constraint` uses and prints
+ * what it found. Doing this per constraint from a script would mean parsing
+ * 1,148 human-readable reports; one call keeps the inventory and the analysis
+ * in step.
+ *
+ * `_path_search` distinguishes "no path" from "path with the wrong tick count"
+ * and reports the count it reached, which is what separates a genuinely
+ * unreachable endpoint from one that belongs to another iteration.
+ */
+int process_timer_dump_constraints (int argc, char **argv)
+{
+  if (!std_argcheck (argc == 3 ? 2 : argc, argv, 2, "<file> [ticks]",
+		     STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+  if (F.timer != TIMER_RUN) {
+    fprintf (stderr, "%s: timer needs to be run first\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int tick_lim = 1;
+  if (argc == 3) {
+    tick_lim = atoi (argv[2]);
+  }
+
+  TaggedTG *tg = (TaggedTG *) F.tp->getMap (F.act_toplevel);
+  if (!tg) {
+    fprintf (stderr, "%s: no timing graph\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  FILE *fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open `%s' for writing\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  int n = agt->numConstraints ();
+  char buf[1024];
+  char cell[256];
+
+  fprintf (fp, "{\"schema\":1,\"tick_limit\":%d,\"count\":%d,\n", tick_lim, n);
+  fprintf (fp, " \"constraints\":[\n");
+
+  for (int i = 0; i < n; i++) {
+    cyclone_constraint *cyc = agt->_getConstraint (i);
+    if (!cyc) {
+      fprintf (fp, "%s  {\"id\":%d,\"error\":\"no cyclone constraint\"}",
+	       i ? ",\n" : "", i);
+      continue;
+    }
+    TaggedTG::constraint *tgc = tg->getConstraint (cyc->tg_id);
+    if (!tgc) {
+      fprintf (fp, "%s  {\"id\":%d,\"error\":\"no tagged constraint\"}",
+	       i ? ",\n" : "", i);
+      continue;
+    }
+
+    ActPin *rp = agt->tgVertexToPin (tgc->root);
+    ActPin *fpin = agt->tgVertexToPin (tgc->from);
+    ActPin *tpin = agt->tgVertexToPin (tgc->to);
+
+    fprintf (fp, "%s  {\"id\":%d,\"tg_id\":%d", i ? ",\n" : "", i, cyc->tg_id);
+
+    AGvertex *rootv = NULL, *fromv = NULL, *tov = NULL;
+    const char *names[3] = { "root", "fast", "slow" };
+    ActPin *pins[3] = { rp, fpin, tpin };
+    unsigned dirs[3] = { cyc->root_dir, cyc->from_dir, cyc->to_dir };
+    int ticks[3] = { 0, tgc->from_tick, tgc->to_tick };
+    AGvertex **vs[3] = { &rootv, &fromv, &tov };
+
+    for (int k = 0; k < 3; k++) {
+      if (!pins[k]) {
+	fprintf (fp, ",\"%s\":null", names[k]);
+	continue;
+      }
+      pins[k]->sPrintFullName (buf, 1024);
+      cell[0] = '\0';
+      pins[k]->sPrintCellType (cell, 256);
+      fprintf (fp,
+	       ",\"%s\":{\"pin\":\"%s\",\"dir\":\"%c\",\"tick\":%d,\"cell\":\"%s\"}",
+	       names[k], buf, dirs[k] ? '+' : '-', ticks[k], cell);
+      AGvertex *v = pins[k]->getNetVertex ();
+      if (v) {
+	if (dirs[k]) {
+	  v = tg->getVertex (v->vid + 1);
+	}
+	*(vs[k]) = v;
+      }
+    }
+
+    if (rootv && fromv && tov) {
+      int t1 = tgc->from_tick;
+      int t2 = tgc->to_tick;
+      int res = _path_search (tg, rootv, fromv, &t1, tov, &t2, tick_lim);
+      int fast_code = res & 0x3;
+      int slow_code = (res >> 2) & 0x3;
+      unsigned int fmask = _tick_set (tg, rootv, fromv, 8);
+      unsigned int smask = _tick_set (tg, rootv, tov, 8);
+      fprintf (fp, ",\"fast_tickset\":%u,\"slow_tickset\":%u", fmask, smask);
+      fprintf (fp,
+	       ",\"fast_witness\":%s,\"fast_reason\":\"%s\",\"fast_ticks\":%d",
+	       fast_code ? "false" : "true",
+	       fast_code == 0 ? "ok" : (fast_code == 2 ? "wrong_ticks"
+					                : "no_path"),
+	       t1);
+      fprintf (fp,
+	       ",\"slow_witness\":%s,\"slow_reason\":\"%s\",\"slow_ticks\":%d",
+	       slow_code ? "false" : "true",
+	       slow_code == 0 ? "ok" : (slow_code == 2 ? "wrong_ticks"
+					                : "no_path"),
+	       t2);
+      if (!fast_code && !slow_code) {
+	fprintf (fp, ",\"slack\":%g", agt->getForkSlack (i));
+      } else {
+	fprintf (fp, ",\"slack\":null");
+      }
+    } else {
+      fprintf (fp, ",\"fast_witness\":false,\"fast_reason\":\"unresolved_pin\""
+	           ",\"fast_ticks\":-1"
+	           ",\"slow_witness\":false,\"slow_reason\":\"unresolved_pin\""
+	           ",\"slow_ticks\":-1,\"slack\":null");
+    }
+    fprintf (fp, "}");
+  }
+
+  fprintf (fp, "\n ]\n}\n");
+  fclose (fp);
+  printf ("FOUR_PHASE_CONSTRAINT_DUMP %s %d\n", argv[1], n);
+  return LISP_RET_TRUE;
+}
 
 
 int process_timer_get_slack (int argc, char **argv)
@@ -2548,8 +2903,14 @@ static struct LispCliCommand timer_cmds[] = {
   { "get-violations", "- returns a list of constraint ids (cids) that have violations",
     process_timer_get_violations },
 
+  { "num-violations", "- returns the number of violated timing constraints",
+    process_timer_num_violations },
+
   { "check-constraint", "cid [ticks] - does a path analysis to check paths for timing fork #<cid> exist",
     process_timer_check_constraint },
+
+  { "dump-constraints", "<file> [ticks] - export every timing fork as JSON",
+    process_timer_dump_constraints },
 
   { "get-slack", "cid - returns the slack of the violating constraint id #cid",
     process_timer_get_slack },
@@ -2605,6 +2966,7 @@ void timer_phydb_link (phydb::PhyDB *phydb)
   /* get next witnesses */
   phydb->SetGetSlowWitnessCB (get_slow_witness_callback);
   phydb->SetGetFastWitnessCB (get_fast_witness_callback);
+  phydb->SetGetConstraintEndpointsCB (get_constraint_endpoints_callback);
   
   /* get # of performance tags */
   phydb->SetGetNumPerformanceConstraintsCB (num_perf_tags);
@@ -2620,6 +2982,7 @@ void timer_phydb_link (phydb::PhyDB *phydb)
   
   /* violated constraints */
   phydb->SetGetPerformanceWitnessCB (get_violated_perf_witness);
+  phydb->SetGetCriticalCycleCB (get_critical_cycle);
 
   agt->linkPhyDB (phydb);
 }

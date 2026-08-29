@@ -2,6 +2,7 @@ boost
 galois
 timing/actpin
 dali
+daligui
 phydb
 pwroute
 sproute

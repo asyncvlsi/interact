@@ -26,7 +26,14 @@ SUBDIRS=scripts
 OBJS=main.o act_cmds.o conf_cmds.o misc_cmds.o act_flprint.o \
 	act_simfile.o ptr_manager.o ckt_cmds.o flow.o \
 	timer_cmds.o pandr_cmds.o placement_cmds.o \
-	routing_cmds.o synth_cmds.o
+	routing_cmds.o synth_cmds.o layout_lifecycle.o timing_driven_placement_p2b.o \
+	topology_checkpoint_host.o dali_qt_gui_bridge.o
+
+P2B_TEST_EXE=interact-p2b-test.$(EXT)
+P2B_TEST_OBJS=$(filter-out placement_cmds.o timer_cmds.o timing_driven_placement_p2b.o,$(OBJS)) \
+	timer_cmds.p2btest.o placement_cmds.p2btest.o timing_driven_placement_p2b.p2btest.o
+UNIT_TEST_EXE=timing-driven-helpers-test.$(EXT)
+UNIT_TEST_OBJS=timing_driven_helpers_test.o
 
 CPPSTD=c++17
 SRCS=$(OBJS:.o=.cc)
@@ -64,6 +71,26 @@ ifdef dali_INCLUDE
 DALI_PIECES=-ldalilib -lboost_filesystem -lboost_log_setup -lboost_log -lboost_thread
 EXTRALIBDEPEND+=$(ACT_HOME)/lib/libdalilib.a
 
+# Dali decides whether it has a viewer: it installs libdaligui.a only when it
+# was built against Qt. Following that installed library, discovered by
+# ./configure like every other optional package, keeps one source of truth --
+# probing Qt again here would let an interact built on a machine that has Qt
+# believe in a viewer that the installed Dali does not carry.
+#
+# Qt's own flags are still needed to link daligui, so a daligui installed
+# against a Qt that pkg-config can no longer see is an inconsistent
+# installation and is reported rather than silently dropped.
+ifdef daligui_LIBDIR
+ifneq ($(shell pkg-config --exists Qt6Widgets 2>/dev/null && echo yes),)
+DALI_GUI_PIECES=-ldaligui
+DALI_GUI_QT_LIBS=$(shell pkg-config --libs Qt6Widgets)
+CFLAGS+=-DINTERACT_HAS_DALI_QT_GUI $(shell pkg-config --cflags Qt6Widgets)
+EXTRALIBDEPEND+=$(ACT_HOME)/lib/libdaligui.a
+else
+$(error libdaligui.a is installed but pkg-config cannot find Qt6Widgets; the Dali installation and the Qt toolchain disagree)
+endif
+endif
+
 ifeq ($(BASEOS),darwin)
 ifeq ($(shell ./have_boost_mt),1)
 DALI_PIECES+=-lboost_filesystem-mt -lboost_log_setup-mt -lboost_log-mt -lboost_thread-mt
@@ -76,7 +103,7 @@ endif
 
 endif
 
-PANDR_PIECES=$(DALI_PIECES)
+PANDR_PIECES=$(DALI_GUI_PIECES) $(DALI_PIECES)
 
 ifdef phydb_INCLUDE
 PANDR_PIECES+=-lphydb -llef -ldef
@@ -103,7 +130,7 @@ boost_INCLUDE+=-D_HAS_AUTO_PTR_ETC=0
 ALL_INCLUDE=$(boost_INCLUDE) $(galois_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE) 
 
 ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
-	 $(PANDR_PIECES) $(GALOIS_EDA_PIECES) -lverilog_sh -lactchpopt -lactchpsdt -lactchpring -lactchpdecomp -lactchp2prspass -lexpropt_sh $(ACT_HOME)/lib/libabc.so
+	 $(PANDR_PIECES) $(GALOIS_EDA_PIECES) -lverilog_sh -lactchpopt -lactchpsdt -lactchpring -lactchpdecomp -lactchp2prspass -lexpropt_sh $(ACT_HOME)/lib/libabc.so $(DALI_GUI_QT_LIBS)
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)
@@ -114,5 +141,27 @@ endif
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND) $(EXTRALIBDEPEND)
 	$(CXX) $(OMPFLAG) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
+
+p2b-test: $(P2B_TEST_EXE)
+
+unit-test: $(UNIT_TEST_EXE)
+	./$(UNIT_TEST_EXE)
+
+runtest: unit-test
+
+$(UNIT_TEST_EXE): $(UNIT_TEST_OBJS)
+	$(CXX) $(CFLAGS) $(UNIT_TEST_OBJS) -o $@
+
+$(P2B_TEST_EXE): $(P2B_TEST_OBJS) $(ACTPASSDEPEND) $(SCMCLIDEPEND) $(EXTRALIBDEPEND)
+	$(CXX) $(OMPFLAG) $(SH_EXE_OPTIONS) $(CFLAGS) $(P2B_TEST_OBJS) -o $@ $(SHLIBACTPASS) $(SHLIBASIM) $(LIBACTSCMCLI) $(ALL_LIBS) -ldl -ledit
+
+placement_cmds.p2btest.o: placement_cmds.cc
+	$(CXX) $(CFLAGS) $(CPPFLAGS) -DARCH_$(ARCH) -DOS_$(OS) -DBASEOS_$(BASEOS) -std=$(CPPSTD) -DDALI_P2B_TEST_HARNESS -c $< -o $@
+
+timer_cmds.p2btest.o: timer_cmds.cc
+	$(CXX) $(CFLAGS) $(CPPFLAGS) -DARCH_$(ARCH) -DOS_$(OS) -DBASEOS_$(BASEOS) -std=$(CPPSTD) -DDALI_P2B_TEST_HARNESS -c $< -o $@
+
+timing_driven_placement_p2b.p2btest.o: timing_driven_placement_p2b.cc
+	$(CXX) $(CFLAGS) $(CPPFLAGS) -DARCH_$(ARCH) -DOS_$(OS) -DBASEOS_$(BASEOS) -std=$(CPPSTD) -DDALI_P2B_TEST_HARNESS -c $< -o $@
 
 -include Makefile.deps
