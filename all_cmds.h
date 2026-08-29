@@ -20,14 +20,39 @@
  **************************************************************************
  */
 #include <stdio.h>
+#include <string>
+#include <vector>
 #include <act/act.h>
 #include <act/passes.h>
 #include "config_pkg.h"
+
+#ifdef FOUND_dali
+#include <dali/timing/timing_driven_placement_controller.h>
+#endif
+
+#ifdef FOUND_phydb
+namespace phydb { class PhyDB; }
+#endif
 
 void act_cmds_init (void);
 void synth_cmds_init (void);
 void ckt_cmds_init (void);
 void timer_cmds_init (void);
+void timer_reset_for_reelaboration (void);
+#ifdef FOUND_timing_actpin
+bool timer_build_graph_direct (void);
+bool timer_initialize_liberty_path (const std::string &path);
+#if defined(DALI_P2B_TEST_HARNESS) && defined(FOUND_dali)
+void timer_test_clobber_library_stack (void);
+#endif
+#ifdef FOUND_dali
+bool timer_run_and_capture (
+    dali::TimingDrivenPlacementMeasurement *measurement);
+#endif
+#ifdef FOUND_phydb
+bool timer_link_phydb_direct (phydb::PhyDB *phydb);
+#endif
+#endif
 void pandr_cmds_init (void);
 void placement_cmds_init (void);
 void routing_cmds_init (void);
@@ -46,6 +71,45 @@ void act_emit_verilog (Act *a, FILE *fp, Process *p);
 void save_to_log (int argc, char **argv, const char *fmt);
 
 ActNetlistPass *getNetlistPass (void);
+
+bool flow_rebuild_cell_and_netlist (const std::string &cell_file);
+
+#ifdef FOUND_dali
+#ifdef FOUND_phydb
+namespace dali { class TopologyCheckpointHost; }
+/* The ACT-authoritative topology host consulted at a Dali checkpoint. */
+dali::TopologyCheckpointHost *interact_fixed_topology_host (void);
+/* Arms it for exactly one delay-site parameter increase. */
+bool interact_configure_fixed_topology_host (const std::string &process_template,
+                                             const std::string &tech_config,
+                                             const std::string &liberty);
+#endif
+#endif
+bool flow_generate_layout_files (const std::string &lef_file,
+                                 const std::string &cell_file,
+                                 const std::string &def_file,
+                                 double die_llx,
+                                 double die_lly,
+                                 double die_urx,
+                                 double die_ury);
+#if defined(FOUND_dali) && defined(FOUND_phydb) && defined(FOUND_timing_actpin)
+int run_timing_driven_placement_p2b (const char *config_path,
+                                     const char *output_path);
+#ifdef DALI_P2B_TEST_HARNESS
+int run_timing_driven_placement_p2b_rollback_failure_test(
+    const char *config_path, const char *output_path);
+int run_timing_driven_placement_p2b_begin_failure_test(
+    const char *config_path, const char *output_path);
+int run_timing_driven_placement_p2b_commit_failure_test(
+    const char *config_path, const char *output_path);
+#endif
+#endif
+#ifdef FOUND_phydb
+bool flow_build_phydb (const std::string &lef_file,
+                       const std::string &cell_file,
+                       const std::string &def_file,
+                       const std::string &tech_config_file);
+#endif
 
 #ifdef FOUND_galois
 
