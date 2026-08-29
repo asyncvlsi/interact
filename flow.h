@@ -22,6 +22,8 @@
 #ifndef __INTERACT_FLOW_H__
 #define __INTERACT_FLOW_H__
 
+#include <string>
+#include <vector>
 #include <act/act.h>
 #include <act/passes.h>
 #include "config_pkg.h"
@@ -72,6 +74,11 @@ enum design_state {
 #define TIMER_NONE 0
 #define TIMER_INIT 1
 #define TIMER_RUN  2
+
+struct flow_delay_site_replacement {
+  std::string instance_name;
+  std::string expanded_process_name;
+};
 
 struct flow_state {
   design_state s;		/* current design state */
@@ -128,6 +135,14 @@ void std_opt_free (struct Hashtable *H, const char *opt);
 FILE *std_open_output (const char *cmd, const char *s);
 void std_close_output (FILE *fp);
 void flow_init (void);
+
+/*
+  Re-elaborate delay-site replacements while leaving Dali alive, so one Dali
+  instance keeps its placement across the topology change. PhyDB and the timer
+  are destroyed and rebuilt; the caller rebinds Dali to the new PhyDB.
+*/
+bool flow_apply_delay_site_map_keep_dali (
+    const std::vector<flow_delay_site_replacement> &replacements);
 
 extern int output_window_width;
 

@@ -82,6 +82,9 @@ static int process_phydb_close (int argc, char **argv)
  
   delete F.phydb;
   F.phydb = NULL;
+  F.phydb_lef = 0;
+  F.phydb_def = 0;
+  F.phydb_cell = 0;
 
   save_to_log (argc, argv, "");
 
@@ -250,6 +253,39 @@ static int process_phydb_read_def (int argc, char **argv)
   save_to_log (argc, argv, "s");
 
   return LISP_RET_TRUE;
+}
+
+/* Restore a prior DEF placement and freeze the components it names. */
+static int process_phydb_restore_fixed_placement (int argc, char **argv)
+{
+  if (!std_argcheck (argc, argv, 2, "<placed-def>", STATE_EXPANDED)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (F.phydb == NULL) {
+    fprintf (stderr, "%s: phydb needs to be initialized!\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  FILE *fp = fopen (argv[1], "r");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s' for reading\n", argv[0],
+             argv[1]);
+    return LISP_RET_ERROR;
+  }
+  fclose (fp);
+
+  F.phydb->OverrideComponentLocsFromDef (argv[1]);
+  int restored_count = 0;
+  for (phydb::Component &component :
+       F.phydb->GetDesignPtr()->GetComponentsRef()) {
+    if (component.GetPlacementStatus() == phydb::PlaceStatus::PLACED) {
+      component.SetPlacementStatus (phydb::PlaceStatus::FIXED);
+      ++restored_count;
+    }
+  }
+  LispSetReturnInt (restored_count);
+  save_to_log (argc, argv, "s");
+  return LISP_RET_INT;
 }
 
 static int process_phydb_read_cell (int argc, char **argv)
@@ -859,6 +895,8 @@ static struct LispCliCommand phydb_cmds[] = {
     process_phydb_get_used_lef },
   { "read-def", "<file> - read DEF and populate database",
     process_phydb_read_def },
+  { "restore-fixed-placement", "<placed-def> - restore a DEF placement and freeze named components",
+    process_phydb_restore_fixed_placement },
   { "read-cell", "<file> - read CELL file and populate database", 
     process_phydb_read_cell },
   { "read-techconfig", "<file> - read technology configuration file", 
@@ -911,4 +949,3 @@ void pandr_cmds_init (void)
   placement_cmds_init ();
   routing_cmds_init ();
 }
-
