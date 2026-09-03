@@ -103,7 +103,9 @@ boost_INCLUDE+=-D_HAS_AUTO_PTR_ETC=0
 ALL_INCLUDE=$(boost_INCLUDE) $(galois_INCLUDE) $(galois_eda_INCLUDE) $(dali_INCLUDE) $(phydb_INCLUDE) $(pwroute_INCLUDE) 
 
 ALL_LIBS=$(boost_LIBDIR) $(dali_LIBDIR) $(galois_eda_LIBDIR) $(phydb_LIBDIR) \
-	 $(PANDR_PIECES) $(GALOIS_EDA_PIECES) -lverilog_sh -lactchpopt -lactchpsdt -lactchpring -lactchpdecomp -lactchp2prspass -lexpropt_sh $(ACT_HOME)/lib/libabc.so
+	 $(PANDR_PIECES) $(GALOIS_EDA_PIECES) -lverilog_sh -lactchpopt -lactchpsdt -lactchpring -lactchpdecomp -lactchp2prspass -lexpropt_sh
+
+#$(ACT_HOME)/lib/libabc.so
 
 DFLAGS+=$(ALL_INCLUDE)
 CFLAGS+=$(ALL_INCLUDE)
