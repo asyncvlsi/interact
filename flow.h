@@ -119,6 +119,12 @@ extern flow_state F;
 int std_argcheck (int argc, char **argv, int argnum, const char *usage,
 		  design_state required);
 
+struct Hashtable *std_getopt (int *argc, char **argv, const char *opts);
+struct Hashtable *std_argcheck_opt (int &argc, char **argv, const char *opts,
+				    design_state required, 
+				    const char *usage);
+void std_opt_free (struct Hashtable *H, const char *opt);
+
 FILE *std_open_output (const char *cmd, const char *s);
 void std_close_output (FILE *fp);
 void flow_init (void);

@@ -279,14 +279,25 @@ static ActCellPass *getCellPass()
 static int process_cell_map (int argc, char **argv)
 {
   bool list_cells = false;
-  if (!std_argcheck (argc, argv, argc == 1 ? 1 : 2, "[-l]", STATE_EXPANDED)) {
+  hash_bucket_t *b;
+  struct Hashtable *H;
+
+  const char *opt_str = "lw:";
+
+  int iargc = argc;
+
+  H = std_argcheck_opt (iargc, argv, opt_str, STATE_EXPANDED,
+			"[-l] [-w aux.act]");
+  if (!H) {
     return LISP_RET_ERROR;
   }
-  if (argc == 2) {
-    if (strcmp (argv[1], "-l") != 0) {
-      fprintf (stderr, "%s: only -l supported as an argument", argv[0]);
-      return LISP_RET_ERROR;
-    }
+  if (iargc != argc) {
+    std_opt_free (H, opt_str);
+    fprintf (stderr, "Usage: %s [-l] [-w aux.act]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (hash_lookup (H, "l")) {
     list_cells = true;
   }
   
@@ -318,10 +329,77 @@ static int process_cell_map (int argc, char **argv)
 	printf ("   %s\n", ((Process *)list_value (li))->getName());
       }
     }
-    printf ("   Number of unique cells: %d ", list_length (l));
+    printf ("   Number of unique cells: %d\n", list_length (l));
   }
 
+  b = hash_lookup (H, "w");
+  if (b) {
+    char *file;
+    Assert (b->v, "What?");
+    file = (char *) b->v;
+    FILE *fp = fopen (file, "w");
+    if (!fp) {
+      printf ("%s: ERROR: could not create file `%s' for writing cells!\n",
+	      argv[0], file);
+      std_opt_free (H, opt_str);
+      return LISP_RET_ERROR;
+    }
+    list_t *l = cp->getUsedCells ();
+
+    ActNamespace *cell_ns =
+      F.act_design->findNamespace (config_get_string ("net.cell_namespace"));
+
+    list_t *stk = list_new ();
+    ActNamespace *prev_ns = NULL;
+    int saved_count = 0;
+    
+    for (listitem_t *li = list_first (l); li; li = list_next (li)) {
+      Process *p = (Process *) list_value (li);
+      if (cell_ns && p->getns() == cell_ns) {
+	continue;
+      }
+      ActNamespace *ns = p->getns ();
+
+      if (ns != prev_ns) {
+	// count
+	while (saved_count > 0) {
+	  fprintf (fp, "} ");
+	  saved_count--;
+	}
+	fprintf (fp, "\n");
+
+      
+	while (ns != ActNamespace::Global()) {
+	  stack_push (stk, ns);
+	  ns = ns->Parent ();
+	}
+	int count = 0;
+	while (!list_isempty (stk)) {
+	  ns = (ActNamespace *) stack_pop (stk);
+	  count++;
+	  if (count > 1) {
+	    fprintf (fp, "export ");
+	  }
+	  fprintf (fp, "namespace %s { ", ns->getName());
+	}
+	fprintf (fp, "\n");
+	saved_count = count;
+      }
+      p->Print (fp);
+    }
+    if (saved_count > 0) {
+      while (saved_count > 0) {
+	fprintf (fp, "} ");
+	saved_count--;
+      }
+      fprintf (fp, "\n");
+    }
+    fclose (fp);
+  }
+  
   F.cell_map = 1;
+  
+  std_opt_free (H, opt_str);
   return LISP_RET_TRUE;
 }
 
@@ -1189,7 +1267,7 @@ static struct LispCliCommand ckt_cmds[] = {
   
 
   { NULL, "ACT cell mapping and editing", NULL },
-  { "cell-map", "[-l] - map gates to cell library; -l lists used cells", process_cell_map },
+  { "cell-map", "[-l] [-w aux.act] - map gates to cell library; -l lists used cells; -w is used to write non-cell namespace cells to a file.", process_cell_map },
   { "cell-save", "<file> - save cells to file", process_cell_save },
   { "cell-addbuf", "<proc> <inst> <pin> <buf> - add buffer to the pin within the process",
     process_add_buffer },
