@@ -386,6 +386,7 @@ static int process_cell_map (int argc, char **argv)
 	saved_count = count;
       }
       p->Print (fp);
+      prev_ns = ns;
     }
     if (saved_count > 0) {
       while (saved_count > 0) {
