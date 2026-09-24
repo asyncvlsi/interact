@@ -1978,6 +1978,17 @@ static void get_fast_witness_callback (int constraint,
   agt->getNextForkPath (constraint, true /* fast end */);
 }
 
+/*
+  A fork whose fast end is a constant cannot be violated. The timer reports
+  such forks only when timer.vacuous_constant_forks is set; otherwise this
+  always answers false and clients see the fork as unmeasured, as before.
+*/
+static bool is_fork_vacuous_callback (int constraint)
+{
+  if (!agt) return false;
+  return agt->isForkVacuous (constraint) != 0;
+}
+
 static bool get_constraint_endpoints_callback (
     int constraint, phydb::PhydbPin &root, phydb::PhydbPin &fast_terminal,
     phydb::PhydbPin &slow_terminal)
@@ -2967,6 +2978,9 @@ void timer_phydb_link (phydb::PhyDB *phydb)
   phydb->SetGetSlowWitnessCB (get_slow_witness_callback);
   phydb->SetGetFastWitnessCB (get_fast_witness_callback);
   phydb->SetGetConstraintEndpointsCB (get_constraint_endpoints_callback);
+
+  /* forks that can never be violated (constant fast end) */
+  phydb->SetIsForkVacuousCB (is_fork_vacuous_callback);
   
   /* get # of performance tags */
   phydb->SetGetNumPerformanceConstraintsCB (num_perf_tags);
