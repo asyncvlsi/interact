@@ -23,6 +23,7 @@
 #include <act/passes.h>
 #include <common/list.h>
 #include <common/pp.h>
+#include <common/config.h>
 #include <lispCli.h>
 #include "all_cmds.h"
 #include "ptr_manager.h"
@@ -41,7 +42,15 @@ static int process_pwroute_init (int argc, char **argv) {
     return LISP_RET_ERROR;
   }
 
+  config_set_default_int ("pwroute.center_vias", 0);
+  int center_vias = config_get_int ("pwroute.center_vias");
+  if (center_vias != 0 && center_vias != 1) {
+    fprintf (stderr, "%s: pwroute.center_vias must be 0 or 1\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
   F.pwroute = new pwroute::PWRoute(F.phydb, atoi(argv[1]));
+  F.pwroute->SetCenterVias(center_vias != 0);
   save_to_log (argc, argv, "i");
 
   return LISP_RET_TRUE;
