@@ -49,8 +49,35 @@ static int process_pwroute_init (int argc, char **argv) {
     return LISP_RET_ERROR;
   }
 
+  //0=unlimited for max cuts
+  config_set_default_int ("pwroute.m1_m2_min_cuts", 1);
+  config_set_default_int ("pwroute.m1_m2_max_cuts", 0);
+  config_set_default_int ("pwroute.m2_m3_min_cuts", 1);
+  config_set_default_int ("pwroute.m2_m3_max_cuts", 0);
+  int m1_m2_min = config_get_int ("pwroute.m1_m2_min_cuts");
+  int m1_m2_max = config_get_int ("pwroute.m1_m2_max_cuts");
+  int m2_m3_min = config_get_int ("pwroute.m2_m3_min_cuts");
+  int m2_m3_max = config_get_int ("pwroute.m2_m3_max_cuts");
+
+  if (m1_m2_min < 1 || m1_m2_max < 0 || (m1_m2_max != 0 && m1_m2_max < m1_m2_min)) {
+    fprintf (stderr,
+             "%s: invalid M1-M2 cut limits: min=%d max=%d; "
+             "require min >= 1 and max == 0 or max >= min\n",
+             argv[0], m1_m2_min, m1_m2_max);
+    return LISP_RET_ERROR;
+  }
+  if (m2_m3_min < 1 || m2_m3_max < 0 || (m2_m3_max != 0 && m2_m3_max < m2_m3_min)) {
+    fprintf (stderr,
+             "%s: invalid M2-M3 cut limits: min=%d max=%d; "
+             "require min >= 1 and max == 0 or max >= min\n",
+             argv[0], m2_m3_min, m2_m3_max);
+    return LISP_RET_ERROR;
+  }
+
+
   F.pwroute = new pwroute::PWRoute(F.phydb, atoi(argv[1]));
   F.pwroute->SetCenterVias(center_vias != 0);
+  F.pwroute->SetViaCutLimits(m1_m2_min, m1_m2_max, m2_m3_min, m2_m3_max);
   save_to_log (argc, argv, "i");
 
   return LISP_RET_TRUE;
